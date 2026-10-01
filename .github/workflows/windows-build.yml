@@ -28,7 +28,29 @@ jobs:
       - name: Download pinned reviewed model assets
         run: python download_voice_model.py
       - name: Installed Windows voice enumeration
-        run: python tests/windows_voice_smoke.py
+        shell: pwsh
+        run: |
+          @'
+          import json
+          from pathlib import Path
+          import pythoncom, win32com.client
+          pythoncom.CoInitialize()
+          voice = win32com.client.Dispatch("SAPI.SpVoice")
+          tokens = voice.GetVoices()
+          data = [{"name":tokens.Item(i).GetDescription(), "language":tokens.Item(i).GetAttribute("Language")} for i in range(tokens.Count)]
+          if not data: raise RuntimeError("No installed SAPI voices")
+          Path("dist").mkdir(exist_ok=True)
+          Path("dist/windows-voices.json").write_text(json.dumps(data,indent=2))
+          stream = win32com.client.Dispatch("SAPI.SpFileStream")
+          stream.Open(str(Path("dist/tts-smoke.wav").resolve()), 3)
+          voice.AudioOutputStream = stream
+          voice.Speak("JARVIS local voice test.", 16)
+          stream.Close()
+          if Path("dist/tts-smoke.wav").stat().st_size < 1000: raise RuntimeError("Empty SAPI audio")
+          print(json.dumps(data))
+          print("SAPI synthesized offline audio to WAV successfully; physical playback not tested on headless CI.")
+          pythoncom.CoUninitialize()
+          '@ | python -
       - name: Build Windows executable
         run: python -m PyInstaller --noconfirm --clean --onedir --windowed --name JARVIS --collect-all PIL --collect-all customtkinter --collect-data cv2 --collect-all faster_whisper --collect-all ctranslate2 --collect-all tokenizers --collect-all onnxruntime --collect-all sounddevice --collect-all av --hidden-import win32com.client --hidden-import pythoncom app.py
       - name: Prepare bundled model and EXE smoke
@@ -59,5 +81,6 @@ jobs:
             jarvis/installer-output/*
             jarvis/dist/smoke.png
             jarvis/dist/windows-voices.json
+            jarvis/dist/tts-smoke.wav
           retention-days: 7
           if-no-files-found: error
