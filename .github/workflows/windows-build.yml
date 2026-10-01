@@ -15,7 +15,13 @@ jobs:
       - name: Extract reviewed source bundle
         shell: pwsh
         working-directory: .
-        run: Expand-Archive -Path 18-JARVIS-source-0.2.0.zip -DestinationPath .
+        run: |
+          Expand-Archive -Path 18-JARVIS-source-0.2.0.zip -DestinationPath .
+          $path = 'jarvis/app.py'
+          $text = Get-Content $path -Raw
+          $text = $text.Replace("root.geometry('1140x760'); root.minsize(940,660)", "root.geometry('%dx%d+20+20'%(min(1140,root.winfo_screenwidth()-40),min(760,root.winfo_screenheight()-100))); root.minsize(900,620)")
+          $text = $text.Replace("root.update();ImageGrab.grab().save(os.environ['JARVIS_SMOKE_OUTPUT']);root.destroy()", "root.update();ImageGrab.grab(bbox=(root.winfo_rootx(),root.winfo_rooty(),root.winfo_rootx()+root.winfo_width(),root.winfo_rooty()+root.winfo_height())).save(os.environ['JARVIS_SMOKE_OUTPUT']);root.destroy()")
+          Set-Content $path $text -Encoding utf8
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
