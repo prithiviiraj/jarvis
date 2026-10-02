@@ -73,8 +73,8 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False):
     from .runtime import VoiceRuntime
     cache=ensure_layout()/'models';assets=cache/'voices'
     if not models.ready(cache) or not ready(assets):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
-    exe=assets/'phonemis_runner.exe'
-    if not exe.is_file():raise RuntimeError('Native voice frontend missing. No substitute voice was selected.')
+    from .native_frontend import verified_frontend
+    exe,data=verified_frontend()
     if cloud:
         if not verified_free or not model.strip():raise ValueError('Confirm Groq Free-tier status and model.')
         keys=WindowsCredentials()
@@ -84,7 +84,7 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False):
         ids=local_models()
         if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
         router=BrainRouter([configured('local',ids[0])])
-    g2p=NativeG2P(exe,assets/'en-us')
+    g2p=NativeG2P(exe,data)
     try:
         synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
         speaker=KokoroSpeaker(synth)
