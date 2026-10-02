@@ -37,7 +37,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 class HttpTransport:
     def __init__(self):self.http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     def complete(self,provider,messages,key=None):
-        headers={'Content-Type':'application/json'}
+        headers={'Content-Type':'application/json','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
         if key:headers['Authorization']='Bearer '+key
         req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,
           data=json.dumps({'model':provider.model,'messages':messages,'stream':False,'max_tokens':300}).encode())
