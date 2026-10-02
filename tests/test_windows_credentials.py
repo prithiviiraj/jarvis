@@ -2,6 +2,8 @@
 import os
 import unittest
 import uuid
+import subprocess
+import sys
 from jarvis.security import WindowsCredentials
 
 @unittest.skipUnless(os.name == 'nt', 'Windows OS integration only')
@@ -18,6 +20,8 @@ class WindowsCredentialIntegration(unittest.TestCase):
             store.set('test', 'synthetic-test-value-not-an-api-key')
             self.assertEqual(store.get('test'), 'synthetic-test-value-not-an-api-key')
             reopened=TestCredentials();self.assertEqual(reopened.get('test'),'synthetic-test-value-not-an-api-key');self.assertTrue(reopened.status('test')['present']);self.assertIsNotNone(reopened.status('test')['saved_at'])
+            code="from jarvis.security import WindowsCredentials;WindowsCredentials.target=staticmethod(lambda provider: "+repr(target)+");s=WindowsCredentials();assert s.get('test')=='synthetic-test-value-not-an-api-key';assert s.status('test')['present']"
+            subprocess.run([sys.executable,'-c',code],check=True,capture_output=True,text=True)
             store.delete('test');self.assertIsNone(store.get('test'));self.assertFalse(store.status('test')['present'])
             store.delete('test')
         finally:store.delete('test')
