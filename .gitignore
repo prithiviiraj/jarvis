@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+installer-output/
+*.spec
+config.json
+.env
+*.log
+models/
+*.wav
+*.flac
