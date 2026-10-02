@@ -1,6 +1,7 @@
 """Single-owner voice runtime. Headphone/half-duplex safety mode, not AEC/barge-in."""
 import threading,time
 from .audio import ContinuousMic
+from .personas import prompt
 class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
@@ -31,7 +32,7 @@ class VoiceRuntime:
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
-            messages=[{'role':'system','content':'You are '+self.persona+', a brief conversational assistant. You cannot perform actions. Do not claim you sent, deleted, booked or changed anything.'}]+history[-6:]+[{'role':'user','content':text}]
+            messages=[{'role':'system','content':prompt(self.persona)}]+history[-6:]+[{'role':'user','content':text}]
             if self.streaming:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
