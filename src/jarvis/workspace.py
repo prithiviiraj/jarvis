@@ -105,7 +105,7 @@ class Workspace:
   if hasattr(self,'chat_caption') and self.chat_caption.winfo_exists():self.chat_caption.configure(text=self.caption+'\n'+self.response)
   self.root.after(80,self.poll_voice)
  def voice_setup(self):
-  win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x540');win.configure(bg=PANEL);win.transient(self.root)
+  win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x600');win.configure(bg=PANEL);win.transient(self.root)
   frame=tk.Frame(win,bg=PANEL,padx=24,pady=18);frame.pack(fill='both',expand=True)
   self.label(frame,'Voice setup / '+VOICES[ROSTER[self.selected][0]],17).pack(anchor='w')
   self.label(frame,'Microphone starts OFF. Headphones required. Half-duplex only.\nNo echo cancellation or barge-in. Physical acceptance is pending.',10,MUTED,wraplength=610).pack(anchor='w',pady=10)
@@ -114,21 +114,45 @@ class Workspace:
   check('Allow microphone for this session (headphones connected)',mic)
   check('Use Groq this session: send recognized text to Groq, not audio',cloud)
   check('I checked my Groq account billing page: it is on the Free plan',free)
-  self.label(frame,'Groq model ID (required only when Groq is selected)',9,MUTED).pack(anchor='w',pady=(10,4))
-  model=tk.Entry(frame,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat');model.pack(fill='x',ipady=5)
+  self.label(frame,'Groq model: Automatic (active production chat model)',10,wraplength=605).pack(anchor='w',pady=(8,4))
+  self.label(frame,'No model to paste. Selection happens only after session consent.\nModel access does not prove billing status.',9,MUTED,wraplength=605).pack(anchor='w')
+  advanced=tk.BooleanVar(value=False);locked=tk.StringVar(value='')
+  extra=tk.Frame(frame,bg=PANEL)
+  model=tk.Entry(extra,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat')
+  lock_status=self.label(extra,'Optional: paste a model ID, then press Enter to lock.',9,MUTED,wraplength=605)
+  model.pack(fill='x',ipady=4);lock_status.pack(anchor='w')
+  def lock(event=None):
+   value=model.get().strip()
+   if not value or len(value)>200 or not value.isascii() or any(not(c.isalnum() or c in '-_./') for c in value):
+    lock_status.configure(text='Enter a valid model ID to lock.');return
+   locked.set(value);model.configure(state='disabled');lock_status.configure(text='Locked: '+value)
+  def unlock():
+   locked.set('');model.configure(state='normal');lock_status.configure(text='Unlocked. Press Enter to lock; otherwise Automatic is used.')
+  model.bind('<Return>',lock);self.button(extra,'Unlock / use Automatic',unlock).pack(anchor='w',pady=2)
+  def toggle():
+   if advanced.get():extra.pack(fill='x',after=advanced_button)
+   else:unlock();extra.pack_forget()
+  advanced_button=tk.Checkbutton(frame,text='Optional manual model override',variable=advanced,command=toggle,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL,activeforeground=TEXT)
+  advanced_button.pack(anchor='w',pady=4)
+  self.manual_model_entry=model;self.manual_model_lock=lock;self.manual_model_toggle=advanced_button
+  self.manual_model_status=lock_status
+
   self.label(frame,'Local default: LM Studio, one loaded model, server on port 1234.\nGroq key: Settings > Usage & Billing. No paid tier is permitted.',10,MUTED,wraplength=605).pack(anchor='w',pady=10)
   def enable():
-   try:self.voice.start(mic.get(),cloud.get(),model.get(),free.get());win.destroy()
+   try:self.voice.start(mic.get(),cloud.get(),locked.get(),free.get());win.destroy()
    except Exception as exc:messagebox.showerror('Cannot start voice',str(exc),parent=win)
   def check_brain():
    if not cloud.get() or not free.get():messagebox.showerror('Groq consent','Tick session Groq consent and Free-plan confirmation first.',parent=win);return
-   selected_model=model.get()
+   selected_model=locked.get()
    def run():
     try:
      from .brain_check import check_groq
      result=check_groq(selected_model,True,True)
      self.voice.notify('status','Groq '+result['model']+' answered: '+result['reply']+' / first text '+format(result['first_text_s'],'.2f')+'s. Not audible latency.')
-    except Exception:self.voice.notify('error','Groq connection check failed. Check saved key, model ID, Free-plan status and network. No paid fallback.')
+    except Exception as exc:
+     from .groq_models import GroqCheckError
+     text=str(exc) if isinstance(exc,GroqCheckError) else 'Groq connection check failed. Run GROQ-DIAG.cmd for sanitized error codes. No paid fallback.'
+     self.voice.notify('error',text)
    threading.Thread(target=run,daemon=True).start()
   self.button(frame,'Test Groq text connection (sends greeting)',check_brain).pack(anchor='w',pady=4)
   def download():
@@ -168,18 +192,21 @@ class Workspace:
   panel=tk.Frame(win,bg=PANEL,padx=24,pady=22);panel.pack(fill='both',expand=True)
   self.label(panel,'Groq API key',18).pack(anchor='w')
   self.label(panel,'Stored only in Windows Credential Manager. Never in config or logs.\nAdding a key does not enable cloud calls or prove a Free plan.\nCheck billing at console.groq.com before enabling Groq.',10,MUTED,wraplength=560).pack(anchor='w',pady=12)
-  secret=tk.Entry(panel,show='*',bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat');secret.pack(fill='x',ipady=7)
-  status=self.label(panel,'No key read or displayed here.',9,MUTED);status.pack(anchor='w',pady=10)
+  secret=tk.Entry(panel,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat');secret.pack(fill='x',ipady=7)
+  status=self.label(panel,'Paste a key. It stays visible here until this window closes.\nStored keys are never read back into this field.',9,MUTED);status.pack(anchor='w',pady=10)
   def save():
    try:
     from .security import WindowsCredentials
-    WindowsCredentials().set('groq',secret.get());secret.delete(0,'end');status.configure(text='Key saved securely. Cloud remains OFF until session consent.')
-   except Exception:secret.delete(0,'end');status.configure(text='Secure storage failed. No plaintext fallback was used.')
+    WindowsCredentials().set('groq',secret.get().strip());status.configure(text='Saved securely. Cloud remains OFF until session consent.')
+   except Exception:status.configure(text='Not saved: secure storage failed. No plaintext fallback was used.')
   def delete():
    try:
     from .security import WindowsCredentials
     WindowsCredentials().delete('groq');secret.delete(0,'end');status.configure(text='Groq key removed.')
    except Exception:status.configure(text='Key removal failed. Check Windows Credential Manager.')
+  self.groq_key_entry=secret;self.groq_key_status=status;self.groq_key_save=save
+  def edited(event=None):status.configure(text='Edited, not saved. Click Save securely.')
+  secret.bind('<KeyRelease>',edited)
   row=tk.Frame(panel,bg=PANEL);row.pack(fill='x')
   self.button(row,'Save securely',save).pack(side='left',padx=4);self.button(row,'Remove key',delete).pack(side='left',padx=4);self.button(row,'Close',win.destroy).pack(side='right')
  def edit_profile(self):
