@@ -91,7 +91,7 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False):
     try:
         synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
         speaker=KokoroSpeaker(synth)
-        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',language='en'),router,speaker,notify)
+        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. KAI researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
         original_close=runtime.close
         def close():original_close();g2p.close()
