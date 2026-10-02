@@ -7,7 +7,7 @@ BG='#101013';RAIL='#151518';PANEL='#19191e';LINE='#2b2b32';TEXT='#eeeeF1';MUTED=
 ROSTER=[('JARVIS','Team leader','#5bc8b2'),('NOVA','Secretary','#aa8be9'),('KAI','Researcher','#ec9d65'),('LYRA','Writer','#e287b5'),('DEX','Coder','#79a9e8')]
 class Workspace:
  def __init__(self,root):
-  self.root=root;root.title('JARVIS - Workspace preview');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(760,root.winfo_screenheight()-90)}');root.minsize(960,630);root.configure(bg=BG)
+  self.root=root;root.title('JARVIS - Workspace preview');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG)
   self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
   root.grid_columnconfigure(1,weight=1);root.grid_rowconfigure(0,weight=1)
   self.rail=tk.Frame(root,bg=RAIL,width=205,padx=16,pady=18);self.rail.grid(row=0,column=0,sticky='nsew');self.rail.grid_propagate(False)
@@ -24,7 +24,7 @@ class Workspace:
   self.label(self.rail,'J A R V I S',15).pack(anchor='w',pady=(0,4));self.label(self.rail,'VOICE WORKSPACE',8,MUTED).pack(anchor='w',pady=(0,15))
   self.label(self.rail,'YOUR TEAM  /  5 PLANNED',8,MUTED).pack(anchor='w',pady=(0,12))
   for i,(name,role,color) in enumerate(ROSTER):
-   row=tk.Frame(self.rail,bg=LINE if i==self.selected else RAIL,pady=4,padx=6);row.pack(fill='x',pady=3)
+   row=tk.Frame(self.rail,bg=LINE if i==self.selected else RAIL,pady=2,padx=6);row.pack(fill='x',pady=3)
    c=tk.Canvas(row,width=30,height=30,bg=row.cget('bg'),highlightthickness=0);c.pack(side='left',padx=(0,8));c.create_oval(1,1,29,29,fill=color,outline='');c.create_text(15,15,text=name[0],fill=BG,font=('Segoe UI',11,'bold'))
    title=self.button(row,name+'\n'+role,lambda n=i:self.select(n),bg=row.cget('bg'),anchor='w',justify='left');title.pack(side='left',fill='x',expand=True)
    c.bind('<Button-1>',lambda e,n=i:self.select(n))
@@ -58,10 +58,10 @@ class Workspace:
  def voice_view(self,name,color):
   self.body.grid_columnconfigure(0,weight=1);self.body.grid_rowconfigure(0,weight=1)
   zone=tk.Frame(self.body,bg=BG);zone.grid(sticky='nsew');zone.grid_columnconfigure(0,weight=1);zone.grid_rowconfigure(0,weight=1)
-  canvas=tk.Canvas(zone,width=210,height=210,bg=BG,highlightthickness=0);canvas.grid(row=0,column=0)
-  for r,fill in [(94,'#1a2427'),(75,'#253c40'),(58,'#365c61'),(43,color)]:canvas.create_oval(105-r,105-r,105+r,105+r,fill=fill,outline='')
+  canvas=tk.Canvas(zone,width=180,height=180,bg=BG,highlightthickness=0);canvas.grid(row=0,column=0)
+  for r,fill in [(80,'#1a2427'),(64,'#253c40'),(49,'#365c61'),(37,color)]:canvas.create_oval(90-r,90-r,90+r,90+r,fill=fill,outline='')
   for i,h in enumerate([12,24,38,51,32,19,42,57,35,22,12]):
-   x=66+i*7;canvas.create_line(x,105-h/2,x,105+h/2,fill='#e4fff7',width=3)
+   x=51+i*7;canvas.create_line(x,90-h/2,x,90+h/2,fill='#e4fff7',width=3)
   self.label(zone,'Ready when you are.',18).grid(row=1,column=0,pady=(0,8))
   self.label(zone,'Choose your voice, then set up the local brain.',10,MUTED,wraplength=490).grid(row=2,column=0,pady=(0,12))
   self.button(zone,'Set up voice',self.voice_setup,bg='#b6e7d9',color='#11231f').grid(row=3,column=0,pady=(0,12))
