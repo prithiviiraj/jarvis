@@ -39,15 +39,21 @@ jobs:
       - name: Verify pinned downloads and real STT/VAD fixture inference
         shell: pwsh
         run: |
-          python -m pip install -r requirements-voice.txt
+          python -m pip download --no-deps faster-whisper==1.2.1 --dest pcm-input
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned input download failed' }
+          python packaging/stt/build_pcm_fork.py pcm-input/faster_whisper-1.2.1-py3-none-any.whl pcm-wheel
+          if ($LASTEXITCODE -ne 0) { throw 'PCM fork failed' }
+          python -m pip install -r packaging/stt/requirements-pcm.txt pcm-wheel/faster_whisper-1.2.1-py3-none-any.whl
           if ($LASTEXITCODE -ne 0) { throw 'Experimental dependency installation failed' }
           $env:PYTHONPATH = "$PWD\src"
+          python -c "import importlib.util; assert importlib.util.find_spec('av') is None, 'Unapproved PyAV present'"
+          if ($LASTEXITCODE -ne 0) { throw 'Unexpected PyAV dependency' }
           python packaging/voice_fixture.py
           if ($LASTEXITCODE -ne 0) { throw 'Speech fixture failed' }
           python -m pip freeze | Out-File voice-build-packages.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-Phase1-source-evidence
+          name: JARVIS-Phase1-PCM-source-evidence
           path: |
             voice-preview.png
             windows-voice-fixture.json
