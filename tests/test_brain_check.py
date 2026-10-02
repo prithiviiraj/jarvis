@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 from jarvis.brain_check import check_groq
 class ConnectionCheckTests(unittest.TestCase):
  def test_no_consent_no_key_access(self):
@@ -10,8 +10,11 @@ class ConnectionCheckTests(unittest.TestCase):
   keys=Mock()
   with self.assertRaises(ValueError):check_groq('model',True,False,keys)
   keys.get.assert_not_called()
- def test_no_model(self):
-  with self.assertRaises(ValueError):check_groq('',True,True,Mock())
+ def test_auto_model(self):
+  keys=Mock();keys.get.return_value='synthetic-key';router=Mock();router.stream.return_value=iter([{'text':'Hello.'}])
+  with patch('jarvis.groq_models.resolve_model',return_value='llama-3.1-8b-instant') as resolve:
+   result=check_groq('',True,True,keys,Mock(return_value=router))
+  self.assertEqual(result['model'],'llama-3.1-8b-instant');resolve.assert_called_once()
  def test_no_key(self):
   keys=Mock();keys.get.return_value=None
   with self.assertRaises(ValueError):check_groq('model',True,True,keys)
