@@ -23,7 +23,7 @@ def error_code(exc):
     if isinstance(reason,(TimeoutError,socket.timeout)):return 'NETWORK_TIMEOUT'
     return 'NETWORK_OR_RESPONSE_FAILED'
 
-def resolve_model(override='',cloud_consent=False,verified_free=False,key_store=None,opener_factory=urllib.request.build_opener):
+def resolve_model(override='',cloud_consent=False,verified_free=False,key_store=None,opener_factory=urllib.request.build_opener,details=False):
     if not cloud_consent:raise GroqCheckError('Allow Groq for this session first. No request sent.')
     if not verified_free:raise GroqCheckError('Confirm your account is on the Free plan first. No request sent.')
     if not isinstance(override,str) or len(override)>200:raise GroqCheckError('Invalid model override. No request sent.')
@@ -53,7 +53,7 @@ def resolve_model(override='',cloud_consent=False,verified_free=False,key_store=
     finally:key=None
     if override:
         if override not in ids:raise GroqCheckError('MODEL_OVERRIDE_NOT_ACTIVE: unlock and choose another ID, or return to Automatic.')
-        return override
+        return (override,ids) if details else override
     for model in PREFERRED:
-        if model in ids:return model
+        if model in ids:return (model,ids) if details else model
     raise GroqCheckError('NO_APPROVED_ACTIVE_CHAT_MODEL: automatic selection stopped. No fallback or greeting sent.')
