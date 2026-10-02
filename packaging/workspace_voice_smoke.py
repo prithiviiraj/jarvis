@@ -1,5 +1,5 @@
 """Windows UI bridge smoke with synthetic runtime. No physical audio claim."""
-import tkinter as tk,pathlib,json,time,threading
+import tkinter as tk,pathlib,json,time,threading,tempfile
 from unittest.mock import Mock,patch
 from PIL import ImageGrab
 from jarvis.workspace import Workspace
@@ -79,6 +79,9 @@ def voices():
 
  for window in root.winfo_children():
   if isinstance(window,tk.Toplevel):window.destroy()
+ app.voice.memory.append('JARVIS','synthetic question','synthetic answer')
+ with tempfile.TemporaryDirectory() as folder,patch('tkinter.filedialog.askdirectory',return_value=folder),patch('jarvis.workspace.messagebox.showinfo') as info:
+  app.save_notes();assert not app.voice.memory.messages();assert len(list(pathlib.Path(folder).glob('*.md')))==1;assert info.called
  app.provider_pool();capture('provider-pool-empty')
  for sid,kind,model,on,consent,free in app.pool_rows:
   if sid=='slot1':on.set(True);model.insert(0,'synthetic-local-model')
