@@ -17,3 +17,13 @@ class RuntimeTests(unittest.TestCase):
   self.assertFalse(self.v.enabled)
  def test_provider_failure_resume(self):
   self.v.enable(True);self.v.router.ask.side_effect=RuntimeError('api');self.v.turn([0],self.v.generation,False,[]);self.v.mic.resume.assert_called_once();self.v.speaker.speak.assert_not_called()
+ def test_busy_restart_refused(self):
+  self.v.busy=True
+  with self.assertRaises(RuntimeError):self.v.enable(True)
+ def test_stream_clauses(self):
+  self.v.enable(True);self.v.streaming=True;self.v.router.stream.return_value=iter([{'text':'Hello. ','provider':'local'},{'text':'Next sentence.','provider':'local'}]);self.v.turn([0],self.v.generation,False,[]);self.assertEqual(self.v.speaker.speak.call_count,2);self.assertEqual(self.v.history[-1]['content'],'Hello. Next sentence.')
+ def test_stream_cancel_no_history(self):
+  self.v.enable(True);self.v.streaming=True
+  def chunks(*a,**k):
+   self.v.pause();yield {'text':'stale','provider':'local'}
+  self.v.router.stream.side_effect=chunks;self.v.turn([0],self.v.generation,False,[]);self.assertEqual(self.v.history,[]);self.v.speaker.speak.assert_not_called()
