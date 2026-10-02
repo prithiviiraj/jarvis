@@ -52,7 +52,7 @@ def voices():
   capture('model-download-starting');released.set()
   assert bytes_sent.wait(2)
   for _ in range(15):root.update();time.sleep(.01)
-  assert '12.0 MiB' in app.model_download_label.cget('text')
+  assert '12.00 MiB' in app.model_download_label.cget('text')
   capture('model-download-bytes');finish.set()
   for _ in range(60):root.update();time.sleep(.01)
   assert 'Ready:' in app.model_download_label.cget('text');capture('model-download-ready');app.model_download_window.destroy()
