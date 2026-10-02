@@ -46,6 +46,18 @@ class WindowsCredentials:
                 raise CredentialError('Windows could not save this key. No plaintext fallback was used.')
         finally:
             ctypes.memset(blob, 0, len(raw))
+    def status(self, provider):
+        """Inspect presence/time only. Never read or decode the secret blob."""
+        import datetime
+        p = ctypes.POINTER(_Credential)()
+        if not self.api.CredReadW(self.target(provider), 1, 0, ctypes.byref(p)):
+            if ctypes.get_last_error() == 1168:return {'present':False,'saved_at':None}
+            raise CredentialError('Windows could not inspect the saved key.')
+        try:
+            c=p.contents;stamp=(c.LastWritten.dwHighDateTime<<32)|c.LastWritten.dwLowDateTime
+            saved=datetime.datetime.fromtimestamp(stamp/10000000-11644473600,datetime.timezone.utc).astimezone().isoformat(timespec='seconds') if stamp else None
+            return {'present':c.CredentialBlobSize>0,'saved_at':saved}
+        finally:self.api.CredFree(p)
     def get(self, provider):
         p = ctypes.POINTER(_Credential)()
         if not self.api.CredReadW(self.target(provider), 1, 0, ctypes.byref(p)):
