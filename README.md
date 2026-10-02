@@ -34,3 +34,10 @@ This technical section is not an owner setup requirement.
 ## Experimental Phase1 source progress
 
 The talking-core work is not complete. See docs/phase1-progress.md and docs/speech-license-screen.md. A local-only, half-duplex source harness is available with `python -m jarvis --voice-preview` after installing requirements-voice.txt. This is a developer test entry, not the promised finished EXE or polished UI. No microphone or model download starts automatically. Local models download only after explicit approval, verify pinned SHA256 hashes, and stay out of the installer. Advanced echo cancellation, noise suppression, barge-in, streaming TTS, blind voice choice and real cloud-provider acceptance remain incomplete.
+
+
+## Experimental connected voice workspace
+
+`python -m jarvis --workspace-preview` now uses the workspace voice bridge. Five fixed profiles map to five Kokoro voices. No background agent workers, typed-chat sending, tool execution, tray/autostart, AEC or barge-in are claimed. Microphone/cloud start OFF. Headphone half-duplex and session consent are required. Secure Groq key onboarding uses Windows Credential Manager, but the app does not automatically verify account billing: a session confirmation of the Free plan is required. No real Groq call has been verified.
+
+Pinned speech assets download only after approval. The audited native frontend must be installed separately until packaging is verified. This source build is not a new voice installer. The old Phase0 foundation installer does not prove voice workspace installation. See docs/on-device-acceptance.md for remaining hardware tests.
