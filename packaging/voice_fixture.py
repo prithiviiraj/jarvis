@@ -3,17 +3,16 @@ from jarvis.models import download,ready
 from jarvis.audio import SileroVad,Endpointer
 from jarvis.speech import WhisperSTT
 import urllib.request,time,json,pathlib,hashlib
-import av,numpy as np
+import wave,numpy as np
 import platform
 root=pathlib.Path('ci-models');download(root,consent=True);assert ready(root)
 url='https://raw.githubusercontent.com/ggerganov/whisper.cpp/master/samples/jfk.wav'
 with urllib.request.urlopen(url,timeout=30) as r:raw=r.read(2000000)
 path=pathlib.Path('ci-jfk.wav');path.write_bytes(raw)
-resampler=av.AudioResampler(format='fltp',layout='mono',rate=16000);chunks=[]
-with av.open(str(path)) as container:
- for frame in container.decode(audio=0):
-  for f in resampler.resample(frame):chunks.append(f.to_ndarray().reshape(-1))
-x=np.concatenate(chunks);vad=SileroVad(root/'silero.onnx');e=Endpointer();events=[];t=time.perf_counter()
+with wave.open(str(path)) as wav:
+ assert wav.getframerate()==16000 and wav.getsampwidth()==2 and wav.getnchannels()==1, 'Fixture PCM schema changed'
+ x=np.frombuffer(wav.readframes(wav.getnframes()),dtype='<i2').astype(np.float32)/32768
+vad=SileroVad(root/'silero.onnx');e=Endpointer();events=[];t=time.perf_counter()
 padded=np.concatenate([np.zeros(16000,dtype=np.float32),x,np.zeros(16000,dtype=np.float32)])
 for i in range(0,len(padded)-512+1,512):
  event=e.feed(padded[i:i+512],vad.score(padded[i:i+512]))
