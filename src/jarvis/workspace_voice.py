@@ -40,7 +40,8 @@ class WorkspaceVoice:
             except Exception as exc:
                 if runtime:runtime.close()
                 with self.lock:
-                    if ticket==self.generation:self.notify('error',str(exc)[:300])
+                    if ticket==self.generation:
+                        self.runtime=None;self.notify('error',str(exc)[:300])
             finally:
                 with self.lock:self.busy=False
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
