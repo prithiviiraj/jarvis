@@ -24,24 +24,50 @@ def digest(path):
  return h.hexdigest()
 def ready(root):
  return all((Path(root)/name).is_file() and digest(Path(root)/name)==entry[1] for name,entry in FILES.items())
+def fetch_verified(http,url,target,sha,cap,notify=lambda *a:None,cancel=None):
+ # Resume only a sidecar bound to this pinned URL/hash/cap. Server must confirm offset.
+ import json,re
+ target=Path(target);target.parent.mkdir(parents=True,exist_ok=True)
+ part=target.with_name(target.name+'.part');meta=part.with_name(part.name+'.json')
+ spec={'url':url,'sha256':sha,'cap':cap}
+ try:
+  if not part.is_file() or not meta.is_file() or json.loads(meta.read_text())!=spec or part.stat().st_size>cap:
+   part.unlink(missing_ok=True);meta.unlink(missing_ok=True)
+ except Exception:part.unlink(missing_ok=True);meta.unlink(missing_ok=True)
+ meta.write_text(json.dumps(spec),encoding='utf-8');offset=part.stat().st_size if part.exists() else 0
+ if offset and digest(part)==sha:part.replace(target);meta.unlink(missing_ok=True);return
+ req=urllib.request.Request(url,headers={'Range':f'bytes={offset}-'} if offset else {})
+ corrupt=False
+ try:
+  with http.open(req,timeout=30) as response:
+   if urlsplit(response.url).scheme!='https':corrupt=True;raise DownloadError('Insecure download refused.')
+   status=response.getcode();append=False
+   if status==206:
+    match=re.fullmatch(r'bytes (\d+)-(\d+)/(\d+)',response.headers.get('Content-Range',''))
+    if not offset or not match or int(match[1])!=offset or int(match[2])<offset or int(match[3])>cap or int(match[2])>=int(match[3]):
+     corrupt=True;raise DownloadError('Invalid resume response.')
+    append=True
+   elif status!=200:raise DownloadError('Unsupported download response.')
+   h=hashlib.sha256();total=offset if append else 0
+   if append:
+    with part.open('rb') as old:
+     for chunk in iter(lambda:old.read(1024*256),b''):h.update(chunk)
+   with part.open('ab' if append else 'wb') as f:
+    for chunk in iter(lambda:response.read(1024*256),b''):
+     if cancel is not None and cancel.is_set():raise DownloadError('Model download cancelled; partial saved.')
+     total+=len(chunk)
+     if total>cap:corrupt=True;raise DownloadError('Model download exceeded expected size.')
+     f.write(chunk);h.update(chunk);notify(target.name,total)
+   if h.hexdigest()!=sha:corrupt=True;raise DownloadError('Model checksum failed. File was not installed.')
+   part.replace(target);meta.unlink(missing_ok=True)
+ except Exception:
+  if corrupt:part.unlink(missing_ok=True);meta.unlink(missing_ok=True)
+  raise DownloadError('Model download failed or was cancelled. Retry to resume a verified partial download. Existing installed files are preserved.') from None
+
 def download(root,consent=False,notify=lambda *a:None,cancel=None):
  if not consent:raise DownloadError('Approve the model download first.')
  root=Path(root);http=urllib.request.build_opener(urllib.request.ProxyHandler({}),TLSRedirect())
  for name,(url,sha,cap) in FILES.items():
   target=root/name
   if target.is_file() and digest(target)==sha:continue
-  target.parent.mkdir(parents=True,exist_ok=True);part=target.with_name(target.name+'.part')
-  try:
-   h=hashlib.sha256();total=0
-   with http.open(url,timeout=30) as response,part.open('wb') as f:
-    if urlsplit(response.url).scheme!='https':raise DownloadError('Insecure download refused.')
-    for chunk in iter(lambda:response.read(1024*256),b''):
-     if cancel is not None and cancel.is_set():raise DownloadError('Model download cancelled.')
-     total+=len(chunk)
-     if total>cap:raise DownloadError('Model download exceeded expected size.')
-     f.write(chunk);h.update(chunk);notify(name,total)
-   if h.hexdigest()!=sha:raise DownloadError('Model checksum failed. File was not installed.')
-   part.replace(target)
-  except Exception:
-   part.unlink(missing_ok=True)
-   raise DownloadError('Model download failed or was cancelled. Check your network and retry. Existing verified files are preserved.') from None
+  fetch_verified(http,url,target,sha,cap,notify,cancel)
