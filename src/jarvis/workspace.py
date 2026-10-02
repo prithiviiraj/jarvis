@@ -31,6 +31,7 @@ class Workspace:
    title=self.button(row,name+'\n'+role,lambda n=i:self.select(n),bg=row.cget('bg'),anchor='w',justify='left');title.pack(side='left',fill='x',expand=True)
    c.bind('<Button-1>',lambda e,n=i:self.select(n))
   self.label(self.rail,'Voice profiles. Background\nworkers are not enabled.',9,MUTED,wraplength=170).pack(anchor='w',pady=(10,8))
+  self.button(self.rail,'Save notes + clear',self.save_notes).pack(fill='x',pady=4)
   self.button(self.rail,'Provider pool',self.provider_pool).pack(fill='x',pady=4)
   self.button(self.rail,'Team Room',lambda:self.set_view('Team Room')).pack(fill='x',pady=4)
   self.button(self.rail,'Settings',self.settings).pack(side='bottom',fill='x',pady=4)
@@ -288,6 +289,16 @@ class Workspace:
    self.label(panel,field,9,MUTED).pack(anchor='w',pady=(7,5));e=tk.Entry(panel,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));e.insert(0,value);e.pack(fill='x',ipady=7)
   self.label(panel,'Preview form only. Agent creation and saving arrive in Phase3.',9,MUTED,wraplength=490).pack(anchor='w',pady=20)
   self.button(panel,'Close',win.destroy).pack(anchor='e')
+ def save_notes(self):
+  from tkinter import filedialog
+  if not self.voice.memory.messages():self.note('Session notes','No completed conversation to save.');return
+  self.voice.pause();self.voice_status='off'
+  directory=filedialog.askdirectory(title='Save private JARVIS notes (Markdown) before clearing context',parent=self.root)
+  if not directory:return
+  try:
+   from .session_notes import checkpoint
+   path=checkpoint(self.voice.memory,directory);self.caption='Conversation saved locally. Shared context cleared.';self.response='';self.note('Session notes','Saved local conversation and extractive recap:\n'+str(path)+'\nContext cleared only after successful save. Voice remains OFF. This does not change LM Studio server cache.')
+  except Exception:self.note('Session notes','Save failed. Shared conversation was not cleared. Check folder permissions and free space.')
  def provider_pool(self):
   from .provider_pool import Slot,ProviderPool,SLOT_IDS,KINDS
   win=tk.Toplevel(self.root);win.title('JARVIS - Account pool / session');win.geometry('910x650');win.configure(bg=PANEL)
