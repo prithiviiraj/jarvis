@@ -1,0 +1,37 @@
+{
+  "engine": "faster-whisper",
+  "model": "base multilingual",
+  "device": "CPU INT8",
+  "threads": 2,
+  "host": "Intel Xeon @2.60GHz, 2 logical CPU, approximately 2GB RAM; no GPU",
+  "clip": "OpenAI Whisper test JFK, clean English only; not user voice, not Indian-accent benchmark",
+  "audio_seconds": 11.0,
+  "load_seconds": 0.491,
+  "runs": [
+    {
+      "run": 1,
+      "seconds": 2.223,
+      "real_time_factor": 0.202,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "run": 2,
+      "seconds": 2.022,
+      "real_time_factor": 0.184,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country."
+    },
+    {
+      "run": 3,
+      "seconds": 2.168,
+      "real_time_factor": 0.197,
+      "text": "And so my fellow Americans ask not what your country can do for you, ask what you can do for your country."
+    }
+  ],
+  "peak_process_rss_mib": 369.4,
+  "limitations": [
+    "No end-to-first-audio latency measurement",
+    "No accuracy dataset ranking",
+    "No owner hardware inference",
+    "No microphone/VAD/echo trials"
+  ]
+}
