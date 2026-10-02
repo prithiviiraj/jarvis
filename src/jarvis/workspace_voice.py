@@ -14,7 +14,11 @@ class WorkspaceVoice:
     def select(self,name):
         if name not in VOICES:raise ValueError('Unknown voice profile.')
         self.pause()
+        while True:
+            try:self.events.get_nowait()
+            except queue.Empty:break
         with self.lock:self.name=name
+        self.notify('state','off')
     def start(self,consent=False,cloud=False,model='',verified_free=False):
         if not consent:raise ValueError('Microphone session consent required.')
         if cloud and (not model.strip() or not verified_free):raise ValueError('Groq needs a model and confirmed Free-tier account.')
