@@ -1,0 +1,39 @@
+{
+  "test": "Silero current repository ONNX streaming inference + endpointer, clean fixture, no microphone",
+  "audio_s": 12.999,
+  "processing_s": 0.109,
+  "mean_frame_ms": 0.269,
+  "events": [
+    {
+      "event": "start",
+      "time_s": 1.312,
+      "frames": 0
+    },
+    {
+      "event": "utterance",
+      "time_s": 4.0,
+      "frames": 89
+    },
+    {
+      "event": "start",
+      "time_s": 4.288,
+      "frames": 0
+    },
+    {
+      "event": "utterance",
+      "time_s": 6.176,
+      "frames": 64
+    },
+    {
+      "event": "start",
+      "time_s": 6.4,
+      "frames": 0
+    },
+    {
+      "event": "utterance",
+      "time_s": 12.768,
+      "frames": 204
+    }
+  ],
+  "limitation": "Not noisy-room, accent, echo or physical microphone test"
+}
