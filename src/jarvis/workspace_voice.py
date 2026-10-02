@@ -11,7 +11,7 @@ class WorkspaceVoice:
         self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock()
         from .team_memory import TeamMemory
-        self.memory=TeamMemory()
+        self.memory=TeamMemory();self.pool_config=None
     def notify(self,kind,value):self.events.put((kind,value))
     def select(self,name):
         if name not in VOICES:raise ValueError('Unknown voice profile.')
@@ -34,7 +34,9 @@ class WorkspaceVoice:
                 def notify(kind,value):
                     with self.lock:
                         if not self.closed and ticket==self.generation:self.notify(kind,value)
-                runtime=self.factory(name,notify,cloud,model,verified_free)
+                if self.pool_config is not None and self.factory is build_runtime:
+                    runtime=build_runtime(name,notify,cloud,model,verified_free,pool_config=self.pool_config)
+                else:runtime=self.factory(name,notify,cloud,model,verified_free)
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
                     self.runtime=runtime;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
@@ -61,7 +63,7 @@ class FreeSessionRouter:
     def ask(self,*args,**kw):return self.router.ask(*args,verified_free_providers=self.verified,**kw)
     def stream(self,*args,**kw):return self.router.stream(*args,verified_free_providers=self.verified,**kw)
 
-def build_runtime(name,notify,cloud=False,model='',verified_free=False):
+def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_config=None):
     from .paths import ensure_layout
     from . import models
     from .voice_assets import ready
@@ -77,7 +79,11 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False):
     if not models.ready(cache) or not ready(assets):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
     from .native_frontend import verified_frontend
     exe,data=verified_frontend()
-    if cloud:
+    if pool_config is not None:
+        pool,consented,free_confirmed=pool_config
+        router=pool.router(name,WindowsCredentials(),consented,free_confirmed)
+        notify('status','Configured account pool / session confirmed by you, not verified by API.')
+    elif cloud:
         if not verified_free:raise ValueError('Confirm Groq Free-tier status.')
         keys=WindowsCredentials()
         if not keys.get('groq'):raise RuntimeError('Save your Groq API key in Settings first.')
