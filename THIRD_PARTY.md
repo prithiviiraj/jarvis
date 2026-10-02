@@ -1,6 +1,6 @@
 # Third-party ledger - Phase 0
 
-No new third-party runtime packages or speech model weights are included in the Phase0 foundation. Runtime uses Python standard-library modules. Exact installer binaries and their notices must be recorded after packaging policy approval; no Windows artifact yet.
+No speech model weights are included in the Phase0 foundation. Runtime uses Python standard-library modules. Exact installer binaries and their notices must be recorded after packaging policy approval; Phase0 Windows artifact passed packaging/install tests; see README.
 
 ## Selected runtime/build platform
 | Component | Use | License/source | Status |
@@ -16,5 +16,13 @@ Pillow/customtkinter/OpenCV/faster-whisper/sounddevice/PyAV/FFmpeg/ONNX/CTransla
 ## Voice candidates, not adopted
 - openWakeWord code Apache-2.0 but stock models and default training features CC BY-NC-SA-4.0: excluded under permissive-only target.
 - PocketSphinx code/model BSD-class, permitted BSD-class candidate under owner delegation; not adopted pending accuracy test.
-- Parakeet TDT 0.6B v3 CC BY-4.0, CC BY exception permitted by owner free+best delegation; not adopted pending benchmark.
+- Parakeet TDT 0.6B v3 CC BY-4.0. Not adopted: outside the blueprint MIT/Apache reuse target. Free/best selection is not evidence of a license exception. Requires a separate redistribution-policy decision if ever selected.
 - Kokoro-82M weights Apache-2.0; exact voice/code/phonemizer dependencies not yet cleared.
+
+## Experimental Phase1 source, not shipping binary yet
+
+Whisper base model: MIT (OpenAI), converted by Systran; https://huggingface.co/Systran/faster-whisper-base , revision ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66. Silero ONNX: MIT; https://github.com/snakers4/silero-vad , revision 1e261b036686cd0017d500ee96acd1c4ba572a9d. Files download after consent and are SHA256-verified; models not bundled.
+
+Experimental requirements pin measured versions. faster-whisper (MIT), CTranslate2 (MIT), ONNX Runtime (MIT), NumPy (BSD), sounddevice (MIT, PortAudio separately MIT), PyAV (BSD, FFmpeg binary license depends on exact wheel/build). No Phase1 EXE distribution until exact Windows wheels, transitive code, DLL licenses/source/relinking obligations and notices are audited. SAPI calls the owner-installed Windows voice; no Microsoft voice redistributed.
+
+Candidate card licenses alone never clear the full dependency stack. See docs/speech-license-screen.md. No paid provider is enabled by default.
