@@ -6,8 +6,9 @@ from pathlib import Path
 VOICES = {'JARVIS':'am_michael','NOVA':'af_heart','KAI':'am_liam','LYRA':'af_sky','DEX':'am_fenrir'}
 
 class WorkspaceVoice:
-    def __init__(self, factory=None):
+    def __init__(self, factory=None, text_factory=None):
         self.events=queue.Queue();self.factory=factory or build_runtime
+        self.text_factory=text_factory or build_text_router
         self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock()
         from .team_memory import TeamMemory
@@ -48,6 +49,32 @@ class WorkspaceVoice:
                         self.runtime=None;self.notify('error',str(exc)[:300])
             finally:
                 with self.lock:self.busy=False
+        worker=threading.Thread(target=run,daemon=True);worker.start();return worker
+    def send_text(self,text):
+        if not isinstance(text,str) or not text.strip():raise ValueError('Type a message first.')
+        if len(text)>2000:raise ValueError('Message limit is2000characters.')
+        with self.lock:
+            if self.closed or self.busy:raise RuntimeError('A conversation is busy or closed.')
+            if self.runtime is not None:raise RuntimeError('Pause voice before typed chat.')
+            self.busy=True;self.generation+=1;ticket=self.generation;name=self.name
+            context=self.memory.messages()
+        self.notify('transcript',text.strip());self.notify('state','thinking')
+        def run():
+            try:
+                from .personas import prompt
+                router=self.text_factory()
+                answer=router.ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}],cloud_consent=False)
+                with self.lock:
+                    if self.closed or ticket!=self.generation:return
+                    self.memory.append(name,text.strip(),answer['text'])
+                    self.notify('answer',answer);self.notify('team-updated',name)
+            except Exception:
+                with self.lock:
+                    if not self.closed and ticket==self.generation:self.notify('error','Local text chat failed. Load exactly one model in LM Studio and start its local server. Nothing was saved.')
+            finally:
+                with self.lock:
+                    self.busy=False
+                    if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def pause(self):
         with self.lock:self.generation+=1;runtime=self.runtime;self.runtime=None
@@ -108,3 +135,11 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         runtime.close=close
         return runtime
     except Exception:g2p.close();raise
+
+def build_text_router():
+    """Local-only text: no microphone, speech assets, keys or cloud fallback."""
+    from .providers import local_models,configured
+    from .router import BrainRouter
+    ids=local_models()
+    if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
+    return BrainRouter([configured('local',ids[0])])
