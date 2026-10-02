@@ -2,6 +2,8 @@ import subprocess,sys,time,ctypes
 from ctypes import wintypes
 from PIL import ImageGrab
 api=ctypes.WinDLL('user32',use_last_error=True)
+api.GetWindowRect.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.RECT)]
+api.GetWindowRect.restype=wintypes.BOOL
 api.FindWindowW.argtypes=[wintypes.LPCWSTR,wintypes.LPCWSTR];api.FindWindowW.restype=wintypes.HWND
 p=subprocess.Popen([sys.executable,'-m','jarvis','--voice-preview'])
 try:
