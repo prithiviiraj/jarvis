@@ -12,6 +12,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Pinned array dependency for worker tests
+        run: python -m pip install numpy==2.2.6
       - name: Pure source and OS credential tests
         shell: pwsh
         run: |
