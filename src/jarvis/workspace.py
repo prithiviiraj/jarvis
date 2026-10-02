@@ -302,13 +302,13 @@ class Workspace:
   except Exception:self.note('Session notes','Save failed. Shared conversation was not cleared. Check folder permissions and free space.')
  def provider_pool(self):
   from .provider_pool import Slot,ProviderPool,SLOT_IDS,KINDS
-  win=tk.Toplevel(self.root);win.title('JARVIS - Account pool / session');win.geometry('910x650');win.configure(bg=PANEL)
-  panel=tk.Frame(win,bg=PANEL,padx=18,pady=16);panel.pack(fill='both',expand=True)
+  win=tk.Toplevel(self.root);win.title('JARVIS - Account pool / session');win.geometry('910x620+20+20');win.configure(bg=PANEL)
+  panel=tk.Frame(win,bg=PANEL,padx=18,pady=10);panel.pack(fill='both',expand=True)
   self.label(panel,'Five account slots / per-profile route',18).pack(anchor='w')
   self.label(panel,'Your own legitimate accounts only. Keys do not multiply project quotas. No automatic calls.\nCloud sends recognized text + shared recent team conversation. Confirm Free access for every cloud slot.\nNIM developer access is for prototyping. Gemini Free content may be used to improve Google products.\nSettings below are RAM-only for this app session. Keys stay in Windows Credential Manager.',9,MUTED,wraplength=870).pack(anchor='w',pady=8)
   rows=[];existing=self.voice.pool_config[0].slots if self.voice.pool_config else {}
   for sid in SLOT_IDS:
-   row=tk.Frame(panel,bg=PANEL);row.pack(fill='x',pady=3);self.label(row,sid,10).pack(side='left',padx=3)
+   row=tk.Frame(panel,bg=PANEL);row.pack(fill='x',pady=1);self.label(row,sid,10).pack(side='left',padx=3)
    old=existing.get(sid);kind=tk.StringVar(value=old.provider if old else 'local');ttk.Combobox(row,textvariable=kind,values=KINDS,state='readonly',width=8).pack(side='left',padx=4)
    model=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT,width=27);model.pack(side='left',padx=4)
    if old:model.insert(0,old.model)
@@ -316,7 +316,7 @@ class Workspace:
    for title,var in [('Use',enabled),('Share context',consent),('Free account',free)]:tk.Checkbutton(row,text=title,variable=var,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL).pack(side='left')
    self.button(row,'Key',lambda k=kind,i=sid:self.groq_key(k.get()+'/'+i) if k.get()!='local' else self.note('Local','LM Studio needs no API key.')).pack(side='right')
    rows.append((sid,kind,model,enabled,consent,free))
-  self.label(panel,'Route order for each profile (comma-separated slots, e.g. slot1,slot3). Blank = unconfigured.',10,MUTED,wraplength=870).pack(anchor='w',pady=(12,4))
+  self.label(panel,'Route order for each profile (comma-separated slots, e.g. slot1,slot3). Blank = unconfigured.',10,MUTED,wraplength=870).pack(anchor='w',pady=(6,3))
   routes={}
   for name,role,color in ROSTER:
    row=tk.Frame(panel,bg=PANEL);row.pack(fill='x',pady=2);self.label(row,name,10,color,width=10).pack(side='left');entry=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT);entry.pack(side='left',fill='x',expand=True)
