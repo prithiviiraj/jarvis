@@ -24,7 +24,15 @@ def voices():
   capture(name+'-active');rows.append({'profile':name,'voice':VOICES[name],'synthetic_runtime_connected':True})
  app.select(0);capture('voice');app.set_view('Team Room');capture('team');app.set_view('Chat');capture('chat')
  app.settings();capture('settings');app.settings_window.destroy()
- app.voice_setup();capture('onboarding')
+ app.session_setup={'mic':True,'cloud':True,'free':True,'model':''}
+ app.select(1);app.voice_setup();assert app.session_mic_var.get() and app.groq_cloud_consent.get();capture('session-consent-NOVA')
+ for window in root.winfo_children():
+  if isinstance(window,tk.Toplevel):window.destroy()
+ app.select(0);app.voice_setup();assert app.session_mic_var.get() and app.groq_cloud_consent.get();capture('session-consent-JARVIS')
+ for window in root.winfo_children():
+  if isinstance(window,tk.Toplevel):window.destroy()
+ app.pause();assert not any(app.session_setup[k] for k in ['mic','cloud','free']);app.voice_setup();capture('onboarding')
+
  app.groq_cloud_consent.set(True);app.groq_free_confirmation.set(True)
  with patch('jarvis.brain_check.check_groq',return_value={'model':'openai/gpt-oss-20b','reply':'Hello. I am ready when you are.','first_text_s':0.65}), patch('jarvis.workspace.messagebox.showinfo') as success:
   app.groq_test_button.invoke()
