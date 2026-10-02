@@ -31,6 +31,7 @@ class Workspace:
    title=self.button(row,name+'\n'+role,lambda n=i:self.select(n),bg=row.cget('bg'),anchor='w',justify='left');title.pack(side='left',fill='x',expand=True)
    c.bind('<Button-1>',lambda e,n=i:self.select(n))
   self.label(self.rail,'Voice profiles. Background\nworkers are not enabled.',9,MUTED,wraplength=170).pack(anchor='w',pady=(10,8))
+  self.button(self.rail,'Provider pool',self.provider_pool).pack(fill='x',pady=4)
   self.button(self.rail,'Team Room',lambda:self.set_view('Team Room')).pack(fill='x',pady=4)
   self.button(self.rail,'Settings',self.settings).pack(side='bottom',fill='x',pady=4)
   self.button(self.rail,'Mini orb',self.open_mini).pack(side='bottom',fill='x',pady=4)
@@ -48,7 +49,7 @@ class Workspace:
    self.button(tabs,view,lambda v=view:self.set_view(v),bg=LINE if self.view==view else BG).pack(side='left',padx=(0,6))
   self.label(self.center,'Experimental voice - headphones required / no AEC or barge-in',9,MUTED,wraplength=530).pack(anchor='w')
   bar=tk.Frame(self.center,bg=BG);bar.pack(side='bottom',fill='x',pady=(10,0))
-  for label,fn in [('Mic OFF',self.voice_setup),('Camera OFF',lambda:self.note('Camera','Camera is not implemented in this build. It remains OFF.')),('Privacy ON',lambda:self.note('Privacy','Audio stays local. No recordings, camera or screen capture. Groq is off unless you consent this session; if enabled, recognized text is sent to Groq.')),('Pause all',self.pause)]:
+  for label,fn in [('Mic OFF',self.voice_setup),('Camera OFF',lambda:self.note('Camera','Camera is not implemented in this build. It remains OFF.')),('Privacy ON',lambda:self.note('Privacy','Audio stays local. No recordings, camera or screen capture. Groq is off unless you consent this session; if enabled, recognized text and shared recent team conversation are sent to Groq.')),('Pause all',self.pause)]:
    button=self.button(bar,label,fn,bg=PANEL);button.pack(side='left',padx=(0,5))
    if label=='Mic OFF':self.mic_button=button
   self.label(self.center,'Voice integration test build. Hardware acceptance pending. No agent workers.',8,MUTED,wraplength=630).pack(side='bottom',anchor='w',pady=(5,0))
@@ -115,7 +116,7 @@ class Workspace:
   mic=tk.BooleanVar(value=self.session_setup['mic']);cloud=tk.BooleanVar(value=self.session_setup['cloud']);free=tk.BooleanVar(value=self.session_setup['free'])
   def check(text,var):tk.Checkbutton(frame,text=text,variable=var,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL,activeforeground=TEXT,wraplength=605,anchor='w',justify='left').pack(anchor='w',pady=4)
   check('Allow microphone for this session (headphones connected)',mic)
-  check('Use Groq this session: send recognized text to Groq, not audio',cloud)
+  check('Use Groq this session: send recognized text + shared recent team conversation, not audio',cloud)
   check('I checked my Groq account billing page: it is on the Free plan',free)
   self.label(frame,'Setup choices are remembered across profiles until Pause all or app close.',9,MUTED,wraplength=605).pack(anchor='w')
   self.label(frame,'Groq model: Automatic (active production chat model)',10,wraplength=605).pack(anchor='w',pady=(8,4))
@@ -233,7 +234,7 @@ class Workspace:
   self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''}
-  self.download_cancel.set();self.voice.pause();self.voice.memory.clear();self.voice_status='off'
+  self.download_cancel.set();self.voice.pause();self.voice.memory.clear();self.voice.pool_config=None;self.voice_status='off'
   if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
  def settings(self):
   if self.settings_window and self.settings_window.winfo_exists():self.settings_window.lift();return
@@ -249,31 +250,31 @@ class Workspace:
    self.label(content,'Microphone and cloud consent are session-only.\nBackground workers are not enabled.',9,MUTED,wraplength=400).pack(anchor='w',pady=18)
   for tab in ['General','Computer','Usage & Billing','Voice']:self.button(nav,tab,lambda t=tab:page(t),bg=RAIL).pack(fill='x',pady=4)
   page('General')
- def groq_key(self):
-  win=tk.Toplevel(self.root);win.title('Groq - secure key onboarding');win.geometry('620x360');win.configure(bg=PANEL);win.transient(self.root)
+ def groq_key(self,provider='groq'):
+  win=tk.Toplevel(self.root);win.title(provider+' - secure key onboarding');win.geometry('620x360');win.configure(bg=PANEL);win.transient(self.root)
   panel=tk.Frame(win,bg=PANEL,padx=24,pady=22);panel.pack(fill='both',expand=True)
-  self.label(panel,'Groq API key',18).pack(anchor='w')
-  self.label(panel,'Stored only in Windows Credential Manager. Never in config or logs.\nAdding a key does not enable cloud calls or prove a Free plan.\nCheck billing at console.groq.com before enabling Groq.',10,MUTED,wraplength=560).pack(anchor='w',pady=12)
+  self.label(panel,provider+' API key',18).pack(anchor='w')
+  self.label(panel,'Stored only in Windows Credential Manager. Never in config or logs.\nAdding a key does not enable cloud calls or prove a Free plan.\nCheck your provider account billing before enabling cloud.',10,MUTED,wraplength=560).pack(anchor='w',pady=12)
   secret=tk.Entry(panel,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat');secret.pack(fill='x',ipady=7)
   status=self.label(panel,'Paste a key. It stays visible here until this window closes.\nStored keys are never read back into this field.',9,MUTED,wraplength=560);status.pack(anchor='w',pady=10)
   def saved_state(prefix=''):
    try:
     from .security import WindowsCredentials
-    meta=WindowsCredentials().status('groq')
+    meta=WindowsCredentials().status(provider)
     if meta['present']:
      status.configure(text=prefix+'Saved key present in Windows Credential Manager. No re-paste needed.\nLast saved: '+str(meta.get('saved_at') or 'time unavailable')+'. Stored key is not displayed.')
-    else:status.configure(text='No saved Groq key. Paste a key, then Save securely.')
+    else:status.configure(text='No saved key. Paste a key, then Save securely.')
    except Exception:status.configure(text='Saved-key state unavailable. Check Windows Credential Manager. No plaintext fallback.')
   saved_state()
   def save():
    try:
     from .security import WindowsCredentials
-    WindowsCredentials().set('groq',secret.get().strip());saved_state('Saved securely. ')
+    WindowsCredentials().set(provider,secret.get().strip());saved_state('Saved securely. ')
    except Exception:status.configure(text='Not saved: secure storage failed. No plaintext fallback was used.')
   def delete():
    try:
     from .security import WindowsCredentials
-    WindowsCredentials().delete('groq');secret.delete(0,'end');status.configure(text='Groq key removed.')
+    WindowsCredentials().delete(provider);secret.delete(0,'end');status.configure(text='Groq key removed.')
    except Exception:status.configure(text='Key removal failed. Check Windows Credential Manager.')
   self.groq_key_entry=secret;self.groq_key_status=status;self.groq_key_save=save
   def edited(event=None):status.configure(text='Edited, not saved. Click Save securely.')
@@ -287,6 +288,48 @@ class Workspace:
    self.label(panel,field,9,MUTED).pack(anchor='w',pady=(7,5));e=tk.Entry(panel,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));e.insert(0,value);e.pack(fill='x',ipady=7)
   self.label(panel,'Preview form only. Agent creation and saving arrive in Phase3.',9,MUTED,wraplength=490).pack(anchor='w',pady=20)
   self.button(panel,'Close',win.destroy).pack(anchor='e')
+ def provider_pool(self):
+  from .provider_pool import Slot,ProviderPool,SLOT_IDS,KINDS
+  win=tk.Toplevel(self.root);win.title('JARVIS - Account pool / session');win.geometry('910x650');win.configure(bg=PANEL)
+  panel=tk.Frame(win,bg=PANEL,padx=18,pady=16);panel.pack(fill='both',expand=True)
+  self.label(panel,'Five account slots / per-profile route',18).pack(anchor='w')
+  self.label(panel,'Your own legitimate accounts only. Keys do not multiply project quotas. No automatic calls.\nCloud sends recognized text + shared recent team conversation. Confirm Free access for every cloud slot.\nNIM developer access is for prototyping. Gemini Free content may be used to improve Google products.\nSettings below are RAM-only for this app session. Keys stay in Windows Credential Manager.',9,MUTED,wraplength=870).pack(anchor='w',pady=8)
+  rows=[];existing=self.voice.pool_config[0].slots if self.voice.pool_config else {}
+  for sid in SLOT_IDS:
+   row=tk.Frame(panel,bg=PANEL);row.pack(fill='x',pady=3);self.label(row,sid,10).pack(side='left',padx=3)
+   old=existing.get(sid);kind=tk.StringVar(value=old.provider if old else 'local');ttk.Combobox(row,textvariable=kind,values=KINDS,state='readonly',width=8).pack(side='left',padx=4)
+   model=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT,width=27);model.pack(side='left',padx=4)
+   if old:model.insert(0,old.model)
+   enabled=tk.BooleanVar(value=old is not None);consent=tk.BooleanVar();free=tk.BooleanVar()
+   for title,var in [('Use',enabled),('Share context',consent),('Free account',free)]:tk.Checkbutton(row,text=title,variable=var,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL).pack(side='left')
+   self.button(row,'Key',lambda k=kind,i=sid:self.groq_key(k.get()+'/'+i) if k.get()!='local' else self.note('Local','LM Studio needs no API key.')).pack(side='right')
+   rows.append((sid,kind,model,enabled,consent,free))
+  self.label(panel,'Route order for each profile (comma-separated slots, e.g. slot1,slot3). Blank = unconfigured.',10,MUTED,wraplength=870).pack(anchor='w',pady=(12,4))
+  routes={}
+  for name,role,color in ROSTER:
+   row=tk.Frame(panel,bg=PANEL);row.pack(fill='x',pady=2);self.label(row,name,10,color,width=10).pack(side='left');entry=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT);entry.pack(side='left',fill='x',expand=True)
+   if self.voice.pool_config:entry.insert(0,','.join(self.voice.pool_config[0].routes.get(name,())))
+   routes[name]=entry
+  mic=tk.BooleanVar();tk.Checkbutton(panel,text='Allow microphone for this session (headphones; no AEC/barge-in)',variable=mic,bg=PANEL,fg=TEXT,selectcolor=LINE).pack(anchor='w',pady=8)
+  status=self.label(panel,'Models are exact IDs from your provider account. No keys, models or billing tested yet.',9,MUTED,wraplength=860);status.pack(anchor='w')
+  def apply(start=False):
+   try:
+    slots=[Slot(sid,kind.get(),model.get().strip()) for sid,kind,model,on,consent,free in rows if on.get()]
+    route={name:tuple(i.strip() for i in entry.get().split(',') if i.strip()) for name,entry in routes.items() if entry.get().strip()}
+    pool=ProviderPool(slots,route);consented=tuple(sid for sid,kind,model,on,c,f in rows if on.get() and c.get());confirmed=tuple(sid for sid,kind,model,on,c,f in rows if on.get() and f.get())
+    if start:
+     if not mic.get():raise ValueError('Microphone session consent required.')
+     from .security import WindowsCredentials
+     pool.router(ROSTER[self.selected][0],WindowsCredentials(),consented,confirmed)
+    self.voice.pause();self.voice.pool_config=(pool,consented,confirmed)
+    if start:self.voice.start(True,any(pool.slots[i].provider!='local' for i in pool.routes[ROSTER[self.selected][0]]),'',True);win.destroy()
+    else:status.configure(text='Routes saved for this session. Nothing started. Cloud consent is per slot; Enable checks it.')
+   except Exception as exc:status.configure(text='Not started: '+str(exc)[:220])
+  row=tk.Frame(panel,bg=PANEL);row.pack(fill='x',pady=10)
+  self.button(row,'Save session routes',apply).pack(side='left');self.button(row,'Enable selected profile',lambda:apply(True),bg='#b6e7d9',color='#11231f').pack(side='left',padx=5)
+  def legacy():self.voice.pause();self.voice.pool_config=None;win.destroy()
+  self.button(row,'Use original local/Groq setup',legacy).pack(side='right')
+  self.pool_rows=rows;self.pool_routes=routes;self.pool_apply=apply;self.pool_status=status;self.pool_window=win
  def open_mini(self):
   if self.mini and self.mini.winfo_exists():self.mini.lift();return
   from .orbs import OrbOverlay
