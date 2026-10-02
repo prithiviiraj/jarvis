@@ -10,7 +10,7 @@ A clean foundation for the voice-first roadmap. **Not a finished hands-free assi
 - A foundation window and a "Run foundation check" button. No network or sensors on launch.
 
 ## Windows installer
-A new Phase 0 Setup EXE has not been built or verified yet. Do not download a source ZIP expecting software.
+Phase0 foundation Setup EXE passed Windows tests, launch, install and uninstall. Verified run: https://github.com/prithiviiraj/jarvis/actions/runs/36961553558 . Do not download a source ZIP expecting software.
 The existing JARVIS 0.3.0 installer is a separate push-to-talk prototype, not this foundation.
 A foundation installer will use a distinct app identity so it does not replace working 0.3.0 while Phase1 voice is still being built.
 
@@ -30,3 +30,7 @@ Source: `src/jarvis`. Tests: `tests`. Packaging: `packaging`. Docs: `docs`.
 Run `PYTHONPATH=src python -m unittest discover -s tests -v` in a development environment.
 Run `PYTHONPATH=src python -m jarvis --check` with `JARVIS_DATA_DIR` pointing to disposable test storage.
 This technical section is not an owner setup requirement.
+
+## Experimental Phase1 source progress
+
+The talking-core work is not complete. See docs/phase1-progress.md and docs/speech-license-screen.md. A local-only, half-duplex source harness is available with `python -m jarvis --voice-preview` after installing requirements-voice.txt. This is a developer test entry, not the promised finished EXE or polished UI. No microphone or model download starts automatically. Local models download only after explicit approval, verify pinned SHA256 hashes, and stay out of the installer. Advanced echo cancellation, noise suppression, barge-in, streaming TTS, blind voice choice and real cloud-provider acceptance remain incomplete.
