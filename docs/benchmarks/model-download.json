@@ -1,0 +1,6 @@
+{
+  "test": "Actual pinned HTTPS model downloads with SHA256 check",
+  "ready": true,
+  "seconds": 2.45,
+  "partial_resume": false
+}
