@@ -30,7 +30,7 @@ class WindowsCredentials:
         self.api.CredFree.restype = None
     @staticmethod
     def target(provider):
-        if provider not in PROVIDERS:
+        if provider not in PROVIDERS and provider not in {kind+'/'+slot for kind in ('groq','gemini','nim') for slot in ('slot1','slot2','slot3','slot4','slot5')}:
             raise CredentialError('Unknown key provider.')
         return 'JARVIS/provider/' + provider
     def set(self, provider, secret):
