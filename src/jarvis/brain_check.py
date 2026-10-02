@@ -12,11 +12,14 @@ def check_groq(model,cloud_consent=False,verified_free=False,key_store=None,rout
     if not keys.get('groq'):raise ValueError('Save the key securely in Settings first.')
     if not model.strip():
         from .groq_models import resolve_model
-        model=resolve_model('',True,True,keys)
-    router=router_factory([configured('groq',model.strip())],key_store=keys)
+        model,listed=resolve_model('',True,True,keys,details=True)
+    else:listed=set()
+    from dataclasses import replace
+    provider=replace(configured('groq',model.strip()),allow_20b_fallback='openai/gpt-oss-20b' in listed)
+    router=router_factory([provider],key_store=keys)
     started=time.monotonic();pieces=[];first=None
     for delta in router.stream([{'role':'system','content':'Reply briefly. No actions or tool calls.'},{'role':'user','content':'Say hello in one short sentence.'}],cloud_consent=True,verified_free_providers=('groq',)):
         if first is None:first=time.monotonic()-started
-        pieces.append(delta['text'])
+        model=delta.get('model',model);pieces.append(delta['text'])
     if not pieces:raise RuntimeError('Groq returned no text.')
     return {'provider':'groq','model':model.strip(),'reply':''.join(pieces)[:400],'first_text_s':first,'total_s':time.monotonic()-started,'scope':'text connection check, not voice or audible latency'}
