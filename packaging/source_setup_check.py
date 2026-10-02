@@ -1,7 +1,7 @@
 """Run after owner setup on fresh Windows CI. No physical microphone/output."""
-import pathlib,os,subprocess,json
+import pathlib,os,subprocess,json,sys
 root=pathlib.Path('source-runner/JARVIS-EXPERIMENTAL').resolve();py=root/'.venv/Scripts/python.exe';env=os.environ.copy();env['PYTHONPATH']=str(root/'src');env['JARVIS_DATA_DIR']=str(pathlib.Path('fresh-user-data').resolve())
-subprocess.run([str(py),'setup.py'],cwd=root,env=env,check=True)
+subprocess.run([sys.executable,'setup.py'],cwd=root,env=env,check=True)
 code="from jarvis.native_frontend import verified_frontend; from jarvis.experimental.kokoro import NativeG2P,KokoroSynth; from jarvis.paths import ensure_layout; from jarvis.speech import WhisperSTT; import numpy as np; e,d=verified_frontend(); p=ensure_layout()/'models'; g=NativeG2P(e,d); k=KokoroSynth(p/'voices/model.onnx',p/'voices/am_michael.bin',p/'voices/config.json',g); a,sr=k.synthesize('Hello. I am ready when you are.'); assert len(a)>0 and sr==24000; stt=WhisperSTT(p/'whisper-base',language='en'); assert stt.model is not None; g.close(); print('Fresh source setup: real native voice waveform and STT model load passed; no hardware claim')"
 subprocess.run([str(py),'-c',code],cwd=root,env=env,check=True)
 pathlib.Path('source-setup-check.json').write_text(json.dumps({'setup':'fresh venv pip install + all verified model downloads','real_checks':['bundled native hashes','native voice waveform','STT model load'],'unrun':['physical mic/output','live Groq','audible latency','owner accent'],'status':'experimental source-runner only'},indent=2))
