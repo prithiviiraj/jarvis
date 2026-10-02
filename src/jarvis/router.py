@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import json
 import time
+import threading
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
@@ -56,10 +57,11 @@ class BrainRouter:
     def __init__(self,providers,transport=None,key_store=None,clock=time.monotonic,break_seconds=60):
         if not providers or len({p.name for p in providers})!=len(providers):raise ValueError('Unique providers required.')
         self.providers=list(providers);self.transport=transport or HttpTransport();self.key_store=key_store
-        self.clock=clock;self.break_seconds=break_seconds;self.disabled_until={}
+        self.clock=clock;self.break_seconds=break_seconds;self.disabled_until={};self.lock=threading.RLock()
     def reorder(self,names):
         if len(names)!=len(self.providers) or set(names)!={p.name for p in self.providers}:raise ValueError('Order must include every provider once.')
-        byname={p.name:p for p in self.providers};self.providers=[byname[n] for n in names]
+        with self.lock:
+            byname={p.name:p for p in self.providers};self.providers=[byname[n] for n in names]
     def ask(self,messages,cloud_consent=False,preferred=None,contains_image=False,cloud_image_consent=False):
         if not isinstance(messages,list) or not messages:raise RouterError('A conversation is required.')
         ordered=list(self.providers)
@@ -71,7 +73,8 @@ class BrainRouter:
             if p.cloud and (not cloud_consent or (contains_image and not cloud_image_consent)):continue
             if self.disabled_until.get(p.name,0)>self.clock():continue
             if p.cloud:
-                key=self.key_store.get(p.name) if self.key_store else None
+                try:key=self.key_store.get(p.name) if self.key_store else None
+                except Exception:errors.append((p.name,'key-store-unavailable'));continue
                 if not key:errors.append((p.name,'no-key'));continue
             else:key=None
             try:
@@ -80,4 +83,38 @@ class BrainRouter:
             except ProviderFailure as exc:
                 errors.append((p.name,exc.code))
                 self.disabled_until[p.name]=self.clock()+self.break_seconds
+        raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
+
+    def stream(self,messages,cloud_consent=False,preferred=None,cancel=None,stream_transport=None):
+        """Fail over only before any text has escaped; never mix provider answers."""
+        from .streaming import StreamTransport
+        if not isinstance(messages,list) or not messages:raise RouterError('A conversation is required.')
+        transport=stream_transport or StreamTransport()
+        with self.lock:ordered=list(self.providers)
+        if preferred:
+            if preferred not in {p.name for p in ordered}:raise RouterError('Preferred provider not configured.')
+            ordered.sort(key=lambda p:p.name!=preferred)
+        for p in ordered:
+            if cancel is not None and cancel.is_set():return
+            if p.cloud and not cloud_consent:continue
+            with self.lock:
+                if self.disabled_until.get(p.name,0)>self.clock():continue
+            key=None
+            if p.cloud:
+                try:key=self.key_store.get(p.name) if self.key_store else None
+                except Exception:continue
+                if not key:continue
+            emitted=False
+            try:
+                for text in transport.stream(p,messages,key,cancel):
+                    if cancel is not None and cancel.is_set():return
+                    if text:
+                        emitted=True
+                        yield {'text':text,'provider':p.name,'model':p.model,'cloud':p.cloud}
+                if emitted:return
+                if cancel is not None and cancel.is_set():return
+                raise ProviderFailure('empty')
+            except ProviderFailure:
+                with self.lock:self.disabled_until[p.name]=self.clock()+self.break_seconds
+                if emitted:raise RouterError('The answer stopped mid-sentence. Please try again.') from None
         raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
