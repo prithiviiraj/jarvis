@@ -97,6 +97,9 @@ class Workspace:
    if kind in ('state','status','error'):
     self.voice_status=str(value)[:180]
     if kind=='error':messagebox.showerror('Voice setup',str(value),parent=self.root)
+   elif kind=='brain-check-result':
+    callback,result=value
+    callback(result)
    elif kind=='transcript':self.caption='You: '+str(value)[:220]
    elif kind=='answer':self.response=ROSTER[self.selected][0]+': '+value['text'][:450]
   if self.status_label.winfo_exists():self.status_label.configure(text='VOICE / '+self.voice_status.upper()[:20])
@@ -105,8 +108,8 @@ class Workspace:
   if hasattr(self,'chat_caption') and self.chat_caption.winfo_exists():self.chat_caption.configure(text=self.caption+'\n'+self.response)
   self.root.after(80,self.poll_voice)
  def voice_setup(self):
-  win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x600');win.configure(bg=PANEL);win.transient(self.root)
-  frame=tk.Frame(win,bg=PANEL,padx=24,pady=18);frame.pack(fill='both',expand=True)
+  win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x670');win.configure(bg=PANEL);win.transient(self.root)
+  frame=tk.Frame(win,bg=PANEL,padx=24,pady=12);frame.pack(fill='both',expand=True)
   self.label(frame,'Voice setup / '+VOICES[ROSTER[self.selected][0]],17).pack(anchor='w')
   self.label(frame,'Microphone starts OFF. Headphones required. Half-duplex only.\nNo echo cancellation or barge-in. Physical acceptance is pending.',10,MUTED,wraplength=610).pack(anchor='w',pady=10)
   mic=tk.BooleanVar(value=False);cloud=tk.BooleanVar(value=False);free=tk.BooleanVar(value=False)
@@ -137,24 +140,40 @@ class Workspace:
   self.manual_model_entry=model;self.manual_model_lock=lock;self.manual_model_toggle=advanced_button
   self.manual_model_status=lock_status
 
-  self.label(frame,'Local default: LM Studio, one loaded model, server on port 1234.\nGroq key: Settings > Usage & Billing. No paid tier is permitted.',10,MUTED,wraplength=605).pack(anchor='w',pady=10)
+  self.label(frame,'Local default: LM Studio, one loaded model, server on port 1234.\nGroq key: Settings > Usage & Billing. No paid tier is permitted.',10,MUTED,wraplength=605).pack(anchor='w',pady=5)
   def enable():
    try:self.voice.start(mic.get(),cloud.get(),locked.get(),free.get());win.destroy()
    except Exception as exc:messagebox.showerror('Cannot start voice',str(exc),parent=win)
+  check_status=self.label(frame,'No text test run yet. This test does not speak or use your microphone.',9,MUTED,wraplength=605)
+  test_pending=[False]
+  def checked(result):
+   test_pending[0]=False
+   if not win.winfo_exists():return
+   test_button.configure(state='normal')
+   if result.get('ok'):
+    text='Connected: '+result['model']+'\nReply: '+result['reply']+'\nFirst answer text: '+format(result['first_text_s'],'.2f')+'s. Text only, not audible latency.'
+    check_status.configure(text=text,fg='#b6e7d9');messagebox.showinfo('Groq text test succeeded',text,parent=win)
+   else:
+    check_status.configure(text='Failed: '+result['error'],fg='#efabab');messagebox.showerror('Groq text test failed',result['error'],parent=win)
   def check_brain():
    if not cloud.get() or not free.get():messagebox.showerror('Groq consent','Tick session Groq consent and Free-plan confirmation first.',parent=win);return
+   if test_pending[0]:return
+   test_pending[0]=True;test_button.configure(state='disabled');check_status.configure(text='Testing Groq: looking up model, then waiting for one text reply...',fg=MUTED)
    selected_model=locked.get()
    def run():
     try:
      from .brain_check import check_groq
      result=check_groq(selected_model,True,True)
-     self.voice.notify('status','Groq '+result['model']+' answered: '+result['reply']+' / first text '+format(result['first_text_s'],'.2f')+'s. Not audible latency.')
+     self.voice.notify('brain-check-result',(checked,dict(ok=True,**result)))
     except Exception as exc:
      from .groq_models import GroqCheckError
      text=str(exc) if isinstance(exc,GroqCheckError) else 'Groq connection check failed. Run GROQ-DIAG.cmd for sanitized error codes. No paid fallback.'
-     self.voice.notify('error',text)
+     self.voice.notify('brain-check-result',(checked,{'ok':False,'error':text}))
    threading.Thread(target=run,daemon=True).start()
-  self.button(frame,'Test Groq text connection (sends greeting)',check_brain).pack(anchor='w',pady=4)
+  test_button=self.button(frame,'Test Groq text connection (sends greeting)',check_brain);test_button.pack(anchor='w',pady=4)
+  check_status.pack(anchor='w',pady=2)
+  self.groq_test_button=test_button;self.groq_test_status=check_status;self.groq_test_finished=checked
+  self.groq_cloud_consent=cloud;self.groq_free_confirmation=free
   def download():
    if self.setup_busy:return
    if not messagebox.askyesno('Download models','Download roughly 500 MB of verified local speech models and all five voices? No audio is uploaded. Native frontend must also be installed by the build.',parent=win):return
