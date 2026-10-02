@@ -34,3 +34,5 @@ GPT-OSS requests use low reasoning effort and a bounded1024 total completion-tok
 Download models opens a visible window: Starting/cache checksum checks, an activity meter and current-file received MiB, then Ready or Failed/Cancelled. It is not an overall-percent meter. Only missing files download; verified caches are reused. Cancel keeps verified files and eligible partial downloads.
 
 Session setup choices are remembered across voice profiles in memory only. Switching stops/releases the previous microphone/runtime; press Enable voice to start the selected voice. It does not start recording automatically. Pause all or closing the app clears remembered permission; next launch starts OFF. JARVIS keeps the team-leader identity but does not claim real background delegation/tools.
+
+Local Whisper uses a short roster-name prompt (JARVIS/NOVA/KAI/LYRA/DEX) as a transcription hint. This is not a guarantee for accent/name accuracy; captions remain the actual transcript. Team profiles know the roster and ask for clarification for garbled names instead of inventing a person.
