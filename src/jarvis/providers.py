@@ -5,11 +5,12 @@ ENDPOINTS={
  'local':'http://127.0.0.1:1234/v1',
  'gemini':'https://generativelanguage.googleapis.com/v1beta/openai',
  'nim':'https://integrate.api.nvidia.com/v1',
- 'grok':'https://api.x.ai/v1'
+ 'groq':'https://api.groq.com/openai/v1',
+ 'grok':'https://api.x.ai/v1' # legacy optional endpoint; never the owner's default intent
 }
 def configured(name,model):
  if name not in ENDPOINTS:raise ValueError('Unknown provider.')
- return Provider(name,ENDPOINTS[name],model,name!='local')
+ return Provider(name,ENDPOINTS[name],model,name!='local',requires_free_plan=name=='groq')
 def local_models(timeout=2):
  http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
  try:
