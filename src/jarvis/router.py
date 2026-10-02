@@ -1,5 +1,5 @@
 """Reasoning-provider router. Cloud is opt-in; no tool calls or key files."""
-from dataclasses import dataclass
+from dataclasses import dataclass,replace
 from .chat_payload import payload,reply_metadata
 import json
 import time
@@ -22,6 +22,7 @@ class Provider:
     cloud:bool=False
     timeout:float=8.0
     requires_free_plan:bool=False
+    allow_20b_fallback:bool=False
     def __post_init__(self):
         u=urlsplit(self.url)
         if not self.name or not self.model or u.username or u.password or u.query or u.fragment:
@@ -97,7 +98,15 @@ class BrainRouter:
         if preferred:
             if preferred not in {p.name for p in ordered}:raise RouterError('Preferred provider not configured.')
             ordered.sort(key=lambda p:p.name!=preferred)
-        for p in ordered:
+        # Same-provider smaller-model fallback only after a transient pre-text failure.
+        pending_fallback=False
+        expanded=[]
+        for item in ordered:
+            expanded.append((item,False))
+            if item.name=='groq' and item.model=='openai/gpt-oss-120b' and item.allow_20b_fallback:
+                expanded.append((replace(item,model='openai/gpt-oss-20b'),True))
+        for p,is_fallback in expanded:
+            if is_fallback and not pending_fallback:continue
             if cancel is not None and cancel.is_set():return
             if p.requires_free_plan and p.name not in verified_free_providers:continue
             if p.cloud and not cloud_consent:continue
@@ -118,7 +127,9 @@ class BrainRouter:
                 if emitted:return
                 if cancel is not None and cancel.is_set():return
                 raise ProviderFailure('empty')
-            except ProviderFailure:
-                with self.lock:self.disabled_until[p.name]=self.clock()+self.break_seconds
+            except ProviderFailure as exc:
+                pending_fallback=(not emitted and not is_fallback and p.name=='groq' and p.model=='openai/gpt-oss-120b' and exc.retryable and exc.code in ('http-429','http-408','http-500','http-502','http-503','http-504','connection','stream-timeout'))
+                if not pending_fallback:
+                    with self.lock:self.disabled_until[p.name]=self.clock()+self.break_seconds
                 if emitted:raise RouterError('The answer stopped mid-sentence. Please try again.') from None
         raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
