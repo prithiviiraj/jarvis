@@ -31,3 +31,8 @@ class ModelTests(unittest.TestCase):
  def test_tls_sanitized(self):
   with self.assertRaises(GroqCheckError) as caught:self.run_model([],side_effect=ssl.SSLCertVerificationError('SYNTHETIC-SECRET'))
   self.assertNotIn('SYNTHETIC-SECRET',str(caught.exception))
+
+ def test_model_schema_active_omitted(self):self.assertEqual(self.run_model([{'id':'openai/gpt-oss-20b','object':'model','owned_by':'OpenAI'}]),'openai/gpt-oss-20b')
+ def test_prefers_production_oss_fast(self):self.assertEqual(self.run_model([{'id':'llama-3.1-8b-instant','active':True},{'id':'openai/gpt-oss-20b'}]),'openai/gpt-oss-20b')
+ def test_explicit_inactive_not_selected(self):
+  with self.assertRaises(GroqCheckError):self.run_model([{'id':'openai/gpt-oss-20b','active':False}])
