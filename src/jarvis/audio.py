@@ -56,10 +56,10 @@ class ContinuousMic:
         import sounddevice as sd
         self.stop_event.clear();self.generation+=1;generation=self.generation
         def callback(data,count,when,status):
-            if self.stop_event.is_set():return
+            if self.stop_event.is_set() or not self.accepting:return
             if status:
                 self.stop_event.set();self.on_state('error','Microphone buffer failed. Listening stopped.');return
-            try:self.frames.put_nowait((generation,data[:,0].copy()))
+            try:self.frames.put_nowait((self.generation,data[:,0].copy()))
             except queue.Full:
                 self.stop_event.set();self.on_state('error','Audio queue filled. Listening stopped.')
         try:
