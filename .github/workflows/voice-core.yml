@@ -45,6 +45,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'PCM fork failed' }
           python -m pip install -r packaging/stt/requirements-pcm.txt pcm-wheel/faster_whisper-1.2.1-py3-none-any.whl
           if ($LASTEXITCODE -ne 0) { throw 'Experimental dependency installation failed' }
+          python packaging/stt/trim_evaluation_native.py
+          if ($LASTEXITCODE -ne 0) { throw 'CPU native trim failed' }
+          python -c "import sounddevice; sounddevice.query_devices(); import ctranslate2; assert 'int8' in ctranslate2.get_supported_compute_types('cpu')"
+          if ($LASTEXITCODE -ne 0) { throw 'Trimmed native load failed' }
           $env:PYTHONPATH = "$PWD\src"
           python -c "import importlib.util; assert importlib.util.find_spec('av') is None, 'Unapproved PyAV present'"
           if ($LASTEXITCODE -ne 0) { throw 'Unexpected PyAV dependency' }
@@ -58,5 +62,6 @@ jobs:
             voice-preview.png
             windows-voice-fixture.json
             voice-build-packages.txt
+            native-trim-evaluation.json
           retention-days: 7
           if-no-files-found: error
