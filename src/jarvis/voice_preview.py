@@ -50,6 +50,7 @@ def main():
     if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio for this preview. Multiple models need the later settings picker.')
     if runtime[0] is None:runtime[0]=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base'),BrainRouter([configured('local',ids[0])]),SapiSpeaker(),notify)
     if cancel.is_set():return
+    runtime[0].streaming=True
     runtime[0].enable(consent=True)
    except Exception as e:notify('error',str(e))
    finally:busy[0]=False
