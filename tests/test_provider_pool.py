@@ -26,3 +26,10 @@ class PoolTests(unittest.TestCase):
   slots=[Slot('slot1','gemini','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'NOVA':['slot1','slot2']});keys=Mock();keys.get.return_value='synthetic';t=Mock();t.complete.side_effect=ProviderFailure('http-401',False);r=p.router('NOVA',keys,['slot1','slot2'],['slot1','slot2'],t)
   with self.assertRaises(Exception):r.ask([{}],cloud_consent=True)
   self.assertEqual(t.complete.call_count,1)
+
+ def test_stream_partial_never_fallback(self):
+  slots=[Slot('slot1','gemini','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'NOVA':['slot1','slot2']});keys=Mock();keys.get.return_value='synthetic';r=p.router('NOVA',keys,['slot1','slot2'],['slot1','slot2']);t=Mock()
+  def broken(*args):yield 'partial';raise ProviderFailure('connection')
+  t.stream.side_effect=broken;it=r.stream([{}],cloud_consent=True,stream_transport=t);self.assertEqual(next(it)['text'],'partial')
+  with self.assertRaises(Exception):next(it)
+  self.assertEqual(t.stream.call_count,1)
