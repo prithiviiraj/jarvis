@@ -98,7 +98,13 @@ def voices():
  local_router.ask.side_effect=[{'text':'Synthetic NOVA: our supplied conversation invites a playful team reply.','provider':'local'},{'text':'Synthetic JARVIS: I heard NOVA. This is conversation only, not game sensing.','provider':'local'}]
  app.round_entry.insert(0,'Playful banter about our actual conversation, no screen claims.');app.start_team_round()
  for _ in range(20):root.update();time.sleep(.01)
- app.poll_voice();assert len(controller.memory.snapshot())==2;assert '[NOVA]' in local_router.ask.call_args.args[0][-2]['content'];capture('local-team-round');app.pause()
+ app.poll_voice();assert len(controller.memory.snapshot())==2;assert '[JARVIS]' in local_router.ask.call_args.args[0][-2]['content'];capture('local-team-round');app.pause()
+ local_router.ask.side_effect=[{'text':'Synthetic '+n+': I am replying to the topic and actual earlier team replies.','provider':'local'} for n in VOICES]
+ for v in app.round_agents.values():v.set(True)
+ app.round_entry.insert(0,'Five profiles: suggest one idea each based on our conversation.');app.start_team_round()
+ for _ in range(30):root.update();time.sleep(.01)
+ app.poll_voice();assert [n for n,u,a in controller.memory.snapshot()]==list(VOICES);capture('five-profile-round');app.pause()
+
 
 
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
