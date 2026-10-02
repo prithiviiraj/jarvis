@@ -9,7 +9,7 @@ created=[]
 def factory(name,notify,*args):
  runtime=Mock();runtime.enabled=False
  def enable(**kw):
-  assert kw['consent'];runtime.enabled=True;notify('transcript','Hello. Which voice are you?');notify('answer',{'text':'Hello. I am '+name+'. This is a synthetic CI reply, not a live model response.'})
+  assert kw['consent'];runtime.enabled=True;notify('transcript','And so my fellow Americans ask not what your country can do for you, ask what you can do for your country.');notify('answer',{'text':'Hello. I am '+name+'. This is a synthetic CI reply, not a live model response.'})
  def close():runtime.enabled=False
  runtime.enable.side_effect=enable;runtime.close.side_effect=close;created.append((name,runtime));return runtime
 root=tk.Tk();controller=WorkspaceVoice(factory);app=Workspace(root,controller)
@@ -21,7 +21,7 @@ def voices():
   app.select(i);controller.start(True).join(3);app.poll_voice();root.update()
   assert controller.runtime.enabled
   assert name in app.response
-  rows.append({'profile':name,'voice':VOICES[name],'synthetic_runtime_connected':True})
+  capture(name+'-active');rows.append({'profile':name,'voice':VOICES[name],'synthetic_runtime_connected':True})
  app.select(0);capture('voice');app.set_view('Team Room');capture('team');app.set_view('Chat');capture('chat')
  app.settings();capture('settings');app.settings_window.destroy()
  app.voice_setup();capture('onboarding')
