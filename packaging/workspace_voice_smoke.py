@@ -44,14 +44,16 @@ def voices():
 
  assert not app.manual_model_entry.winfo_ismapped()
  # Actual progress UI, synthetic downloads only. No owner network/provider calls.
- released=threading.Event();began=threading.Event()
+ released=threading.Event();began=threading.Event();bytes_sent=threading.Event();finish=threading.Event()
  def fake_download(*args,**kw):
-  began.set();released.wait(3);kw['notify']('model.bin',12582912);time.sleep(.3)
+  began.set();assert released.wait(10);kw['notify']('model.bin',12582912);bytes_sent.set();assert finish.wait(10)
  with patch('jarvis.workspace.messagebox.askyesno',return_value=True),patch('jarvis.models.download',side_effect=fake_download),patch('jarvis.voice_assets.download'):
   app.start_model_download();assert began.wait(1);assert app.model_download_button.cget('state')=='disabled'
   capture('model-download-starting');released.set()
+  assert bytes_sent.wait(2)
   for _ in range(15):root.update();time.sleep(.01)
-  capture('model-download-bytes')
+  assert '12.0 MiB' in app.model_download_label.cget('text')
+  capture('model-download-bytes');finish.set()
   for _ in range(60):root.update();time.sleep(.01)
   assert 'Ready:' in app.model_download_label.cget('text');capture('model-download-ready');app.model_download_window.destroy()
  with patch('jarvis.workspace.messagebox.askyesno',return_value=True),patch('jarvis.models.download',side_effect=RuntimeError('SYNTHETIC failure')):
