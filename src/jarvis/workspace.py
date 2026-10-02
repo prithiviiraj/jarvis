@@ -10,7 +10,7 @@ ROSTER=[('JARVIS','Team leader','#5bc8b2'),('NOVA','Secretary','#aa8be9'),('KAI'
 class Workspace:
  def __init__(self,root,controller=None):
   self.root=root;self.voice=controller or WorkspaceVoice();self.voice_status='off';self.caption='No conversation yet. Nothing is listening.';self.response='';self.setup_busy=False;self.download_cancel=threading.Event();root.title('JARVIS - Voice workspace / experimental');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG)
-  self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
+  self.session_setup={'mic':False,'cloud':False,'free':False,'model':''};self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
   root.grid_columnconfigure(1,weight=1);root.grid_rowconfigure(0,weight=1)
   self.rail=tk.Frame(root,bg=RAIL,width=205,padx=16,pady=18);self.rail.grid(row=0,column=0,sticky='nsew');self.rail.grid_propagate(False)
   self.center=tk.Frame(root,bg=BG,padx=26,pady=18);self.center.grid(row=0,column=1,sticky='nsew')
@@ -112,11 +112,12 @@ class Workspace:
   frame=tk.Frame(win,bg=PANEL,padx=24,pady=12);frame.pack(fill='both',expand=True)
   self.label(frame,'Voice setup / '+VOICES[ROSTER[self.selected][0]],17).pack(anchor='w')
   self.label(frame,'Microphone starts OFF. Headphones required. Half-duplex only.\nNo echo cancellation or barge-in. Physical acceptance is pending.',10,MUTED,wraplength=610).pack(anchor='w',pady=10)
-  mic=tk.BooleanVar(value=False);cloud=tk.BooleanVar(value=False);free=tk.BooleanVar(value=False)
+  mic=tk.BooleanVar(value=self.session_setup['mic']);cloud=tk.BooleanVar(value=self.session_setup['cloud']);free=tk.BooleanVar(value=self.session_setup['free'])
   def check(text,var):tk.Checkbutton(frame,text=text,variable=var,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL,activeforeground=TEXT,wraplength=605,anchor='w',justify='left').pack(anchor='w',pady=4)
   check('Allow microphone for this session (headphones connected)',mic)
   check('Use Groq this session: send recognized text to Groq, not audio',cloud)
   check('I checked my Groq account billing page: it is on the Free plan',free)
+  self.label(frame,'Setup choices are remembered across profiles until Pause all or app close.',9,MUTED,wraplength=605).pack(anchor='w')
   self.label(frame,'Groq model: Automatic (active production chat model)',10,wraplength=605).pack(anchor='w',pady=(8,4))
   self.label(frame,'No model to paste. Selection happens only after session consent.\nModel access does not prove billing status.',9,MUTED,wraplength=605).pack(anchor='w')
   advanced=tk.BooleanVar(value=False);locked=tk.StringVar(value='')
@@ -138,11 +139,16 @@ class Workspace:
   advanced_button=tk.Checkbutton(frame,text='Optional manual model override',variable=advanced,command=toggle,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL,activeforeground=TEXT)
   advanced_button.pack(anchor='w',pady=4)
   self.manual_model_entry=model;self.manual_model_lock=lock;self.manual_model_toggle=advanced_button
-  self.manual_model_status=lock_status
+  self.manual_model_status=lock_status;self.session_mic_var=mic
+  if self.session_setup['model']:
+   advanced_button.invoke();model.insert(0,self.session_setup['model']);lock()
 
   self.label(frame,'Local default: LM Studio, one loaded model, server on port 1234.\nGroq key: Settings > Usage & Billing. No paid tier is permitted.',10,MUTED,wraplength=605).pack(anchor='w',pady=5)
   def enable():
-   try:self.voice.start(mic.get(),cloud.get(),locked.get(),free.get());win.destroy()
+   try:
+    self.voice.start(mic.get(),cloud.get(),locked.get(),free.get())
+    self.session_setup={'mic':mic.get(),'cloud':cloud.get(),'free':free.get(),'model':locked.get()}
+    win.destroy()
    except Exception as exc:messagebox.showerror('Cannot start voice',str(exc),parent=win)
   check_status=self.label(frame,'No text test run yet. This test does not speak or use your microphone.',9,MUTED,wraplength=605)
   test_pending=[False]
@@ -158,6 +164,7 @@ class Workspace:
   def check_brain():
    if not cloud.get() or not free.get():messagebox.showerror('Groq consent','Tick session Groq consent and Free-plan confirmation first.',parent=win);return
    if test_pending[0]:return
+   self.session_setup.update(cloud=cloud.get(),free=free.get(),model=locked.get())
    test_pending[0]=True;test_button.configure(state='disabled');check_status.configure(text='Testing Groq: looking up model, then waiting for one text reply...',fg=MUTED)
    selected_model=locked.get()
    def run():
@@ -225,6 +232,7 @@ class Workspace:
   download_button=self.button(row,'Download models',download);download_button.pack(side='left',padx=4);self.model_download_button=download_button
   self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
+  self.session_setup={'mic':False,'cloud':False,'free':False,'model':''}
   self.download_cancel.set();self.voice.pause();self.voice_status='off'
   if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
  def settings(self):
