@@ -255,7 +255,7 @@ class Workspace:
   self.label(panel,'Groq API key',18).pack(anchor='w')
   self.label(panel,'Stored only in Windows Credential Manager. Never in config or logs.\nAdding a key does not enable cloud calls or prove a Free plan.\nCheck billing at console.groq.com before enabling Groq.',10,MUTED,wraplength=560).pack(anchor='w',pady=12)
   secret=tk.Entry(panel,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat');secret.pack(fill='x',ipady=7)
-  status=self.label(panel,'Paste a key. It stays visible here until this window closes.\nStored keys are never read back into this field.',9,MUTED);status.pack(anchor='w',pady=10)
+  status=self.label(panel,'Paste a key. It stays visible here until this window closes.\nStored keys are never read back into this field.',9,MUTED,wraplength=560);status.pack(anchor='w',pady=10)
   def saved_state(prefix=''):
    try:
     from .security import WindowsCredentials
