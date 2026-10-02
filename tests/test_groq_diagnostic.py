@@ -22,3 +22,7 @@ class DiagnosticTests(unittest.TestCase):
  def test_optional_active_field_auto(self):
   http=MagicMock();resp=Mock();resp.read.side_effect=[b'{"data":[{"id":"openai/gpt-oss-20b"}]}',b'{"choices":[{"message":{"content":"hello"}}]}'];http.open.return_value.__enter__.return_value=resp
   rows=diag.probe('SECRET','',None,Mock(return_value=http));self.assertEqual(rows[0]['selected_model'],'openai/gpt-oss-20b');self.assertEqual(rows[-1]['code'],'OK_GROQ_REPLY_RECEIVED')
+
+ def test_empty_length_category(self):
+  http=MagicMock();resp=Mock();resp.read.side_effect=[b'{"data":[{"id":"openai/gpt-oss-20b"}]}',b'{"choices":[{"message":{"content":"","reasoning":"SECRET"},"finish_reason":"length"}],"usage":{"completion_tokens":32,"completion_tokens_details":{"reasoning_tokens":32}}}'];http.open.return_value.__enter__.return_value=resp
+  rows=diag.probe('SECRET','',None,Mock(return_value=http));self.assertEqual(rows[-1]['code'],'EMPTY_REPLY_TOKEN_LIMIT');self.assertNotIn('SECRET',str(rows));self.assertEqual(rows[-1]['reasoning_tokens'],32)
