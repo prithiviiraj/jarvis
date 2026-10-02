@@ -13,3 +13,9 @@
 10. Further polish and reviewed component adoption.
 
 Never skip phase completion or call an untested prototype finished. Local and cloud data boundaries, provider costs, exact engine/model licenses and platform permissions must be explicit. Benchmarks run in authorized cloud environments, not on the owner's laptop; cloud scores are not laptop guarantees. Phase names are independent from existing 0.3.0 prototype version.
+
+## October 2 evening scope
+
+Groq workspace onboarding/diagnostics is the current live-provider path; real authenticated reply acceptance is an owner on-device step, not proved by synthetic CI. Keys only enter the app's Windows Credential Manager Settings screen, never chat. LM Studio remains the local default. Gemini and NVIDIA NIM have backend presets but no workspace integration/onboarding acceptance; schedule that after experimental installer clearance, not tonight.
+
+Installer work paused: exact Windows runtime review found missing notice coverage and vendor-linked CTranslate2/Intel/CUDA inputs. Continue CPU-only backend build plus transitive notice review before redistribution. Phase 1 stays open. No 1-second audible-latency claim: software fixture measured 1.53-1.70s to first WAV write with a synthetic brain.
