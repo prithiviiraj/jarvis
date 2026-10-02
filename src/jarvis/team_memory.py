@@ -13,5 +13,7 @@ class TeamMemory:
     def messages(self):
         with self.lock:
             return [m for name,user,answer in self.turns for m in ({'role':'user','content':user},{'role':'assistant','content':'['+name+'] '+answer})]
+    def snapshot(self):
+        with self.lock:return list(self.turns)
     def clear(self):
         with self.lock:self.turns.clear()
