@@ -120,6 +120,17 @@ class Workspace:
   def enable():
    try:self.voice.start(mic.get(),cloud.get(),model.get(),free.get());win.destroy()
    except Exception as exc:messagebox.showerror('Cannot start voice',str(exc),parent=win)
+  def check_brain():
+   if not cloud.get() or not free.get():messagebox.showerror('Groq consent','Tick session Groq consent and Free-plan confirmation first.',parent=win);return
+   selected_model=model.get()
+   def run():
+    try:
+     from .brain_check import check_groq
+     result=check_groq(selected_model,True,True)
+     self.voice.notify('status','Groq '+result['model']+' answered: '+result['reply']+' / first text '+format(result['first_text_s'],'.2f')+'s. Not audible latency.')
+    except Exception:self.voice.notify('error','Groq connection check failed. Check saved key, model ID, Free-plan status and network. No paid fallback.')
+   threading.Thread(target=run,daemon=True).start()
+  self.button(frame,'Test Groq text connection (sends greeting)',check_brain).pack(anchor='w',pady=4)
   def download():
    if self.setup_busy:return
    if not messagebox.askyesno('Download models','Download roughly 500 MB of verified local speech models and all five voices? No audio is uploaded. Native frontend must also be installed by the build.',parent=win):return
