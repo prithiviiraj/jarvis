@@ -43,3 +43,14 @@ class RouterStreamTests(unittest.TestCase):
   self.assertEqual(self.t.stream.call_count,1)
  def test_cancel(self):
   e=threading.Event();e.set();self.assertEqual(list(self.r.stream([{}],cancel=e,stream_transport=self.t)),[]);self.t.stream.assert_not_called()
+
+class GroqModelFallbackTests(unittest.TestCase):
+ def test_pretext_rate_limit_smaller_model(self):
+  p=Provider('groq','https://api.groq.com/openai/v1','openai/gpt-oss-120b',True,allow_20b_fallback=True);keys=Mock();keys.get.return_value='synthetic';t=Mock();t.stream.side_effect=[ProviderFailure('http-429'),iter(['Hello'])]
+  out=list(BrainRouter([p],key_store=keys).stream([{}],True,stream_transport=t));self.assertEqual(out[0]['model'],'openai/gpt-oss-20b');self.assertEqual(t.stream.call_count,2)
+ def test_no_fallback_after_partial(self):
+  p=Provider('groq','https://api.groq.com/openai/v1','openai/gpt-oss-120b',True,allow_20b_fallback=True);keys=Mock();keys.get.return_value='synthetic';t=Mock()
+  def broken(*args):yield 'partial';raise ProviderFailure('http-429')
+  t.stream.side_effect=broken
+  with self.assertRaises(RouterError):list(BrainRouter([p],key_store=keys).stream([{}],True,stream_transport=t))
+  self.assertEqual(t.stream.call_count,1)
