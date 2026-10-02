@@ -49,6 +49,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Candidate dependencies failed' }
           python packaging/phonemis/synthesis_check.py
           if ($LASTEXITCODE -ne 0) { throw 'Candidate synthesis failed' }
+      - name: Actual PCM STT to synthetic localhost SSE to candidate waveform
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m pip download --no-deps faster-whisper==1.2.1 --dest pcm-input
+          if ($LASTEXITCODE -ne 0) { throw 'Input wheel failed' }
+          python packaging/stt/build_pcm_fork.py pcm-input/faster_whisper-1.2.1-py3-none-any.whl pcm-wheel
+          if ($LASTEXITCODE -ne 0) { throw 'PCM fork failed' }
+          python -m pip install -r packaging/stt/requirements-pcm.txt pcm-wheel/faster_whisper-1.2.1-py3-none-any.whl
+          if ($LASTEXITCODE -ne 0) { throw 'Loop dependency failed' }
+          python -c "import importlib.util; assert importlib.util.find_spec('av') is None"
+          if ($LASTEXITCODE -ne 0) { throw 'Unexpected av' }
+          python packaging/voice_fixture.py
+          if ($LASTEXITCODE -ne 0) { throw 'Speech fixture failed' }
+          python packaging/phonemis/loop_check.py
+          if ($LASTEXITCODE -ne 0) { throw 'Software loop failed' }
       - uses: actions/upload-artifact@v4
         with:
           name: JARVIS-native-voice-candidate-only
@@ -56,5 +73,7 @@ jobs:
             phonemis-windows.json
             kokoro-windows.json
             candidate-voice-*.wav
+            candidate-loop.json
+            candidate-loop.wav
           retention-days: 7
           if-no-files-found: error
