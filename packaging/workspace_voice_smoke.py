@@ -95,7 +95,7 @@ def voices():
  for _ in range(20):root.update();time.sleep(.01)
  app.poll_voice();assert controller.runtime is None;assert not local_router.ask.call_args.kwargs['cloud_consent'];assert len(controller.memory.snapshot())==1;capture('typed-local-chat')
  app.set_view('Team Room');capture('shared-team-room');assert 'Synthetic local reply' in app.team_transcript.get('1.0','end');app.pause();app.update_team_transcript();assert not controller.memory.snapshot()
- local_router.ask.side_effect=[{'text':'Synthetic NOVA: our supplied conversation invites a playful team reply.','provider':'local'},{'text':'Synthetic JARVIS: I heard NOVA. This is conversation only, not game sensing.','provider':'local'}]
+ local_router.ask.side_effect=[{'text':'Synthetic JARVIS: our supplied conversation invites a playful team reply.','provider':'local'},{'text':'Synthetic NOVA: I heard JARVIS. This is conversation only, not game sensing.','provider':'local'}]
  app.round_entry.insert(0,'Playful banter about our actual conversation, no screen claims.');app.start_team_round()
  for _ in range(20):root.update();time.sleep(.01)
  app.poll_voice();assert len(controller.memory.snapshot())==2;assert '[JARVIS]' in local_router.ask.call_args.args[0][-2]['content'];capture('local-team-round');app.pause()
@@ -103,7 +103,7 @@ def voices():
  for v in app.round_agents.values():v.set(True)
  app.round_entry.insert(0,'Five profiles: suggest one idea each based on our conversation.');app.start_team_round()
  for _ in range(30):root.update();time.sleep(.01)
- app.poll_voice();assert [n for n,u,a in controller.memory.snapshot()]==list(VOICES);capture('five-profile-round');app.pause()
+ app.poll_voice();assert [n for n,u,a in controller.memory.snapshot()]==list(VOICES);capture('five-profile-round');app.team_transcript.yview_moveto(0);capture('five-profile-round-start');app.pause()
 
 
 
