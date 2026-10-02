@@ -1,0 +1,48 @@
+name: JARVIS experimental native G2P Windows check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pinned upstream and explicitly changed evaluation files
+        shell: pwsh
+        run: |
+          git clone https://github.com/IgorSwat/Phonemis.git phonemis-upstream
+          if ($LASTEXITCODE -ne 0) { throw 'Clone failed' }
+          Push-Location phonemis-upstream
+          git checkout 71eb1ce33bd586d38cbac037843b8539d7829c3b
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned source unavailable' }
+          git apply ../packaging/phonemis/evaluation-fixes.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Exact patch failed' }
+          Copy-Item ../packaging/phonemis/runner.cpp src/phonemis/main.cpp -Force
+          Pop-Location
+      - name: Native MSVC build and upstream regression tests
+        shell: pwsh
+        run: |
+          cmake -S phonemis-upstream -B phonemis-upstream/build -DBUILD_RUNNER=ON -DBUILD_TESTS=ON
+          if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
+          cmake --build phonemis-upstream/build --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+          Push-Location phonemis-upstream
+          & ./build/Release/phonemis_test.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Upstream tests failed' }
+          Pop-Location
+      - name: Real native UTF8 bridge synthetic text
+        shell: pwsh
+        run: |
+          python packaging/phonemis/check.py
+          if ($LASTEXITCODE -ne 0) { throw 'Native bridge failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-native-G2P-measurements-only
+          path: phonemis-windows.json
+          retention-days: 7
+          if-no-files-found: error
