@@ -13,7 +13,7 @@ class BridgeTests(unittest.TestCase):
   factory.assert_not_called()
  def test_cloud_gate(self):
   factory=Mock();c=WorkspaceVoice(factory)
-  for args in [(True,True,'model',False),(True,True,'',True)]:
+  for args in [(True,True,'model',False)]:
    with self.assertRaises(ValueError):c.start(*args)
   factory.assert_not_called()
  def test_selected_voice_to_runtime(self):
@@ -49,3 +49,7 @@ class BridgeTests(unittest.TestCase):
  def test_failure_does_not_leave_runtime_reference(self):
   runtime=Mock();runtime.enable.side_effect=RuntimeError('No mic');c=WorkspaceVoice(Mock(return_value=runtime));c.start(True).join(2)
   self.assertIsNone(c.runtime);runtime.close.assert_called_once()
+
+ def test_cloud_auto_allowed_after_consent(self):
+  runtime=Mock();factory=Mock(return_value=runtime);c=WorkspaceVoice(factory);c.start(True,True,'',True).join(2)
+  self.assertEqual(factory.call_args.args[3],'');runtime.enable.assert_called_once_with(consent=True,cloud_consent=True)
