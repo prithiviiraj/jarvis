@@ -5,7 +5,7 @@ from .router import NoRedirect
 from .security import WindowsCredentials
 # Current documented production chat models. Smaller model first for voice speed.
 # Never pick arbitrary/preview/tool/audio IDs returned by the account endpoint.
-PREFERRED=('openai/gpt-oss-20b','openai/gpt-oss-120b','llama-3.1-8b-instant','llama-3.3-70b-versatile')
+PREFERRED=('openai/gpt-oss-120b','openai/gpt-oss-20b','llama-3.1-8b-instant','llama-3.3-70b-versatile')
 APP_UA='JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'
 
 def listed_ids(data):
