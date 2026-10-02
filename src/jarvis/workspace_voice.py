@@ -10,6 +10,8 @@ class WorkspaceVoice:
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock()
+        from .team_memory import TeamMemory
+        self.memory=TeamMemory()
     def notify(self,kind,value):self.events.put((kind,value))
     def select(self,name):
         if name not in VOICES:raise ValueError('Unknown voice profile.')
@@ -35,7 +37,7 @@ class WorkspaceVoice:
                 runtime=self.factory(name,notify,cloud,model,verified_free)
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
-                    self.runtime=runtime;runtime.enable(consent=True,cloud_consent=cloud)
+                    self.runtime=runtime;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
             except Exception as exc:
                 if runtime:runtime.close()
@@ -51,7 +53,7 @@ class WorkspaceVoice:
         self.notify('state','off')
     def close(self):
         with self.lock:self.closed=True
-        self.pause()
+        self.pause();self.memory.clear()
 
 class FreeSessionRouter:
     """Plan confirmation is session scoped. It is not automatic billing verification."""
