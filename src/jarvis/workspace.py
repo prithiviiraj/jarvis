@@ -256,10 +256,19 @@ class Workspace:
   self.label(panel,'Stored only in Windows Credential Manager. Never in config or logs.\nAdding a key does not enable cloud calls or prove a Free plan.\nCheck billing at console.groq.com before enabling Groq.',10,MUTED,wraplength=560).pack(anchor='w',pady=12)
   secret=tk.Entry(panel,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat');secret.pack(fill='x',ipady=7)
   status=self.label(panel,'Paste a key. It stays visible here until this window closes.\nStored keys are never read back into this field.',9,MUTED);status.pack(anchor='w',pady=10)
+  def saved_state(prefix=''):
+   try:
+    from .security import WindowsCredentials
+    meta=WindowsCredentials().status('groq')
+    if meta['present']:
+     status.configure(text=prefix+'Saved key present in Windows Credential Manager. No re-paste needed.\nLast saved: '+str(meta.get('saved_at') or 'time unavailable')+'. Stored key is not displayed.')
+    else:status.configure(text='No saved Groq key. Paste a key, then Save securely.')
+   except Exception:status.configure(text='Saved-key state unavailable. Check Windows Credential Manager. No plaintext fallback.')
+  saved_state()
   def save():
    try:
     from .security import WindowsCredentials
-    WindowsCredentials().set('groq',secret.get().strip());status.configure(text='Saved securely. Cloud remains OFF until session consent.')
+    WindowsCredentials().set('groq',secret.get().strip());saved_state('Saved securely. ')
    except Exception:status.configure(text='Not saved: secure storage failed. No plaintext fallback was used.')
   def delete():
    try:
