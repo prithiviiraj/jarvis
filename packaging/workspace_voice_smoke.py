@@ -1,6 +1,6 @@
 """Windows UI bridge smoke with synthetic runtime. No physical audio claim."""
 import tkinter as tk,pathlib,json,time
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 from PIL import ImageGrab
 from jarvis.workspace import Workspace
 from jarvis.workspace_voice import WorkspaceVoice,VOICES
@@ -25,9 +25,20 @@ def voices():
  app.select(0);capture('voice');app.set_view('Team Room');capture('team');app.set_view('Chat');capture('chat')
  app.settings();capture('settings');app.settings_window.destroy()
  app.voice_setup();capture('onboarding')
+ assert not app.manual_model_entry.winfo_ismapped()
+ app.manual_model_toggle.invoke();app.manual_model_entry.insert(0,'llama-3.1-8b-instant');app.manual_model_lock()
+ assert app.manual_model_entry.cget('state')=='disabled';capture('manual-model-locked')
+
  for window in root.winfo_children():
   if isinstance(window,tk.Toplevel):window.destroy()
  app.groq_key();capture('key-onboarding')
+ with patch('jarvis.security.WindowsCredentials') as store:
+  assert app.groq_key_entry.get()==''
+  app.groq_key_entry.insert(0,'SYNTHETIC-NOT-A-REAL-KEY');app.groq_key_save()
+  store.return_value.set.assert_called_once_with('groq','SYNTHETIC-NOT-A-REAL-KEY');store.return_value.get.assert_not_called()
+  assert app.groq_key_entry.get()=='SYNTHETIC-NOT-A-REAL-KEY'
+  assert 'Saved' in app.groq_key_status.cget('text');capture('key-saved-visible')
+
  for window in root.winfo_children():
   if isinstance(window,tk.Toplevel):window.destroy()
  app.open_mini();capture('mini');app.mini.destroy();app.edit_profile();capture('profile')
