@@ -96,8 +96,10 @@ class Workspace:
    tk.Checkbutton(choices,text=name,variable=var,bg=BG,fg=color,selectcolor=LINE,activebackground=BG,font=('Segoe UI',8),padx=0,pady=0).pack(side='left')
   self.round_status_label=self.label(self.body,'Choose2-5profiles. Order: JARVIS, NOVA, KAI, LYRA, DEX. Text only.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
   self.label(self.body,'SHARED SESSION CONVERSATION',8,MUTED).pack(anchor='w',pady=(10,4))
-  self.team_transcript=tk.Text(self.body,bg=PANEL,fg=TEXT,relief='flat',font=('Segoe UI',10),wrap='word',height=7,padx=10,pady=8)
-  self.team_transcript.pack(fill='both',expand=True);self.team_snapshot=None;self.update_team_transcript()
+  transcript_frame=tk.Frame(self.body,bg=PANEL);transcript_frame.pack(fill='both',expand=True)
+  transcript_scroll=tk.Scrollbar(transcript_frame);transcript_scroll.pack(side='right',fill='y')
+  self.team_transcript=tk.Text(transcript_frame,yscrollcommand=transcript_scroll.set,bg=PANEL,fg=TEXT,relief='flat',font=('Segoe UI',10),wrap='word',height=7,padx=10,pady=8)
+  self.team_transcript.pack(side='left',fill='both',expand=True);transcript_scroll.configure(command=self.team_transcript.yview);self.team_snapshot=None;self.update_team_transcript()
  def start_team_round(self):
   try:self.voice.team_round(self.round_entry.get(),tuple(name for name in self.round_agents if self.round_agents[name].get()));self.round_entry.delete(0,'end')
   except (ValueError,RuntimeError) as exc:self.note('Local team round',str(exc))
