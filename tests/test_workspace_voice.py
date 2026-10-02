@@ -46,3 +46,6 @@ class BridgeTests(unittest.TestCase):
 
  def test_queued_old_caption_cleared_on_select(self):
   c=WorkspaceVoice(Mock());c.notify('transcript','Old profile');c.select('LYRA');self.assertNotIn(('transcript','Old profile'),list(c.events.queue))
+ def test_failure_does_not_leave_runtime_reference(self):
+  runtime=Mock();runtime.enable.side_effect=RuntimeError('No mic');c=WorkspaceVoice(Mock(return_value=runtime));c.start(True).join(2)
+  self.assertIsNone(c.runtime);runtime.close.assert_called_once()
