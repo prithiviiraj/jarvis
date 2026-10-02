@@ -1,5 +1,5 @@
 """Explicit first-run downloads, pinned bytes and atomic publication. No model bundling."""
-import hashlib
+import hashlib,ssl
 from pathlib import Path
 import urllib.request
 from urllib.parse import urlsplit
@@ -66,8 +66,17 @@ def fetch_verified(http,url,target,sha,cap,notify=lambda *a:None,cancel=None):
 
 def download(root,consent=False,notify=lambda *a:None,cancel=None):
  if not consent:raise DownloadError('Approve the model download first.')
- root=Path(root);http=urllib.request.build_opener(urllib.request.ProxyHandler({}),TLSRedirect())
+ root=Path(root);http=verified_http()
  for name,(url,sha,cap) in FILES.items():
   target=root/name
   if target.is_file() and digest(target)==sha:continue
   fetch_verified(http,url,target,sha,cap,notify,cancel)
+
+def verified_http():
+ # Owner setup may install certifi. Alternate CA bundle, never TLS bypass.
+ import os
+ context=ssl.create_default_context()
+ if os.environ.get('JARVIS_CERTIFI_TRUST')=='1':
+  import certifi
+  context=ssl.create_default_context(cafile=certifi.where())
+ return urllib.request.build_opener(urllib.request.ProxyHandler({}),TLSRedirect(),urllib.request.HTTPSHandler(context=context))
