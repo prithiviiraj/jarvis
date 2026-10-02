@@ -76,6 +76,39 @@ class WorkspaceVoice:
                     self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
+    def team_round(self,topic,names=('NOVA','JARVIS')):
+        """Explicit two-profile local text round. Not autonomous or audible."""
+        if not isinstance(topic,str) or not topic.strip() or len(topic)>1000:raise ValueError('Type a topic up to1000characters.')
+        if not isinstance(names,tuple) or len(names)!=2 or len(set(names))!=2 or any(n not in VOICES for n in names):raise ValueError('Choose two different known profiles.')
+        with self.lock:
+            if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Pause voice and wait for the current conversation first.')
+            self.busy=True;self.generation+=1;ticket=self.generation;initial_context=self.memory.messages()
+        self.notify('state','thinking');self.notify('round-status','Local text round starting; microphone stays OFF.')
+        def run():
+            staged=[];context=list(initial_context)
+            try:
+                from .personas import prompt
+                router=self.text_factory()
+                for name in names:
+                    with self.lock:
+                        if self.closed or ticket!=self.generation:return
+                    instruction='User-requested team conversation: '+topic.strip()+'\nReply as '+name+' in one or two short sentences. Refer only to actual supplied conversation. Playful banter only if invited in this topic. Other profiles are selectable characters, not autonomous workers. Do not invent sensing, actions, or independent work.'
+                    answer=router.ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':instruction}],cloud_consent=False)
+                    if not isinstance(answer.get('text'),str) or not answer['text'].strip() or len(answer['text'])>3000:raise ValueError('Invalid round answer.')
+                    staged.append((name,topic.strip(),answer['text']))
+                    context=context+[{'role':'user','content':instruction},{'role':'assistant','content':'['+name+'] '+answer['text']}]
+                with self.lock:
+                    if self.closed or ticket!=self.generation:return
+                    for name,user,answer in staged:self.memory.append(name,user,answer)
+                    self.notify('team-updated',names[-1]);self.notify('round-status','Completed local text round: '+' → '.join(names)+'. No audio or background workers.')
+            except Exception:
+                with self.lock:
+                    if not self.closed and ticket==self.generation:self.notify('round-status','Local round failed. No partial round saved. Check LM Studio.')
+            finally:
+                with self.lock:
+                    self.busy=False
+                    if not self.closed and ticket==self.generation:self.notify('state','off')
+        worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def pause(self):
         with self.lock:self.generation+=1;runtime=self.runtime;self.runtime=None
         if runtime:runtime.close()
