@@ -1,0 +1,45 @@
+import io,json,threading,unittest
+from jarvis.streaming import text_deltas,sentences
+from jarvis.router import ProviderFailure
+
+def frame(value):return ('data: '+json.dumps(value)+'\n\n').encode()
+def delta(text):return frame({'choices':[{'delta':{'content':text}}]})
+class StreamingTests(unittest.TestCase):
+ def test_text_only(self):
+  raw=b': keepalive\n\n'+delta('Hi ')+frame({'choices':[{'delta':{'tool_calls':[{'name':'delete'}]}}]})+delta('there')+b'data: [DONE]\n\n'+delta('ignored')
+  self.assertEqual(list(text_deltas(io.BytesIO(raw))),['Hi ','there'])
+ def test_cancel(self):
+  e=threading.Event();e.set();self.assertEqual(list(text_deltas(io.BytesIO(delta('secret')),e)),[])
+ def test_bad_json(self):
+  with self.assertRaises(ProviderFailure):list(text_deltas(io.BytesIO(b'data: no\n')))
+ def test_line_cap(self):
+  with self.assertRaises(ProviderFailure):list(text_deltas(io.BytesIO(b'data: '+b'x'*18000+b'\n')))
+ def test_stream_cap(self):
+  with self.assertRaises(ProviderFailure):list(text_deltas(io.BytesIO(delta('hello')),max_bytes=3))
+ def test_error_event(self):
+  with self.assertRaises(ProviderFailure):list(text_deltas(io.BytesIO(frame({'error':{'message':'private'}}))))
+ def test_sentence_chunks(self):self.assertEqual(list(sentences(['Hello',' world. Next',' line?'])),['Hello world.','Next line?'])
+ def test_bounded(self):self.assertEqual(list(sentences(['a'*100],max_chars=20)),['a'*20]*5)
+ def test_tail(self):self.assertEqual(list(sentences(['unfinished clause'])),['unfinished clause'])
+
+from jarvis.router import BrainRouter,Provider,RouterError
+from unittest.mock import Mock
+class RouterStreamTests(unittest.TestCase):
+ def setUp(self):
+  self.p=Provider('local','http://127.0.0.1:1234/v1','test');self.c=Provider('gemini','https://example.invalid/v1','test',True);self.t=Mock();self.k=Mock();self.k.get.return_value='synthetic';self.r=BrainRouter([self.p,self.c],key_store=self.k)
+ def test_no_cloud_without_consent(self):
+  self.t.stream.side_effect=ProviderFailure('bad')
+  with self.assertRaises(RouterError):list(self.r.stream([{}],stream_transport=self.t))
+  self.assertEqual(self.t.stream.call_count,1)
+ def test_pretext_failover(self):
+  self.t.stream.side_effect=[ProviderFailure('429'),iter(['Hi','!'])]
+  out=list(self.r.stream([{}],cloud_consent=True,stream_transport=self.t));self.assertEqual([x['text'] for x in out],['Hi','!']);self.assertEqual(out[0]['provider'],'gemini')
+ def test_partial_no_mix(self):
+  def broken(*a):
+   yield 'partial';raise ProviderFailure('connection')
+  self.t.stream.side_effect=broken
+  it=self.r.stream([{}],True,stream_transport=self.t);self.assertEqual(next(it)['text'],'partial')
+  with self.assertRaises(RouterError):next(it)
+  self.assertEqual(self.t.stream.call_count,1)
+ def test_cancel(self):
+  e=threading.Event();e.set();self.assertEqual(list(self.r.stream([{}],cancel=e,stream_transport=self.t)),[]);self.t.stream.assert_not_called()
