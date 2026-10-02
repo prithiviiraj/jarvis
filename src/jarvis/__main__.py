@@ -21,8 +21,12 @@ def check(root=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--voice-preview', action='store_true')
     parser.add_argument('--smoke-output')
     args = parser.parse_args()
+    if args.voice_preview:
+        from .voice_preview import main as voice_main
+        voice_main(); return
     if args.check:
         print(json.dumps(check(), indent=2)); return
     import tkinter as tk
