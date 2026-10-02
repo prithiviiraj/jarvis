@@ -7,7 +7,7 @@ BG='#101013';RAIL='#151518';PANEL='#19191e';LINE='#2b2b32';TEXT='#eeeeF1';MUTED=
 ROSTER=[('JARVIS','Team leader','#5bc8b2'),('NOVA','Secretary','#aa8be9'),('KAI','Researcher','#ec9d65'),('LYRA','Writer','#e287b5'),('DEX','Coder','#79a9e8')]
 class Workspace:
  def __init__(self,root):
-  self.root=root;root.title('JARVIS - Workspace preview');root.geometry('1220x780');root.minsize(980,680);root.configure(bg=BG)
+  self.root=root;root.title('JARVIS - Workspace preview');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(760,root.winfo_screenheight()-90)}');root.minsize(960,630);root.configure(bg=BG)
   self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
   root.grid_columnconfigure(1,weight=1);root.grid_rowconfigure(0,weight=1)
   self.rail=tk.Frame(root,bg=RAIL,width=205,padx=16,pady=18);self.rail.grid(row=0,column=0,sticky='nsew');self.rail.grid_propagate(False)
@@ -18,17 +18,17 @@ class Workspace:
  def label(self,parent,text,size=11,color=TEXT,bg=None,**kw):
   return tk.Label(parent,text=text,bg=bg or parent.cget('bg'),fg=color,font=('Segoe UI',size),anchor='w',justify='left',**kw)
  def button(self,parent,text,fn,bg=PANEL,color=TEXT,**kw):
-  return tk.Button(parent,text=text,command=fn,bg=bg,fg=color,activebackground=LINE,activeforeground=TEXT,relief='flat',bd=0,cursor='hand2',font=('Segoe UI',10),padx=12,pady=8,**kw)
+  return tk.Button(parent,text=text,command=fn,bg=bg,fg=color,activebackground=LINE,activeforeground=TEXT,relief='flat',bd=0,cursor='hand2',font=('Segoe UI',10),padx=10,pady=6,**kw)
  def build_rail(self):
   for child in self.rail.winfo_children():child.destroy()
-  self.label(self.rail,'J A R V I S',15).pack(anchor='w',pady=(0,4));self.label(self.rail,'VOICE WORKSPACE',8,MUTED).pack(anchor='w',pady=(0,24))
+  self.label(self.rail,'J A R V I S',15).pack(anchor='w',pady=(0,4));self.label(self.rail,'VOICE WORKSPACE',8,MUTED).pack(anchor='w',pady=(0,15))
   self.label(self.rail,'YOUR TEAM  /  5 PLANNED',8,MUTED).pack(anchor='w',pady=(0,12))
   for i,(name,role,color) in enumerate(ROSTER):
-   row=tk.Frame(self.rail,bg=LINE if i==self.selected else RAIL,pady=9,padx=6);row.pack(fill='x',pady=3)
+   row=tk.Frame(self.rail,bg=LINE if i==self.selected else RAIL,pady=4,padx=6);row.pack(fill='x',pady=3)
    c=tk.Canvas(row,width=30,height=30,bg=row.cget('bg'),highlightthickness=0);c.pack(side='left',padx=(0,8));c.create_oval(1,1,29,29,fill=color,outline='');c.create_text(15,15,text=name[0],fill=BG,font=('Segoe UI',11,'bold'))
    title=self.button(row,name+'\n'+role,lambda n=i:self.select(n),bg=row.cget('bg'),anchor='w',justify='left');title.pack(side='left',fill='x',expand=True)
    c.bind('<Button-1>',lambda e,n=i:self.select(n))
-  self.label(self.rail,'Profiles only. Workers arrive\nin Phase3.',9,MUTED,wraplength=170).pack(anchor='w',pady=(18,14))
+  self.label(self.rail,'Profiles only. Workers arrive\nin Phase3.',9,MUTED,wraplength=170).pack(anchor='w',pady=(10,8))
   self.button(self.rail,'Team Room',lambda:self.set_view('Team Room')).pack(fill='x',pady=4)
   self.button(self.rail,'Settings',self.settings).pack(side='bottom',fill='x',pady=4)
   self.button(self.rail,'Mini orb',self.open_mini).pack(side='bottom',fill='x',pady=4)
@@ -45,26 +45,27 @@ class Workspace:
   for view in ['Voice','Chat','Team Room']:
    self.button(tabs,view,lambda v=view:self.set_view(v),bg=LINE if self.view==view else BG).pack(side='left',padx=(0,6))
   self.label(self.center,'Preview build - microphone and camera OFF',9,MUTED).pack(anchor='w')
+  bar=tk.Frame(self.center,bg=BG);bar.pack(side='bottom',fill='x',pady=(10,0))
+  for label,fn in [('Mic OFF',self.voice_setup),('Camera OFF',lambda:self.note('Camera','Camera is not implemented in this build. It remains OFF.')),('Privacy ON',lambda:self.note('Privacy','No recordings, camera, screen capture or cloud calls run from this workspace.')),('Pause all',self.pause)]:
+   self.button(bar,label,fn,bg=PANEL).pack(side='left',padx=(0,5))
+  self.label(self.center,'Software preview only. Voice core and agent workers are still being built.',8,MUTED,wraplength=630).pack(side='bottom',anchor='w',pady=(5,0))
   self.body=tk.Frame(self.center,bg=BG);self.body.pack(fill='both',expand=True,pady=12)
   if self.view=='Voice':self.voice_view(name,color)
   elif self.view=='Chat':self.chat_view()
   else:self.team_view()
   self.details(name,role,color)
-  bar=tk.Frame(self.center,bg=BG);bar.pack(fill='x',pady=(10,0))
-  for label,fn in [('Mic OFF',self.voice_setup),('Camera OFF',lambda:self.note('Camera','Camera is not implemented in this build. It remains OFF.')),('Privacy ON',lambda:self.note('Privacy','No recordings, camera, screen capture or cloud calls run from this workspace.')),('Pause all',self.pause)]:
-   self.button(bar,label,fn,bg=PANEL).pack(side='left',padx=(0,5))
-  self.label(self.center,'Software preview only. Voice core and agent workers are still being built.',8,MUTED,wraplength=630).pack(anchor='w',pady=(10,0))
+
  def voice_view(self,name,color):
   self.body.grid_columnconfigure(0,weight=1);self.body.grid_rowconfigure(0,weight=1)
   zone=tk.Frame(self.body,bg=BG);zone.grid(sticky='nsew');zone.grid_columnconfigure(0,weight=1);zone.grid_rowconfigure(0,weight=1)
-  canvas=tk.Canvas(zone,width=260,height=260,bg=BG,highlightthickness=0);canvas.grid(row=0,column=0)
-  for r,fill in [(114,'#1a2427'),(91,'#253c40'),(70,'#365c61'),(51,color)]:canvas.create_oval(130-r,130-r,130+r,130+r,fill=fill,outline='')
+  canvas=tk.Canvas(zone,width=210,height=210,bg=BG,highlightthickness=0);canvas.grid(row=0,column=0)
+  for r,fill in [(94,'#1a2427'),(75,'#253c40'),(58,'#365c61'),(43,color)]:canvas.create_oval(105-r,105-r,105+r,105+r,fill=fill,outline='')
   for i,h in enumerate([12,24,38,51,32,19,42,57,35,22,12]):
-   x=91+i*7;canvas.create_line(x,130-h/2,x,130+h/2,fill='#e4fff7',width=3)
+   x=66+i*7;canvas.create_line(x,105-h/2,x,105+h/2,fill='#e4fff7',width=3)
   self.label(zone,'Ready when you are.',18).grid(row=1,column=0,pady=(0,8))
-  self.label(zone,'Choose your voice, then set up the local brain.',10,MUTED,wraplength=490).grid(row=2,column=0,pady=(0,20))
-  self.button(zone,'Set up voice',self.voice_setup,bg='#b6e7d9',color='#11231f').grid(row=3,column=0,pady=(0,20))
-  card=tk.Frame(self.body,bg=PANEL,padx=16,pady=14);card.grid(row=1,column=0,sticky='ew',pady=(18,0))
+  self.label(zone,'Choose your voice, then set up the local brain.',10,MUTED,wraplength=490).grid(row=2,column=0,pady=(0,12))
+  self.button(zone,'Set up voice',self.voice_setup,bg='#b6e7d9',color='#11231f').grid(row=3,column=0,pady=(0,12))
+  card=tk.Frame(self.body,bg=PANEL,padx=16,pady=10);card.grid(row=1,column=0,sticky='ew',pady=(8,0))
   self.label(card,'LIVE CAPTIONS',8,MUTED).pack(anchor='w',pady=(0,8));self.label(card,'No conversation yet. Nothing is listening.',11,wraplength=520).pack(anchor='w')
  def chat_view(self):
   card=tk.Frame(self.body,bg=PANEL,padx=18,pady=18);card.pack(fill='x',pady=12)
@@ -81,9 +82,9 @@ class Workspace:
   avatar=tk.Canvas(self.right,width=60,height=60,bg=PANEL,highlightthickness=0);avatar.pack(anchor='w',pady=(0,18));avatar.create_oval(1,1,59,59,fill=color,outline='');avatar.create_text(30,30,text=name[0],fill=BG,font=('Segoe UI',24))
   self.label(self.right,'AGENT PROFILE',8,MUTED).pack(anchor='w',pady=(0,10));self.label(self.right,name,19).pack(anchor='w');self.label(self.right,role,11,MUTED).pack(anchor='w',pady=(4,24))
   descriptions={'JARVIS':'Coordinates the team and reports to you.','NOVA':'Reminders, schedule and daily briefing.','KAI':'Research, news and learning.','LYRA':'Writing, stories, scripts and subtitles.','DEX':'Coding, debugging and technical help.'}
-  self.label(self.right,'INSTRUCTIONS',8,MUTED).pack(anchor='w',pady=(0,8));self.label(self.right,descriptions[name],10,wraplength=210).pack(anchor='w',pady=(0,24))
+  self.label(self.right,'INSTRUCTIONS',8,MUTED).pack(anchor='w',pady=(0,8));self.label(self.right,descriptions[name],10,wraplength=210).pack(anchor='w',pady=(0,15))
   for heading,value in [('VOICE','Waiting for your selection'),('BRAIN','Local default / not connected'),('TOOLS','No permissions enabled'),('NOTIFICATIONS','Off until configured')]:
-   self.label(self.right,heading,8,MUTED).pack(anchor='w',pady=(0,7));self.label(self.right,value,10,wraplength=210).pack(anchor='w',pady=(0,20))
+   self.label(self.right,heading,8,MUTED).pack(anchor='w',pady=(0,7));self.label(self.right,value,10,wraplength=210).pack(anchor='w',pady=(0,12))
   self.button(self.right,'Edit profile',self.edit_profile).pack(fill='x',pady=5);self.label(self.right,'Planned profile, not a running agent.',8,MUTED,wraplength=210).pack(anchor='w',pady=14)
  def note(self,title,text):messagebox.showinfo(title,text,parent=self.root)
  def voice_setup(self):self.note('Voice setup','Voice core is still in testing. The separate diagnostic voice preview uses session consent, headphones and LM Studio. This workspace does not start a microphone or download models.')
@@ -96,7 +97,7 @@ class Workspace:
   nav=tk.Frame(win,bg=RAIL,padx=15,pady=20,width=175);nav.pack(side='left',fill='y');content=tk.Frame(win,bg=PANEL,padx=28,pady=22);content.pack(side='left',fill='both',expand=True)
   def page(tab):
    for x in content.winfo_children():x.destroy()
-   self.label(content,tab,19).pack(anchor='w',pady=(0,20))
+   self.label(content,tab,19).pack(anchor='w',pady=(0,12))
    texts={'General':'Dark workspace preview\nFive planned profiles\nStartup: OFF\nAuto-update: not enabled','Computer':'Microphone: OFF\nCamera: OFF\nScreen capture: OFF\nNo device permission is requested here.','Usage & Billing':'No paid providers or billing setup.\nGroq requires verified Free-tier status.\nAPI keys must use Windows Credential Manager.','Voice':'Two favorites selected in listening tests.\nRemaining voices await your choice.\nNo voice is assigned in this preview.'}
    self.label(content,texts[tab],11,wraplength=400).pack(anchor='w');self.label(content,'Settings shown here are status only.\nOnboarding and persistent controls remain in progress.',9,MUTED,wraplength=400).pack(anchor='w',pady=25)
   for tab in ['General','Computer','Usage & Billing','Voice']:self.button(nav,tab,lambda t=tab:page(t),bg=RAIL).pack(fill='x',pady=4)
