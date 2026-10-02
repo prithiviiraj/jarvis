@@ -69,15 +69,15 @@ class Workspace:
   self.label(zone,'Your assigned voice is ready for setup. Start the local brain.',10,MUTED,wraplength=490).grid(row=2,column=0,pady=(0,12))
   self.button(zone,'Set up voice',self.voice_setup,bg='#b6e7d9',color='#11231f').grid(row=3,column=0,pady=(0,12))
   card=tk.Frame(self.body,bg=PANEL,padx=16,pady=10);card.grid(row=1,column=0,sticky='ew',pady=(8,0))
-  self.label(card,'LIVE CAPTIONS',8,MUTED).pack(anchor='w',pady=(0,8));self.caption_label=self.label(card,self.caption,11,wraplength=520);self.caption_label.pack(anchor='w')
+  self.label(card,'LIVE CAPTIONS',8,MUTED).pack(anchor='w',pady=(0,8));self.caption_label=self.label(card,self.caption,11,wraplength=460);self.caption_label.pack(anchor='w')
  def chat_view(self):
   card=tk.Frame(self.body,bg=PANEL,padx=18,pady=18);card.pack(fill='x',pady=12)
-  self.label(card,'A calm place for your conversations.',15,wraplength=500).pack(anchor='w');self.chat_caption=self.label(card,self.caption+'\n'+self.response,11,wraplength=500);self.chat_caption.pack(anchor='w');self.label(card,'Voice replies appear here for this session.\nTyped chat is not connected yet.',10,MUTED,wraplength=500).pack(anchor='w',pady=10)
+  self.label(card,'A calm place for your conversations.',15,wraplength=460).pack(anchor='w');self.chat_caption=self.label(card,self.caption+'\n'+self.response,11,wraplength=460);self.chat_caption.pack(anchor='w');self.label(card,'Voice replies appear here for this session.\nTyped chat is not connected yet.',10,MUTED,wraplength=460).pack(anchor='w',pady=10)
   row=tk.Frame(self.body,bg=PANEL,padx=10,pady=10);row.pack(side='bottom',fill='x')
   entry=tk.Entry(row,bg=PANEL,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));entry.pack(side='left',fill='x',expand=True);entry.insert(0,'Type a message...')
   self.button(row,'Send',lambda:self.note('Not connected','Chat sending is not connected yet. Nothing was sent.')).pack(side='right')
  def team_view(self):
-  self.label(self.body,'Team Room',17).pack(anchor='w',pady=(2,4));self.label(self.body,'Five distinct voices. No background workers are running.',10,MUTED,wraplength=520).pack(anchor='w',pady=(0,8))
+  self.label(self.body,'Team Room',17).pack(anchor='w',pady=(2,4));self.label(self.body,'Five distinct voices. No background workers are running.',10,MUTED,wraplength=460).pack(anchor='w',pady=(0,8))
   for name,role,color in ROSTER:
    card=tk.Frame(self.body,bg=PANEL,padx=12,pady=7);card.pack(fill='x',pady=3)
    self.label(card,name,11,color).pack(side='left');self.label(card,'  '+role,10,MUTED).pack(side='left');self.label(card,VOICES[name],8,MUTED).pack(side='right')
