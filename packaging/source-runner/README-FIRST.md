@@ -6,7 +6,7 @@ Personal testing build, not a frozen EXE or finished installer. Python 3.12 is r
 2. Double-click SETUP.cmd. It creates a private .venv, installs dependencies and downloads about 500 MB of checksum-verified models to your Windows user-data folder. Wait for "Setup finished".
 3. Double-click LAUNCH.cmd. Use headphones. No AEC or barge-in is implemented; this is half-duplex.
 4. Local option: start LM Studio, load exactly one chat model, start its server on port 1234. Voice setup: allow microphone this session, leave Groq OFF, then Enable voice.
-5. Groq option: Settings > Usage & Billing > Manage Groq API key. Enter your key there and Save securely. Never put keys in chat, this README, scripts or config files. Check your account at console.groq.com is on the Free plan. In Voice setup, enter a currently available model ID, allow recognized text disclosure to Groq and confirm Free plan. Test Groq text connection sends only a fixed greeting; then tick microphone consent and Enable voice.
+5. Groq option: Settings > Usage & Billing > Manage Groq API key. Enter your key there and Save securely. Never put keys in chat, this README, scripts or config files. Check your account at console.groq.com is on the Free plan. In Voice setup, allow recognized text disclosure to Groq and confirm Free plan. Groq model selection is Automatic, choosing an active production chat model from a bounded allowlist (llama-3.1-8b-instant first, then llama-3.3-70b-versatile). It never infers billing from model access. Optional manual override is hidden: open it, paste an active ID, press Enter to lock; unlock or hide it to return to Automatic. Test Groq text connection sends only a fixed greeting; then tick microphone consent and Enable voice.
 
 ## Say this to test
 - "Hello, who are you?"
@@ -27,4 +27,4 @@ Setup uses bounded pip/download retries and resumes checksum-bound model partial
 
 Both GROQ-DIAG.cmd and GROQ-DIAG.py are included beside LAUNCH.cmd. Double-click GROQ-DIAG.cmd after setup. Confirm Free plan and type YES to allow a fixed greeting request using your locally saved key. Send only the printed result codes, never the key. Sanitized codes are also saved to %LOCALAPPDATA%\JARVIS\logs\groq-diagnostic.json. A successful diagnostic proves a text reply, not microphone/audio acceptance. If you exposed a key in a video or chat, revoke it at the Groq console and save a replacement only in app Settings.
 
-This build bundles the diagnostic convenience fix. Visible-key and automatic-model UX changes are not included yet.
+This build includes automatic-model selection and an optional hidden manual override. A freshly pasted key stays visible after Save with Saved status, until the dialog closes. Stored keys are never read back into the field. Keep keys out of screenshots/videos.
