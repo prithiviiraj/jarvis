@@ -79,6 +79,10 @@ def voices():
 
  for window in root.winfo_children():
   if isinstance(window,tk.Toplevel):window.destroy()
+ app.provider_pool();capture('provider-pool-empty')
+ for sid,kind,model,on,consent,free in app.pool_rows:
+  if sid=='slot1':on.set(True);model.insert(0,'synthetic-local-model')
+ app.pool_routes['NOVA'].insert(0,'slot1');app.pool_apply();assert 'Nothing started' in app.pool_status.cget('text');capture('provider-pool-routes');app.pool_window.destroy();app.voice.pool_config=None
  app.open_mini();capture('mini');assert app.mini.attributes('-topmost');app.voice_status='speaking';app.select(1);app.voice_status='speaking';capture('five-orbs-NOVA-speaking');app.voice_status='off';capture('five-orbs-off');app.orb_overlay.close();app.edit_profile();capture('profile')
  app.pause();assert controller.runtime is None
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
