@@ -4,6 +4,7 @@ from jarvis.audio import SileroVad,Endpointer
 from jarvis.speech import WhisperSTT
 import urllib.request,time,json,pathlib,hashlib
 import av,numpy as np
+import platform
 root=pathlib.Path('ci-models');download(root,consent=True);assert ready(root)
 url='https://raw.githubusercontent.com/ggerganov/whisper.cpp/master/samples/jfk.wav'
 with urllib.request.urlopen(url,timeout=30) as r:raw=r.read(2000000)
@@ -20,5 +21,5 @@ for i in range(0,len(padded)-512+1,512):
 vad_time=time.perf_counter()-t;t=time.perf_counter();stt=WhisperSTT(root/'whisper-base',language='en');load=time.perf_counter()-t
 t=time.perf_counter();text=stt.transcribe(x);elapsed=time.perf_counter()-t
 assert 'country' in text.lower(), 'STT fixture transcript unexpected'
-result={'host':'GitHub Windows runner, not owner laptop','audio_url':url,'audio_sha256':hashlib.sha256(raw).hexdigest(),'audio_s':len(x)/16000,'stt_load_s':load,'stt_s':elapsed,'stt_text':text,'vad_processing_s':vad_time,'vad_events':events,'unrun':['physical microphone','accent dataset','echo cancellation','barge-in','live cloud providers','noise suppression','end-to-first-audio']}
+result={'host':platform.system()+' cloud runner, not owner laptop','audio_url':url,'audio_sha256':hashlib.sha256(raw).hexdigest(),'audio_s':len(x)/16000,'stt_load_s':load,'stt_s':elapsed,'stt_text':text,'vad_processing_s':vad_time,'vad_events':events,'unrun':['physical microphone','accent dataset','echo cancellation','barge-in','live cloud providers','noise suppression','end-to-first-audio']}
 pathlib.Path('windows-voice-fixture.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
