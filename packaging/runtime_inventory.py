@@ -21,6 +21,6 @@ for name in ['LICENSE','data/en-us/lexicon_full.json','data/en-us/phonemizer_en_
  p=base/name
  if p.is_file():native.append({'distribution':'Phonemis pinned source/resources','path':name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
 for p in pathlib.Path('packaging/phonemis').rglob('*.txt'):
- dest=licenses/'Phonemis'/p.name;shutil.copy2(p,dest)
+ dest=licenses/'Phonemis'/p.name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,dest)
 result={'scope':'installed Windows inputs, not necessarily frozen outputs','packages':rows,'native_inputs':native,'packages_without_notice_files':missing,'status':'REVIEW REQUIRED. This manifest does not assert redistribution clearance.'}
 (out/'inventory.json').write_text(json.dumps(result,indent=2));print(json.dumps({'packages':len(rows),'native_inputs':len(native),'without_notice_files':missing},indent=2))
