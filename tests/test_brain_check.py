@@ -12,7 +12,7 @@ class ConnectionCheckTests(unittest.TestCase):
   keys.get.assert_not_called()
  def test_auto_model(self):
   keys=Mock();keys.get.return_value='synthetic-key';router=Mock();router.stream.return_value=iter([{'text':'Hello.'}])
-  with patch('jarvis.groq_models.resolve_model',return_value='llama-3.1-8b-instant') as resolve:
+  with patch('jarvis.groq_models.resolve_model',return_value=('llama-3.1-8b-instant',{'llama-3.1-8b-instant'})) as resolve:
    result=check_groq('',True,True,keys,Mock(return_value=router))
   self.assertEqual(result['model'],'llama-3.1-8b-instant');resolve.assert_called_once()
  def test_no_key(self):
