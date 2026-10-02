@@ -79,7 +79,7 @@ def voices():
 
  for window in root.winfo_children():
   if isinstance(window,tk.Toplevel):window.destroy()
- app.open_mini();capture('mini');app.mini.destroy();app.edit_profile();capture('profile')
+ app.open_mini();capture('mini');assert app.mini.attributes('-topmost');app.voice_status='speaking';app.select(1);app.voice_status='speaking';capture('five-orbs-NOVA-speaking');app.voice_status='off';capture('five-orbs-off');app.orb_overlay.close();app.edit_profile();capture('profile')
  app.pause();assert controller.runtime is None
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
  (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
