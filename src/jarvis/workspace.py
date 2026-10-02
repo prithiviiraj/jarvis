@@ -74,15 +74,30 @@ class Workspace:
   self.label(card,'LIVE CAPTIONS',8,MUTED).pack(anchor='w',pady=(0,8));self.caption_label=self.label(card,self.caption,11,wraplength=460);self.caption_label.pack(anchor='w')
  def chat_view(self):
   card=tk.Frame(self.body,bg=PANEL,padx=18,pady=18);card.pack(fill='x',pady=12)
-  self.label(card,'A calm place for your conversations.',15,wraplength=460).pack(anchor='w');self.chat_caption=self.label(card,self.caption+'\n'+self.response,11,wraplength=460);self.chat_caption.pack(anchor='w');self.label(card,'Voice replies appear here for this session.\nTyped chat is not connected yet.',10,MUTED,wraplength=460).pack(anchor='w',pady=10)
+  self.label(card,'A calm place for your conversations.',15,wraplength=460).pack(anchor='w');self.chat_caption=self.label(card,self.caption+'\n'+self.response,11,wraplength=460);self.chat_caption.pack(anchor='w');self.label(card,'Voice replies appear here for this session.\nTyped chat uses local LM Studio only. Mic stays OFF.',10,MUTED,wraplength=460).pack(anchor='w',pady=10)
   row=tk.Frame(self.body,bg=PANEL,padx=10,pady=10);row.pack(side='bottom',fill='x')
-  entry=tk.Entry(row,bg=PANEL,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));entry.pack(side='left',fill='x',expand=True);entry.insert(0,'Type a message...')
-  self.button(row,'Send',lambda:self.note('Not connected','Chat sending is not connected yet. Nothing was sent.')).pack(side='right')
+  entry=tk.Entry(row,bg=PANEL,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));entry.pack(side='left',fill='x',expand=True);self.chat_entry=entry;entry.bind('<Return>',lambda e:self.send_chat())
+  self.button(row,'Send local',self.send_chat).pack(side='right')
+ def send_chat(self):
+  try:self.voice.send_text(self.chat_entry.get());self.chat_entry.delete(0,'end')
+  except (ValueError,RuntimeError) as exc:self.note('Local text chat',str(exc))
  def team_view(self):
   self.label(self.body,'Team Room',17).pack(anchor='w',pady=(2,4));self.label(self.body,'Five distinct voices. No background workers are running.',10,MUTED,wraplength=460).pack(anchor='w',pady=(0,8))
   for name,role,color in ROSTER:
    card=tk.Frame(self.body,bg=PANEL,padx=12,pady=7);card.pack(fill='x',pady=3)
    self.label(card,name,11,color).pack(side='left');self.label(card,'  '+role,10,MUTED).pack(side='left');self.label(card,VOICES[name],8,MUTED).pack(side='right')
+  self.label(self.body,'SHARED SESSION CONVERSATION',8,MUTED).pack(anchor='w',pady=(10,4))
+  self.team_transcript=tk.Text(self.body,bg=PANEL,fg=TEXT,relief='flat',font=('Segoe UI',10),wrap='word',height=7,padx=10,pady=8)
+  self.team_transcript.pack(fill='both',expand=True);self.team_snapshot=None;self.update_team_transcript()
+ def update_team_transcript(self):
+  if not hasattr(self,'team_transcript') or not self.team_transcript.winfo_exists():return
+  turns=self.voice.memory.snapshot()
+  if turns==self.team_snapshot:return
+  self.team_snapshot=turns;self.team_transcript.configure(state='normal');self.team_transcript.delete('1.0','end')
+  self.team_transcript.insert('end','Conversation only. No screen/camera/game sensing.\nRAM only; Pause all and close clear this history.\n\n')
+  if not turns:self.team_transcript.insert('end','No completed turns yet.')
+  for name,user,answer in turns:self.team_transcript.insert('end','You: '+user+'\n'+name+': '+answer+'\n\n')
+  self.team_transcript.configure(state='disabled');self.team_transcript.see('end')
  def details(self,name,role,color):
   avatar=tk.Canvas(self.right,width=60,height=60,bg=PANEL,highlightthickness=0);avatar.pack(anchor='w',pady=(0,8));avatar.create_oval(1,1,59,59,fill=color,outline='');avatar.create_text(30,30,text=name[0],fill=BG,font=('Segoe UI',24))
   self.label(self.right,'AGENT PROFILE',8,MUTED).pack(anchor='w',pady=(0,10));self.label(self.right,name,19).pack(anchor='w');self.label(self.right,role,11,MUTED).pack(anchor='w',pady=(4,24))
@@ -102,12 +117,14 @@ class Workspace:
    elif kind=='brain-check-result':
     callback,result=value
     callback(result)
+   elif kind=='team-updated':self.update_team_transcript()
    elif kind=='transcript':self.caption='You: '+str(value)[:220]
    elif kind=='answer':self.response=ROSTER[self.selected][0]+': '+value['text'][:450]
   if self.status_label.winfo_exists():self.status_label.configure(text='VOICE / '+self.voice_status.upper()[:20])
   if self.mic_button.winfo_exists():self.mic_button.configure(text='Mic ON' if self.voice.runtime and self.voice.runtime.enabled else 'Mic OFF')
   if hasattr(self,'caption_label') and self.caption_label.winfo_exists():self.caption_label.configure(text=self.caption+'\n'+self.response)
   if hasattr(self,'chat_caption') and self.chat_caption.winfo_exists():self.chat_caption.configure(text=self.caption+'\n'+self.response)
+  self.update_team_transcript()
   self.root.after(80,self.poll_voice)
  def voice_setup(self):
   win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x670');win.configure(bg=PANEL);win.transient(self.root)
