@@ -137,7 +137,7 @@ class Workspace:
   self.button(row,'Download models',download).pack(side='left',padx=4);self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
   self.download_cancel.set();self.voice.pause();self.voice_status='off'
-  if self.mini:self.mini.title('JARVIS - Mini orb / OFF')
+  if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
  def settings(self):
   if self.settings_window and self.settings_window.winfo_exists():self.settings_window.lift();return
   win=tk.Toplevel(self.root);self.settings_window=win;win.title('JARVIS - Settings preview');win.geometry('660x440');win.configure(bg=PANEL);win.transient(self.root)
