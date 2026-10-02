@@ -7,9 +7,12 @@ from .security import WindowsCredentials
 def check_groq(model,cloud_consent=False,verified_free=False,key_store=None,router_factory=BrainRouter):
     if not cloud_consent:raise ValueError('Allow sending the test greeting to Groq for this session.')
     if not verified_free:raise ValueError('Confirm your Groq account is on the Free plan first.')
-    if not isinstance(model,str) or not model.strip() or len(model)>200:raise ValueError('Enter a current Groq model ID.')
+    if not isinstance(model,str) or len(model)>200:raise ValueError('Invalid model ID.')
     keys=key_store if key_store is not None else WindowsCredentials()
     if not keys.get('groq'):raise ValueError('Save the key securely in Settings first.')
+    if not model.strip():
+        from .groq_models import resolve_model
+        model=resolve_model('',True,True,keys)
     router=router_factory([configured('groq',model.strip())],key_store=keys)
     started=time.monotonic();pieces=[];first=None
     for delta in router.stream([{'role':'system','content':'Reply briefly. No actions or tool calls.'},{'role':'user','content':'Say hello in one short sentence.'}],cloud_consent=True,verified_free_providers=('groq',)):
