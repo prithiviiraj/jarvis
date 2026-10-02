@@ -74,12 +74,12 @@ class Workspace:
   entry=tk.Entry(row,bg=PANEL,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));entry.pack(side='left',fill='x',expand=True);entry.insert(0,'Type a message...')
   self.button(row,'Send',lambda:self.note('Not connected','Chat sending is not connected yet. Nothing was sent.')).pack(side='right')
  def team_view(self):
-  self.label(self.body,'Team Room',19).pack(anchor='w',pady=(8,4));self.label(self.body,'Five planned roles. No background workers are running.',10,MUTED,wraplength=520).pack(anchor='w',pady=(0,18))
+  self.label(self.body,'Team Room',17).pack(anchor='w',pady=(2,4));self.label(self.body,'Five planned roles. No background workers are running.',10,MUTED,wraplength=520).pack(anchor='w',pady=(0,8))
   for name,role,color in ROSTER:
-   card=tk.Frame(self.body,bg=PANEL,padx=15,pady=13);card.pack(fill='x',pady=5)
+   card=tk.Frame(self.body,bg=PANEL,padx=12,pady=7);card.pack(fill='x',pady=3)
    self.label(card,name,11,color).pack(side='left');self.label(card,'  '+role,10,MUTED).pack(side='left');self.label(card,'NOT CONFIGURED',8,MUTED).pack(side='right')
  def details(self,name,role,color):
-  avatar=tk.Canvas(self.right,width=60,height=60,bg=PANEL,highlightthickness=0);avatar.pack(anchor='w',pady=(0,18));avatar.create_oval(1,1,59,59,fill=color,outline='');avatar.create_text(30,30,text=name[0],fill=BG,font=('Segoe UI',24))
+  avatar=tk.Canvas(self.right,width=60,height=60,bg=PANEL,highlightthickness=0);avatar.pack(anchor='w',pady=(0,8));avatar.create_oval(1,1,59,59,fill=color,outline='');avatar.create_text(30,30,text=name[0],fill=BG,font=('Segoe UI',24))
   self.label(self.right,'AGENT PROFILE',8,MUTED).pack(anchor='w',pady=(0,10));self.label(self.right,name,19).pack(anchor='w');self.label(self.right,role,11,MUTED).pack(anchor='w',pady=(4,24))
   descriptions={'JARVIS':'Coordinates the team and reports to you.','NOVA':'Reminders, schedule and daily briefing.','KAI':'Research, news and learning.','LYRA':'Writing, stories, scripts and subtitles.','DEX':'Coding, debugging and technical help.'}
   self.label(self.right,'INSTRUCTIONS',8,MUTED).pack(anchor='w',pady=(0,8));self.label(self.right,descriptions[name],10,wraplength=210).pack(anchor='w',pady=(0,15))
