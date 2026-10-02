@@ -35,7 +35,9 @@ class Sink:
  def close(self):pass
 out=pathlib.Path('workspace-chain-evidence');out.mkdir(exist_ok=True)
 cache=ensure_layout()/'models';models.download(cache,consent=True);assets=cache/'voices';voice_assets.download(assets,consent=True)
-base=pathlib.Path('phonemis-upstream');shutil.copy2(base/'build/Release/phonemis_runner.exe',assets/'phonemis_runner.exe');shutil.copytree(base/'data/en-us',assets/'en-us',dirs_exist_ok=True)
+base=pathlib.Path('phonemis-upstream');native=pathlib.Path('native-voice');native.mkdir(exist_ok=True);shutil.copy2(base/'build/Release/phonemis_runner.exe',native/'phonemis_runner.exe');shutil.copytree(base/'data/en-us',native/'en-us',dirs_exist_ok=True)
+import hashlib
+manifest={name:hashlib.sha256((native/name).read_bytes()).hexdigest() for name in ['phonemis_runner.exe','en-us/lexicon_full.json','en-us/phonemizer_en_us.bin','en-us/tagger.json']};(native/'manifest.json').write_text(json.dumps(manifest))
 with wave.open('ci-jfk.wav') as w:x=np.frombuffer(w.readframes(w.getnframes()),'<i2').astype(np.float32)/32768
 server=http.server.HTTPServer(('127.0.0.1',0),Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();rows=[]
 controller=WorkspaceVoice();ui=tk.Tk();app=Workspace(ui,controller);ui.update()
