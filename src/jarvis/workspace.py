@@ -83,9 +83,9 @@ class Workspace:
   except (ValueError,RuntimeError) as exc:self.note('Local text chat',str(exc))
  def team_view(self):
   self.label(self.body,'Team Room',17).pack(anchor='w',pady=(2,4));self.label(self.body,'Five distinct voices. No background workers are running.',10,MUTED,wraplength=460).pack(anchor='w',pady=(0,8))
-  for name,role,color in ROSTER:
-   card=tk.Frame(self.body,bg=PANEL,padx=12,pady=2);card.pack(fill='x',pady=1)
-   self.label(card,name,11,color).pack(side='left');self.label(card,'  '+role,10,MUTED).pack(side='left');self.label(card,VOICES[name],8,MUTED).pack(side='right')
+  roster=tk.Frame(self.body,bg=PANEL,padx=8,pady=3);roster.pack(fill='x',pady=3)
+  for i,(name,role,color) in enumerate(ROSTER):
+   self.label(roster,name+' / '+role,9,color).grid(row=i//2,column=i%2,sticky='w',padx=(0,18),pady=1)
   row=tk.Frame(self.body,bg=PANEL);row.pack(fill='x',pady=(5,2))
   self.round_entry=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',10));self.round_entry.pack(side='left',fill='x',expand=True,padx=5)
   self.button(row,'NOVA + JARVIS',self.start_team_round).pack(side='right')
@@ -103,7 +103,7 @@ class Workspace:
   self.team_snapshot=turns;self.team_transcript.configure(state='normal');self.team_transcript.delete('1.0','end')
   self.team_transcript.insert('end','Conversation only. No screen/camera/game sensing.\nRAM only; Pause all and close clear this history.\n\n')
   if not turns:self.team_transcript.insert('end','No completed turns yet.')
-  for name,user,answer in turns:self.team_transcript.insert('end','You: '+user+'\n'+name+': '+answer+'\n\n')
+  for name,user,answer in turns:self.team_transcript.insert('end','You: '+user+'\n'+name+': '+answer+'\n')
   self.team_transcript.configure(state='disabled');self.team_transcript.see('end')
  def details(self,name,role,color):
   avatar=tk.Canvas(self.right,width=60,height=60,bg=PANEL,highlightthickness=0);avatar.pack(anchor='w',pady=(0,8));avatar.create_oval(1,1,59,59,fill=color,outline='');avatar.create_text(30,30,text=name[0],fill=BG,font=('Segoe UI',24))
