@@ -21,3 +21,10 @@ Setup uses bounded pip/download retries and resumes checksum-bound model partial
 
 ## Honest limits
 125+ source tests and cloud fixtures prove software mechanics, not your microphone, speakers, Tamil accent, game performance or 1-second response. Prior fixture first WAV write was 1.53-1.70s with a synthetic brain. No live provider or audible latency acceptance is claimed. No background agent jobs/tools, hands-free agent-name switching, typed chat, tray/autostart or AEC/barge-in are complete. Phase 1 is OPEN. Follow docs/on-device-acceptance.md and report results without keys.
+
+
+## If the Groq connection test fails
+
+Both GROQ-DIAG.cmd and GROQ-DIAG.py are included beside LAUNCH.cmd. Double-click GROQ-DIAG.cmd after setup. Confirm Free plan and type YES to allow a fixed greeting request using your locally saved key. Send only the printed result codes, never the key. Sanitized codes are also saved to %LOCALAPPDATA%\JARVIS\logs\groq-diagnostic.json. A successful diagnostic proves a text reply, not microphone/audio acceptance. If you exposed a key in a video or chat, revoke it at the Groq console and save a replacement only in app Settings.
+
+This build bundles the diagnostic convenience fix. Visible-key and automatic-model UX changes are not included yet.
