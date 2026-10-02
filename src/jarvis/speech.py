@@ -23,7 +23,7 @@ class SapiSpeaker:
     def speak(self,text,generation=None):
         if os.name!='nt':raise RuntimeError('Windows voice is unavailable on this system.')
         # Constant source only. Speech content cannot become PowerShell commands.
-        script="[Console]::InputEncoding=[System.Text.Encoding]::UTF8; $s=New-Object -ComObject SAPI.SpVoice; $text=[Console]::In.ReadToEnd(); [void]$s.Speak($text)"
+        script="[Console]::InputEncoding=[System.Text.Encoding]::UTF8; $s=New-Object -ComObject SAPI.SpVoice; $text=[Console]::In.ReadToEnd(); [void]$s.Speak($text,16)"
         with self.lock:
             if generation is not None and generation!=self.generation:return
             p=subprocess.Popen(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=0x08000000)
