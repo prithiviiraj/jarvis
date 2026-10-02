@@ -4,12 +4,14 @@ Five planned profiles, not five running agents. Sensors/network stay off on laun
 import tkinter as tk
 from tkinter import messagebox,ttk
 from .workspace_voice import WorkspaceVoice,VOICES
-import queue,threading
+import queue,threading,time
 BG='#101013';RAIL='#151518';PANEL='#19191e';LINE='#2b2b32';TEXT='#eeeeF1';MUTED='#96969f'
 ROSTER=[('JARVIS','Team leader','#5bc8b2'),('NOVA','Secretary','#aa8be9'),('KAI','Researcher','#ec9d65'),('LYRA','Writer','#e287b5'),('DEX','Coder','#79a9e8')]
 class Workspace:
  def __init__(self,root,controller=None):
   self.root=root;self.voice=controller or WorkspaceVoice();self.voice_status='off';self.caption='No conversation yet. Nothing is listening.';self.response='';self.setup_busy=False;self.download_cancel=threading.Event();root.title('JARVIS - Voice workspace / experimental');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG)
+  from .experimental.session_awareness import SessionAwareness
+  self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''};self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
   root.grid_columnconfigure(1,weight=1);root.grid_rowconfigure(0,weight=1)
   self.rail=tk.Frame(root,bg=RAIL,width=205,padx=16,pady=18);self.rail.grid(row=0,column=0,sticky='nsew');self.rail.grid_propagate(False)
@@ -33,6 +35,7 @@ class Workspace:
   self.label(self.rail,'Voice profiles. Background\nworkers are not enabled.',9,MUTED,wraplength=170).pack(anchor='w',pady=(10,8))
   self.button(self.rail,'Save notes + clear',self.save_notes).pack(fill='x',pady=4)
   self.button(self.rail,'Provider pool',self.provider_pool).pack(fill='x',pady=4)
+  self.button(self.rail,'Session timer',self.session_timer).pack(fill='x',pady=4)
   self.button(self.rail,'Team Room',lambda:self.set_view('Team Room')).pack(fill='x',pady=4)
   self.button(self.rail,'Settings',self.settings).pack(side='bottom',fill='x',pady=4)
   self.button(self.rail,'Mini orb',self.open_mini).pack(side='bottom',fill='x',pady=4)
@@ -141,7 +144,36 @@ class Workspace:
   if hasattr(self,'caption_label') and self.caption_label.winfo_exists():self.caption_label.configure(text=self.caption+'\n'+self.response)
   if hasattr(self,'chat_caption') and self.chat_caption.winfo_exists():self.chat_caption.configure(text=self.caption+'\n'+self.response)
   self.update_team_transcript()
+  self.poll_timer()
   self.root.after(80,self.poll_voice)
+ def session_timer(self):
+  if self.timer_window and self.timer_window.winfo_exists():self.timer_window.lift();return
+  win=tk.Toplevel(self.root);self.timer_window=win;win.title('JARVIS - Local session timer');win.geometry('520x420');win.configure(bg=PANEL)
+  frame=tk.Frame(win,bg=PANEL,padx=20,pady=16);frame.pack(fill='both',expand=True)
+  self.label(frame,'Local session timer',18).pack(anchor='w')
+  self.label(frame,'You declare the activity. No screen/camera/game detection.\nText suggestions only; no microphone, audio or cloud.',10,MUTED,wraplength=470).pack(anchor='w',pady=10)
+  self.label(frame,'Activity you are starting',10).pack(anchor='w')
+  activity=tk.StringVar(value='gaming');ttk.Combobox(frame,textvariable=activity,values=('gaming','working','watching videos'),state='readonly').pack(anchor='w',pady=5)
+  self.label(frame,'Reminder interval (15-180 minutes)',10).pack(anchor='w')
+  interval=tk.StringVar(value='30');tk.Spinbox(frame,from_=15,to=180,textvariable=interval,width=8).pack(anchor='w',pady=5)
+  consent=tk.BooleanVar(value=False);tk.Checkbutton(frame,text='Allow local text break reminders for this session',variable=consent,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL).pack(anchor='w',pady=5)
+  quiet=tk.BooleanVar(value=self.timer_quiet)
+  def quiet_change():self.timer_quiet=quiet.get()
+  tk.Checkbutton(frame,text='Quiet: defer reminders',variable=quiet,command=quiet_change,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL).pack(anchor='w')
+  self.timer_status=self.label(frame,'OFF. Nothing is watching you.',10,MUTED,wraplength=470);self.timer_status.pack(anchor='w',pady=10)
+  def start():
+   try:self.awareness.start(activity.get(),consent.get(),int(interval.get()));self.timer_status.configure(text='ON: user-declared '+activity.get()+'. Every '+interval.get()+' minutes. Local text only.')
+   except (ValueError,TypeError) as exc:self.note('Session timer',str(exc))
+  def stop():self.awareness.stop();self.timer_status.configure(text='OFF. Session timer cleared.')
+  row=tk.Frame(frame,bg=PANEL);row.pack(anchor='w');self.button(row,'Start timer',start).pack(side='left');self.button(row,'Stop',stop).pack(side='left',padx=8)
+  self.timer_start=start;self.timer_stop=stop;self.timer_consent=consent;self.timer_interval=interval;self.timer_activity=activity
+  def close():self.awareness.stop();win.destroy()
+  win.protocol('WM_DELETE_WINDOW',close)
+ def poll_timer(self):
+  if not self.awareness.enabled:return
+  hidden=self.root.state() in ('withdrawn','iconic')
+  nudge=self.awareness.poll(quiet=self.timer_quiet or hidden,busy=self.voice.busy or self.voice.runtime is not None)
+  if nudge and self.timer_window and self.timer_window.winfo_exists():self.timer_status.configure(text=nudge.text)
  def voice_setup(self):
   win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x670');win.configure(bg=PANEL);win.transient(self.root)
   frame=tk.Frame(win,bg=PANEL,padx=24,pady=12);frame.pack(fill='both',expand=True)
@@ -183,7 +215,9 @@ class Workspace:
    try:
     self.voice.pool_config=None
     self.voice.start(mic.get(),cloud.get(),locked.get(),free.get())
-    self.session_setup={'mic':mic.get(),'cloud':cloud.get(),'free':free.get(),'model':locked.get()}
+    from .experimental.session_awareness import SessionAwareness
+  self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
+  self.session_setup={'mic':mic.get(),'cloud':cloud.get(),'free':free.get(),'model':locked.get()}
     win.destroy()
    except Exception as exc:messagebox.showerror('Cannot start voice',str(exc),parent=win)
   check_status=self.label(frame,'No text test run yet. This test does not speak or use your microphone.',9,MUTED,wraplength=605)
@@ -268,6 +302,10 @@ class Workspace:
   download_button=self.button(row,'Download models',download);download_button.pack(side='left',padx=4);self.model_download_button=download_button
   self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
+  self.awareness.stop()
+  if self.timer_window and self.timer_window.winfo_exists():self.timer_status.configure(text="OFF. Pause all cleared the session timer.")
+  from .experimental.session_awareness import SessionAwareness
+  self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''}
   self.download_cancel.set();self.voice.pause();self.voice.memory.clear();self.voice.pool_config=None;self.voice_status='off'
   if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
@@ -381,5 +419,5 @@ class Workspace:
   self.orb_overlay=OrbOverlay(self.root,lambda:(ROSTER[self.selected][0],self.voice_status),self.select,self.pause)
   self.mini=self.orb_overlay.window
   self.root.withdraw()
- def close(self):self.download_cancel.set();self.voice.close();self.root.destroy()
+ def close(self):self.awareness.stop();self.download_cancel.set();self.voice.close();self.root.destroy()
 def main():root=tk.Tk();Workspace(root);root.mainloop()
