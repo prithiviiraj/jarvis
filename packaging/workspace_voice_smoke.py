@@ -88,6 +88,8 @@ def voices():
  app.pool_routes['NOVA'].insert(0,'slot1');app.pool_apply();assert 'Nothing started' in app.pool_status.cget('text');capture('provider-pool-routes');app.pool_window.destroy();app.voice.pool_config=None
  app.open_mini();capture('mini');assert app.mini.attributes('-topmost');app.select(1);root.update();app.voice.notify('state','speaking');app.poll_voice();capture('five-orbs-NOVA-speaking');assert app.orb_overlay.status.cget('text')=='NOVA / SPEAKING';app.voice.notify('state','off');app.poll_voice();capture('five-orbs-off');assert app.orb_overlay.status.cget('text')=='NOVA / OFF';assert app.mini.overrideredirect();assert app.mini.winfo_rgb(app.mini.attributes('-transparentcolor'))==app.mini.winfo_rgb('#ff00fe');app.voice.notify('state','thinking');app.poll_voice();capture('floating-faces-thinking');app.voice.notify('state','listening');app.poll_voice();capture('floating-faces-listening');root.withdraw();capture('floating-faces-desktop');root.deiconify();app.orb_overlay.close();app.edit_profile();capture('profile')
  app.pause();assert controller.runtime is None
+ for window in root.winfo_children():
+  if isinstance(window,tk.Toplevel):window.destroy()
  local_router=Mock();local_router.ask.return_value={'text':'Synthetic local reply: JARVIS said hello earlier. No screen observation.','provider':'local'};controller.text_factory=Mock(return_value=local_router)
  app.set_view('Chat');app.chat_entry.insert(0,'Synthetic typed question with microphone off.');app.send_chat()
  for _ in range(20):root.update();time.sleep(.01)
