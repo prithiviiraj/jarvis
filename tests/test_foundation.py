@@ -19,7 +19,7 @@ class FoundationTests(unittest.TestCase):
         ensure_layout(self.root)
         for n in ('models','logs','backups'): self.assertTrue((self.root/n).is_dir())
     def test_data_override(self):
-        with patch.dict(os.environ, {'JARVIS_DATA_DIR':str(self.root)}): self.assertEqual(data_root(),self.root)
+        with patch.dict(os.environ, {'JARVIS_DATA_DIR':str(self.root)}): self.assertEqual(data_root(),self.root.resolve())
     def test_defaults(self):
         s=ConfigStore(self.root); self.assertEqual(s.load(),DEFAULT)
         self.assertEqual(json.loads(s.path.read_text()),DEFAULT)
