@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-echo JARVIS Groq diagnostic v2 uses the key saved in Windows Credential Manager.
+echo JARVIS Groq diagnostic v3 uses the key saved in Windows Credential Manager.
 echo It checks active models, then sends at most one fixed greeting.
 echo No key, response text or raw error body is printed or logged.
 echo Only continue if your Groq account is on the Free plan.
@@ -11,5 +11,5 @@ if not exist ".venv\Scripts\python.exe" (
  pause
  exit /b 1
 )
-".venv\Scripts\python.exe" GROQ-DIAG.py --model llama-3.3-70b-versatile --free-plan --consent
+".venv\Scripts\python.exe" GROQ-DIAG.py --free-plan --consent
 pause
