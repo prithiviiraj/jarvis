@@ -1,0 +1,6 @@
+# The reproducible PCM-only faster-whisper wheel is built separately. No PyAV/FFmpeg.
+# Experimental source tests only. Exact Windows binary notice audit required before shipping.
+ctranslate2==4.8.2
+onnxruntime==1.23.2
+numpy==2.2.6
+sounddevice==0.5.6
