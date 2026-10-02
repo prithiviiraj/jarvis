@@ -25,6 +25,15 @@ def voices():
  app.select(0);capture('voice');app.set_view('Team Room');capture('team');app.set_view('Chat');capture('chat')
  app.settings();capture('settings');app.settings_window.destroy()
  app.voice_setup();capture('onboarding')
+ app.groq_cloud_consent.set(True);app.groq_free_confirmation.set(True)
+ with patch('jarvis.brain_check.check_groq',return_value={'model':'openai/gpt-oss-20b','reply':'Hello. I am ready when you are.','first_text_s':0.65}), patch('jarvis.workspace.messagebox.showinfo') as success:
+  app.groq_test_button.invoke()
+  for _ in range(40):root.update();time.sleep(.01)
+  app.poll_voice();root.update()
+  assert success.called;assert 'Reply:' in app.groq_test_status.cget('text');assert app.groq_test_button.cget('state')=='normal';capture('groq-test-success')
+ with patch('jarvis.workspace.messagebox.showerror') as error:
+  app.groq_test_finished({'ok':False,'error':'Synthetic failure. No provider request.'});assert error.called;capture('groq-test-failure')
+
  assert not app.manual_model_entry.winfo_ismapped()
  app.manual_model_toggle.invoke();app.manual_model_entry.insert(0,'llama-3.1-8b-instant');app.manual_model_lock()
  assert app.manual_model_entry.cget('state')=='disabled';capture('manual-model-locked')
