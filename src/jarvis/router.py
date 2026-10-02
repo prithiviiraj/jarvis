@@ -87,6 +87,7 @@ class BrainRouter:
             except ProviderFailure as exc:
                 errors.append((p.name,exc.code))
                 self.disabled_until[p.name]=self.clock()+self.break_seconds
+                if not exc.retryable:break
         raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
 
     def stream(self,messages,cloud_consent=False,preferred=None,cancel=None,stream_transport=None,verified_free_providers=()):
@@ -132,4 +133,5 @@ class BrainRouter:
                 if not pending_fallback:
                     with self.lock:self.disabled_until[p.name]=self.clock()+self.break_seconds
                 if emitted:raise RouterError('The answer stopped mid-sentence. Please try again.') from None
+                if not exc.retryable:break
         raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
