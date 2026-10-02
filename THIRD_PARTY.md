@@ -26,3 +26,8 @@ Whisper base model: MIT (OpenAI), converted by Systran; https://huggingface.co/S
 Experimental requirements pin measured versions. faster-whisper (MIT), CTranslate2 (MIT), ONNX Runtime (MIT), NumPy (BSD), sounddevice (MIT, PortAudio separately MIT), PyAV (BSD, FFmpeg binary license depends on exact wheel/build). No Phase1 EXE distribution until exact Windows wheels, transitive code, DLL licenses/source/relinking obligations and notices are audited. SAPI calls the owner-installed Windows voice; no Microsoft voice redistributed.
 
 Candidate card licenses alone never clear the full dependency stack. See docs/speech-license-screen.md. No paid provider is enabled by default.
+
+
+## Experimental workspace bridge, not binary redistribution clearance
+
+The connected source path selects the isolated Phonemis native frontend (pinned MIT source/resources with retained JSON MIT, xsimd BSD/Boost/Sun notices) and direct Kokoro ONNX. GPL eSpeak/phonemizer are not used by this path. Five raw style matrices and model/config files are pinned to the same immutable Kokoro KMP revision and SHA256-verified. Source: https://huggingface.co/Shusek00/kokoro-kmp-models . Exact Windows DLLs, native resources, voice provenance and all distribution notices still need a complete installer manifest/audit before packaging. Source test success does not clear that gate.
