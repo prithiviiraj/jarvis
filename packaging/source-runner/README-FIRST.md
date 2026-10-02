@@ -30,3 +30,5 @@ Both GROQ-DIAG.cmd and GROQ-DIAG.py are included beside LAUNCH.cmd. Double-click
 This build includes automatic-model selection and an optional hidden manual override. A freshly pasted key stays visible after Save with Saved status, until the dialog closes. Stored keys are never read back into the field. Keep keys out of screenshots/videos.
 
 GPT-OSS requests use low reasoning effort and a bounded1024 total completion-token cap, including reasoning. Reasoning text is excluded and never displayed/spoken as an answer. The text-test button shows Testing, then full success/failure feedback. This text test does not speak or start the microphone.
+
+Download models opens a visible window: Starting/cache checksum checks, an activity meter and current-file received MiB, then Ready or Failed/Cancelled. It is not an overall-percent meter. Only missing files download; verified caches are reused. Cancel keeps verified files and eligible partial downloads.
