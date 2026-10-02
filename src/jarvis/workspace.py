@@ -88,13 +88,18 @@ class Workspace:
    self.label(roster,name+' / '+role,9,color).grid(row=i//2,column=i%2,sticky='w',padx=(0,18),pady=1)
   row=tk.Frame(self.body,bg=PANEL);row.pack(fill='x',pady=(5,2))
   self.round_entry=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',10));self.round_entry.pack(side='left',fill='x',expand=True,padx=5)
-  self.button(row,'NOVA + JARVIS',self.start_team_round).pack(side='right')
-  self.round_status_label=self.label(self.body,'Type a topic for a local text round. No mic or background talking.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
+  self.button(row,'Start round',self.start_team_round).pack(side='right')
+  choices=tk.Frame(self.body,bg=BG);choices.pack(fill='x')
+  self.round_agents={}
+  for name,role,color in ROSTER:
+   var=tk.BooleanVar(value=name in ('NOVA','JARVIS'));self.round_agents[name]=var
+   tk.Checkbutton(choices,text=name,variable=var,bg=BG,fg=color,selectcolor=LINE,activebackground=BG,font=('Segoe UI',8),padx=0,pady=0).pack(side='left')
+  self.round_status_label=self.label(self.body,'Choose2-5profiles. Order: JARVIS, NOVA, KAI, LYRA, DEX. Text only.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
   self.label(self.body,'SHARED SESSION CONVERSATION',8,MUTED).pack(anchor='w',pady=(10,4))
   self.team_transcript=tk.Text(self.body,bg=PANEL,fg=TEXT,relief='flat',font=('Segoe UI',10),wrap='word',height=7,padx=10,pady=8)
   self.team_transcript.pack(fill='both',expand=True);self.team_snapshot=None;self.update_team_transcript()
  def start_team_round(self):
-  try:self.voice.team_round(self.round_entry.get());self.round_entry.delete(0,'end')
+  try:self.voice.team_round(self.round_entry.get(),tuple(name for name in self.round_agents if self.round_agents[name].get()));self.round_entry.delete(0,'end')
   except (ValueError,RuntimeError) as exc:self.note('Local team round',str(exc))
  def update_team_transcript(self):
   if not hasattr(self,'team_transcript') or not self.team_transcript.winfo_exists():return
