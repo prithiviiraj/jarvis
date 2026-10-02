@@ -107,6 +107,9 @@ def voices():
 
 
 
+ app.session_timer();assert not app.awareness.enabled;capture('session-timer-off')
+ app.timer_consent.set(True);app.timer_activity.set('gaming');app.timer_interval.set('15');app.timer_start();assert app.awareness.enabled;capture('session-timer-on')
+ app.awareness.clock=lambda:app.awareness.started+900;app.poll_timer();assert 'cannot see' in app.timer_status.cget('text');capture('session-timer-reminder');app.timer_stop();assert not app.awareness.enabled;app.timer_window.destroy()
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
  (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
 def guarded():
