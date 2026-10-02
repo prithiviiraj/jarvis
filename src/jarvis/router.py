@@ -20,6 +20,7 @@ class Provider:
     model:str
     cloud:bool=False
     timeout:float=8.0
+    requires_free_plan:bool=False
     def __post_init__(self):
         u=urlsplit(self.url)
         if not self.name or not self.model or u.username or u.password or u.query or u.fragment:
@@ -62,7 +63,7 @@ class BrainRouter:
         if len(names)!=len(self.providers) or set(names)!={p.name for p in self.providers}:raise ValueError('Order must include every provider once.')
         with self.lock:
             byname={p.name:p for p in self.providers};self.providers=[byname[n] for n in names]
-    def ask(self,messages,cloud_consent=False,preferred=None,contains_image=False,cloud_image_consent=False):
+    def ask(self,messages,cloud_consent=False,preferred=None,contains_image=False,cloud_image_consent=False,verified_free_providers=()):
         if not isinstance(messages,list) or not messages:raise RouterError('A conversation is required.')
         ordered=list(self.providers)
         if preferred:
@@ -70,6 +71,7 @@ class BrainRouter:
             ordered.sort(key=lambda p:p.name!=preferred)
         errors=[]
         for p in ordered:
+            if p.requires_free_plan and p.name not in verified_free_providers:continue
             if p.cloud and (not cloud_consent or (contains_image and not cloud_image_consent)):continue
             if self.disabled_until.get(p.name,0)>self.clock():continue
             if p.cloud:
@@ -85,7 +87,7 @@ class BrainRouter:
                 self.disabled_until[p.name]=self.clock()+self.break_seconds
         raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
 
-    def stream(self,messages,cloud_consent=False,preferred=None,cancel=None,stream_transport=None):
+    def stream(self,messages,cloud_consent=False,preferred=None,cancel=None,stream_transport=None,verified_free_providers=()):
         """Fail over only before any text has escaped; never mix provider answers."""
         from .streaming import StreamTransport
         if not isinstance(messages,list) or not messages:raise RouterError('A conversation is required.')
@@ -96,6 +98,7 @@ class BrainRouter:
             ordered.sort(key=lambda p:p.name!=preferred)
         for p in ordered:
             if cancel is not None and cancel.is_set():return
+            if p.requires_free_plan and p.name not in verified_free_providers:continue
             if p.cloud and not cloud_consent:continue
             with self.lock:
                 if self.disabled_until.get(p.name,0)>self.clock():continue
