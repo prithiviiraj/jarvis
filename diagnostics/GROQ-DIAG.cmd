@@ -1,12 +1,13 @@
 @echo off
 cd /d "%~dp0"
-echo This test uses the Groq key saved in Windows Credential Manager.
-echo It sends a fixed greeting. No key or reply text is printed or logged.
+echo JARVIS Groq diagnostic v2 uses the key saved in Windows Credential Manager.
+echo It checks active models, then sends at most one fixed greeting.
+echo No key, response text or raw error body is printed or logged.
 echo Only continue if your Groq account is on the Free plan.
-set /p "confirm=Type YES to approve this greeting test: "
+set /p "confirm=Type YES to approve models lookup and one greeting: "
 if /I not "%confirm%"=="YES" exit /b 1
 if not exist ".venv\Scripts\python.exe" (
- echo Put GROQ-DIAG.py and GROQ-DIAG.cmd beside LAUNCH.cmd after setup.
+ echo Place both diagnostic files beside LAUNCH.cmd after setup.
  pause
  exit /b 1
 )
