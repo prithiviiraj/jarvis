@@ -33,4 +33,9 @@ def voices():
  app.pause();assert controller.runtime is None
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
  (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
-root.after(800,voices);root.mainloop()
+def guarded():
+ try:voices()
+ except Exception:
+  import traceback
+  traceback.print_exc();root.destroy();raise
+root.after(800,guarded);root.mainloop()
