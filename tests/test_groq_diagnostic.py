@@ -17,4 +17,8 @@ class DiagnosticTests(unittest.TestCase):
  def test_list_denied_no_greeting(self):
   http=Mock();http.open.side_effect=self.error(403,b'edge');rows=diag.probe('SECRET','model',None,Mock(return_value=http));self.assertEqual(http.open.call_count,1);self.assertEqual(len(rows),1)
  def test_missing_model_no_greeting(self):
-  http=MagicMock();http.open.return_value.__enter__.return_value.read.return_value=b'{"data":[]}';rows=diag.probe('SECRET','model',None,Mock(return_value=http));self.assertEqual(http.open.call_count,1);self.assertEqual(rows[-1]['code'],'SKIPPED_REQUESTED_MODEL_NOT_ACTIVE')
+  http=MagicMock();http.open.return_value.__enter__.return_value.read.return_value=b'{"data":[]}';rows=diag.probe('SECRET','model',None,Mock(return_value=http));self.assertEqual(http.open.call_count,1);self.assertEqual(rows[-1]['code'],'SKIPPED_NO_SELECTED_LISTED_CHAT_MODEL')
+
+ def test_optional_active_field_auto(self):
+  http=MagicMock();resp=Mock();resp.read.side_effect=[b'{"data":[{"id":"openai/gpt-oss-20b"}]}',b'{"choices":[{"message":{"content":"hello"}}]}'];http.open.return_value.__enter__.return_value=resp
+  rows=diag.probe('SECRET','',None,Mock(return_value=http));self.assertEqual(rows[0]['selected_model'],'openai/gpt-oss-20b');self.assertEqual(rows[-1]['code'],'OK_GROQ_REPLY_RECEIVED')
