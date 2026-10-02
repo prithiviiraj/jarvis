@@ -1,3 +1,20 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9501fd3..dfa7664 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -91,7 +91,11 @@ if(BUILD_TESTS)
+   target_include_directories(phonemis_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
+   target_include_directories(phonemis_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+   target_compile_definitions(phonemis_test PRIVATE PHONEMIS_PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}")
+-  target_compile_options(phonemis_test PRIVATE -Wno-deprecated-declarations)
++  if(MSVC)
++    target_compile_options(phonemis_test PRIVATE /wd4996)
++  else()
++    target_compile_options(phonemis_test PRIVATE -Wno-deprecated-declarations)
++  endif()
+ 
+   # Always add previously excluded Protophone sources.
+   if(ET_ON)
 diff --git a/src/phonemis/base/phonemizer/nn/constants.h b/src/phonemis/base/phonemizer/nn/constants.h
 index 1002ce9..e3c3976 100644
 --- a/src/phonemis/base/phonemizer/nn/constants.h
