@@ -30,11 +30,13 @@ class OrbOverlay:
             self.canvas.tag_bind(orb,'<Button-1>',lambda e,n=i:self.select(n));self.canvas.tag_bind(label,'<Button-1>',lambda e,n=i:self.select(n))
         self.status=tk.Label(self.window,text='OFF') # Diagnostic state only, not packed.
         self.menu=tk.Menu(self.window,tearoff=False)
-        for text,command in [('Open workspace',root.lift),('Pause all',pause),('Reduced motion',self.toggle_motion),('Close overlay',self.close)]:self.menu.add_command(label=text,command=command)
+        for text,command in [('Open workspace',self.show_workspace),('Pause all',pause),('Reduced motion',self.toggle_motion),('Close overlay',self.close)]:self.menu.add_command(label=text,command=command)
         self.canvas.bind('<Button-3>',lambda e:self.menu.tk_popup(e.x_root,e.y_root))
         self.canvas.bind('<ButtonPress-2>',lambda e:setattr(self,'drag',(e.x_root,e.y_root,self.window.winfo_x(),self.window.winfo_y())))
         self.canvas.bind('<B2-Motion>',self.move)
         self.window.protocol('WM_DELETE_WINDOW',self.close);self.animate()
+    def show_workspace(self):
+        self.root.deiconify();self.root.lift()
     def move(self,e):
         if hasattr(self,'drag'):
             sx,sy,x,y=self.drag;self.window.geometry('+%d+%d'%(x+e.x_root-sx,y+e.y_root-sy))
@@ -64,4 +66,4 @@ class OrbOverlay:
         if self.job:
             try:self.window.after_cancel(self.job)
             except self.tk.TclError:pass
-        self.job=None;self.window.destroy()
+        self.job=None;self.window.destroy();self.show_workspace()
