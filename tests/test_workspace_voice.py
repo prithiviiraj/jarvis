@@ -53,3 +53,7 @@ class BridgeTests(unittest.TestCase):
  def test_cloud_auto_allowed_after_consent(self):
   runtime=Mock();factory=Mock(return_value=runtime);c=WorkspaceVoice(factory);c.start(True,True,'',True).join(2)
   self.assertEqual(factory.call_args.args[3],'');runtime.enable.assert_called_once_with(consent=True,cloud_consent=True)
+
+ def test_shared_memory_survives_profile_switch_and_clears_close(self):
+  c=WorkspaceVoice(Mock(return_value=Mock()));c.start(True).join(2);c.runtime.record_turn('a','b');c.select('NOVA');c.start(True).join(2)
+  self.assertEqual(c.runtime.shared_context()[1]['content'],'[JARVIS] b');c.close();self.assertEqual(c.memory.messages(),[])
