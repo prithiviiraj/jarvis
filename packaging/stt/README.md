@@ -1,0 +1,6 @@
+# Experimental PCM-only STT wheel
+Do not ship the upstream PyAV Windows wheel as 'BSD-only'. Exact av17.1.0 wheel embeds libx264/libx265 and FFmpeg8.1.1; native license/config does not settle their commercial/GPL exception. Source: https://github.com/PyAV-Org/PyAV/issues/2270 . Official FFmpeg compliance: https://www.ffmpeg.org/legal.html . x264: https://www.videolan.org/developers/x264.html . No GPL exception or commercial license assumed.
+
+Narrow alternative: build_pcm_fork.py accepts ONLY the exact upstream faster-whisper1.2.1 wheel SHA79a66ad50688c0b794dd501dc340a736992a6342f7f95e5811be60b5224a26a7. It removes av import/decoder/dependency, retains MIT license and pad_or_trim, rejects file decoding, and marks changes. ndarray microphone input remains the upstream transcription path. Deterministic output SHA06822a39db86d0f260225b263856318e03ce2e7b3442ee4c46a9abfd1a0da235. Not a silent dependency stub: the unsupported API explicitly errors.
+
+Fresh Linux environment with no av imported the fork and transcribed actual16kHz PCM JFK correctly, load.834s/STT1.201s. Windows test pending. No product hardware claim. Other binary notices and dependency pins remain an audit before EXE distribution. Do not install original requirements-voice.txt for shipping; it remains historical evaluation.
