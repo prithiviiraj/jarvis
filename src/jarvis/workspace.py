@@ -84,7 +84,7 @@ class Workspace:
  def team_view(self):
   self.label(self.body,'Team Room',17).pack(anchor='w',pady=(2,4));self.label(self.body,'Five distinct voices. No background workers are running.',10,MUTED,wraplength=460).pack(anchor='w',pady=(0,8))
   for name,role,color in ROSTER:
-   card=tk.Frame(self.body,bg=PANEL,padx=12,pady=7);card.pack(fill='x',pady=3)
+   card=tk.Frame(self.body,bg=PANEL,padx=12,pady=2);card.pack(fill='x',pady=1)
    self.label(card,name,11,color).pack(side='left');self.label(card,'  '+role,10,MUTED).pack(side='left');self.label(card,VOICES[name],8,MUTED).pack(side='right')
   self.label(self.body,'SHARED SESSION CONVERSATION',8,MUTED).pack(anchor='w',pady=(10,4))
   self.team_transcript=tk.Text(self.body,bg=PANEL,fg=TEXT,relief='flat',font=('Segoe UI',10),wrap='word',height=7,padx=10,pady=8)
