@@ -1,0 +1,29 @@
+name: JARVIS Phase2 workspace UI preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Windows UI pixels and real navigation
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m pip install Pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw 'Pixel dependency failed' }
+          python packaging/workspace_smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Workspace smoke failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-workspace-UI-preview-only
+          path: workspace-evidence
+          retention-days: 7
+          if-no-files-found: error
