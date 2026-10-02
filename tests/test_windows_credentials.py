@@ -14,9 +14,10 @@ class WindowsCredentialIntegration(unittest.TestCase):
             def target(provider):return target
         store=TestCredentials()
         try:
-            self.assertIsNone(store.get('test'))
+            self.assertIsNone(store.get('test'));self.assertFalse(store.status('test')['present'])
             store.set('test', 'synthetic-test-value-not-an-api-key')
             self.assertEqual(store.get('test'), 'synthetic-test-value-not-an-api-key')
-            store.delete('test');self.assertIsNone(store.get('test'))
+            reopened=TestCredentials();self.assertEqual(reopened.get('test'),'synthetic-test-value-not-an-api-key');self.assertTrue(reopened.status('test')['present']);self.assertIsNotNone(reopened.status('test')['saved_at'])
+            store.delete('test');self.assertIsNone(store.get('test'));self.assertFalse(store.status('test')['present'])
             store.delete('test')
         finally:store.delete('test')
