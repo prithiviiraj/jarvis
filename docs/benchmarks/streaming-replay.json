@@ -1,0 +1,13 @@
+{
+  "test": "Actual local STT -> real localhost SSE -> bounded clauses -> fake speaker replay",
+  "s": 1.2804944110002907,
+  "speech_calls": 2,
+  "transcript": "And so my fellow Americans ask not what your country can do for you,  ask what you can do for your country.",
+  "limits": [
+    "fake microphone",
+    "fake brain content",
+    "fake speaker, no sound",
+    "no hardware",
+    "not end-to-first-audio"
+  ]
+}
