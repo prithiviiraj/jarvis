@@ -5,7 +5,12 @@ from .router import NoRedirect
 from .security import WindowsCredentials
 # Current documented production chat models. Smaller model first for voice speed.
 # Never pick arbitrary/preview/tool/audio IDs returned by the account endpoint.
-PREFERRED=('llama-3.1-8b-instant','llama-3.3-70b-versatile')
+PREFERRED=('openai/gpt-oss-20b','openai/gpt-oss-120b','llama-3.1-8b-instant','llama-3.3-70b-versatile')
+APP_UA='JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'
+
+def listed_ids(data):
+    if not isinstance(data,list):raise ValueError('Invalid model response.')
+    return {x['id'] for x in data if isinstance(x,dict) and isinstance(x.get('id'),str) and 0<len(x['id'])<=200 and x['id'].isascii() and all(c.isalnum() or c in '-_./' for c in x['id']) and ('active' not in x or x['active'] is True)}
 class GroqCheckError(RuntimeError):pass
 
 def error_code(exc):
@@ -31,13 +36,13 @@ def resolve_model(override='',cloud_consent=False,verified_free=False,key_store=
     if not key:raise GroqCheckError('NO_SAVED_GROQ_KEY: Save a key in Settings first.')
     def load(context):
         http=opener_factory(urllib.request.ProxyHandler({}),NoRedirect(),urllib.request.HTTPSHandler(context=context))
-        req=urllib.request.Request(ENDPOINTS['groq']+'/models',headers={'Authorization':'Bearer '+key})
+        req=urllib.request.Request(ENDPOINTS['groq']+'/models',headers={'Authorization':'Bearer '+key,'User-Agent':APP_UA,'Accept':'application/json'})
         with http.open(req,timeout=12) as r:
             raw=r.read(65537)
             if len(raw)>65536:raise ValueError()
             data=json.loads(raw)['data']
             if not isinstance(data,list):raise ValueError()
-            return {x['id'] for x in data if isinstance(x,dict) and isinstance(x.get('id'),str) and x.get('active') is True}
+            return listed_ids(data)
     try:
         try:ids=load(ssl.create_default_context())
         except Exception as exc:
