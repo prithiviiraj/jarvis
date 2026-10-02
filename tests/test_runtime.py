@@ -27,3 +27,7 @@ class RuntimeTests(unittest.TestCase):
   def chunks(*a,**k):
    self.v.pause();yield {'text':'stale','provider':'local'}
   self.v.router.stream.side_effect=chunks;self.v.turn([0],self.v.generation,False,[]);self.assertEqual(self.v.history,[]);self.v.speaker.speak.assert_not_called()
+
+ def test_shared_context_and_completed_turn_record(self):
+  self.v.shared_context=lambda:[{'role':'assistant','content':'[JARVIS] earlier'}];self.v.record_turn=Mock();self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertIn({'role':'assistant','content':'[JARVIS] earlier'},self.v.router.ask.call_args.args[0]);self.v.record_turn.assert_called_once_with('Hi','Hello')
