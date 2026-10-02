@@ -18,7 +18,7 @@ for n,data in sorted(files.items()):
  if n!=record:writer.writerow([n,'sha256='+base64.urlsafe_b64encode(hashlib.sha256(data).digest()).decode().rstrip('='),len(data)])
 writer.writerow([record,'','']);files[record]=buf.getvalue().encode()
 out=dest/src.name
-with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as target:
+with zipfile.ZipFile(out,'w',zipfile.ZIP_STORED) as target:
  for n,data in sorted(files.items()):
-  info=zipfile.ZipInfo(n,(2026,10,2,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o644<<16;target.writestr(info,data)
+  info=zipfile.ZipInfo(n,(2026,10,2,0,0,0));info.create_system=3;info.compress_type=zipfile.ZIP_STORED;info.external_attr=0o644<<16;target.writestr(info,data)
 print(out,hashlib.sha256(out.read_bytes()).hexdigest())
