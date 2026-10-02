@@ -1,0 +1,71 @@
+name: JARVIS Phase 0 foundation Windows
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned build-only tools
+        run: python -m pip install pyinstaller==6.16.0 Pillow==11.3.0
+      - name: Unit and Windows credential tests
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = "$PWD\src"
+          $env:JARVIS_DATA_DIR = "$PWD\ci-data"
+          python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { throw 'Foundation tests failed' }
+          python -m jarvis --check
+          if ($LASTEXITCODE -ne 0) { throw 'Foundation check failed' }
+      - name: Freeze foundation and retain runtime notices
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name JARVIS-Foundation --paths src packaging/launch.py
+          if ($LASTEXITCODE -ne 0) { throw 'Freeze failed' }
+          New-Item dist/JARVIS-Foundation/licenses -ItemType Directory -Force
+          Copy-Item "$env:pythonLocation\LICENSE.txt" dist/JARVIS-Foundation/licenses/PYTHON-LICENSE.txt
+          $tkLicense = Get-ChildItem "$env:pythonLocation\tcl" -Filter license.terms -Recurse | Select-Object -First 1
+          if (-not $tkLicense) { throw 'Tcl/Tk license missing' }
+          Copy-Item $tkLicense.FullName dist/JARVIS-Foundation/licenses/TCL-TK-LICENSE.txt
+          python -c "import importlib.metadata as m,pathlib; d=m.distribution('pyinstaller'); p=next(f for f in d.files if str(f).endswith('COPYING.txt')); pathlib.Path('dist/JARVIS-Foundation/licenses/PYINSTALLER-COPYING.txt').write_bytes(d.locate_file(p).read_bytes())"
+          if ($LASTEXITCODE -ne 0) { throw 'PyInstaller license missing' }
+          Copy-Item THIRD_PARTY.md dist/JARVIS-Foundation/THIRD_PARTY.md
+      - name: Frozen EXE visual smoke
+        shell: pwsh
+        run: |
+          $env:JARVIS_DATA_DIR = "$PWD\exe-test-data"
+          python packaging/gui_smoke.py "$PWD\dist\JARVIS-Foundation\JARVIS-Foundation.exe" "$PWD\dist\foundation-smoke.png"
+          if ($LASTEXITCODE -ne 0) { throw 'EXE visual smoke failed' }
+      - name: Compile and test installer
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Installer tool failed' }
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging/installer.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compile failed' }
+          $installer = Get-ChildItem installer-output/*.exe | Select-Object -First 1
+          $installDir = "$PWD\installed-foundation"
+          $p = Start-Process $installer.FullName -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=$installDir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw 'Install failed' }
+          python packaging/gui_smoke.py "$installDir\JARVIS-Foundation.exe" "$PWD\installer-output\installed-smoke.png"
+          if ($LASTEXITCODE -ne 0) { throw 'Installed launch failed' }
+          $p = Start-Process "$installDir\unins000.exe" -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw 'Uninstall failed' }
+          if (Test-Path "$installDir\JARVIS-Foundation.exe") { throw 'Uninstall left executable' }
+          Get-FileHash installer-output/*.exe -Algorithm SHA256 | Format-List | Out-File installer-output/SHA256.txt
+          python -m pip freeze | Out-File installer-output/build-packages.txt
+          Copy-Item THIRD_PARTY.md installer-output/THIRD_PARTY.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Phase0-Foundation
+          path: |
+            installer-output/*
+            dist/foundation-smoke.png
+          retention-days: 7
+          if-no-files-found: error
