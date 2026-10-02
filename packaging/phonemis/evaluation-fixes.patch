@@ -1,0 +1,111 @@
+diff --git a/src/phonemis/base/phonemizer/nn/constants.h b/src/phonemis/base/phonemizer/nn/constants.h
+index 1002ce9..e3c3976 100644
+--- a/src/phonemis/base/phonemizer/nn/constants.h
++++ b/src/phonemis/base/phonemizer/nn/constants.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <cstddef>
+ #include <unordered_map>
+ 
+ namespace phonemis::phonemizer::nn::constants {
+diff --git a/src/phonemis/base/processor/num2word/layer.h b/src/phonemis/base/processor/num2word/layer.h
+index d4a961b..36fd000 100644
+--- a/src/phonemis/base/processor/num2word/layer.h
++++ b/src/phonemis/base/processor/num2word/layer.h
+@@ -5,6 +5,7 @@
+ #include "../layer.h"
+ 
+ #include <concepts>
++#include <optional>
+ #include <cstdint>
+ #include <variant>
+ 
+diff --git a/src/phonemis/base/tokenizer/types.h b/src/phonemis/base/tokenizer/types.h
+index 258c24d..41b03c6 100644
+--- a/src/phonemis/base/tokenizer/types.h
++++ b/src/phonemis/base/tokenizer/types.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <string>
+ 
+ #include <unordered_map>
+ #include <unordered_set>
+diff --git a/src/phonemis/lang/en/lexicon_phonemizer.cpp b/src/phonemis/lang/en/lexicon_phonemizer.cpp
+index 52efd3a..c0523a1 100644
+--- a/src/phonemis/lang/en/lexicon_phonemizer.cpp
++++ b/src/phonemis/lang/en/lexicon_phonemizer.cpp
+@@ -100,6 +100,21 @@ void LexiconPhonemizer::update_context(size_t curr_token_id, std::span<const Tok
+       } else {
+         global_context_.vowel_next = std::nullopt;
+       }
++      // Changed for JARVIS evaluation: acronym pronunciation, not spelling,
++      // determines article vowel context (FBI starts /e/, USA starts /j/).
++      if (strings::is_all_upper(next_token.text)) {
++        auto phones = lookup_nnp(next_token.text);
++        for (char32_t phone : phones) {
++          if (constants::ipa::kVowels.contains(phone)) {
++            global_context_.vowel_next = true;
++            break;
++          }
++          if (constants::ipa::kConsonants.contains(phone)) {
++            global_context_.vowel_next = false;
++            break;
++          }
++        }
++      }
+     }
+   }
+ 
+diff --git a/src/phonemis/utils/strings.h b/src/phonemis/utils/strings.h
+index 4506364..723a245 100644
+--- a/src/phonemis/utils/strings.h
++++ b/src/phonemis/utils/strings.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <optional>
+ 
+ #include "unicode.h"
+ 
+diff --git a/test/xsimd_test.cpp b/test/xsimd_test.cpp
+index ef21599..5d8a2ca 100644
+--- a/test/xsimd_test.cpp
++++ b/test/xsimd_test.cpp
+@@ -12,7 +12,9 @@ REGISTER_TEST(xsimd_basic_arithmetic_test)
+ 
+     std::vector<float> a = {1.0f, 2.0f, 3.0f, 4.0f};
+     std::vector<float> b = {5.0f, 6.0f, 7.0f, 8.0f};
+-    std::vector<float> res(4);
++    a.resize(batch_type::size);
++    b.resize(batch_type::size);
++    std::vector<float> res(batch_type::size);
+ 
+     auto b_a = xs::load_unaligned(a.data());
+     auto b_b = xs::load_unaligned(b.data());
+@@ -34,11 +36,11 @@ REGISTER_TEST(xsimd_load_store_aligned_test)
+     using batch_type = xs::batch<float>;
+     constexpr size_t alignment = xs::default_arch::alignment();
+ 
+-    float* a = static_cast<float*>(xs::aligned_malloc(4 * sizeof(float), alignment));
+-    float* b = static_cast<float*>(xs::aligned_malloc(4 * sizeof(float), alignment));
+-    float* res = static_cast<float*>(xs::aligned_malloc(4 * sizeof(float), alignment));
++    float* a = static_cast<float*>(xs::aligned_malloc(batch_type::size * sizeof(float), alignment));
++    float* b = static_cast<float*>(xs::aligned_malloc(batch_type::size * sizeof(float), alignment));
++    float* res = static_cast<float*>(xs::aligned_malloc(batch_type::size * sizeof(float), alignment));
+ 
+-    for (size_t i = 0; i < 4; ++i) {
++    for (size_t i = 0; i < batch_type::size; ++i) {
+         a[i] = static_cast<float>(i + 1);
+         b[i] = static_cast<float>((i + 1) * 2);
+     }
+@@ -67,7 +69,8 @@ REGISTER_TEST(xsimd_math_functions_test)
+     using batch_type = xs::batch<float>;
+ 
+     std::vector<float> a = {0.0f, 1.0f, 2.0f, 3.0f};
+-    std::vector<float> res(4);
++    a.resize(batch_type::size);
++    std::vector<float> res(batch_type::size);
+ 
+     auto b_a = xs::load_unaligned(a.data());
+     auto b_res = xs::exp(b_a);
