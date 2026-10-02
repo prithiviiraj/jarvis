@@ -1,5 +1,5 @@
 """Windows UI bridge smoke with synthetic runtime. No physical audio claim."""
-import tkinter as tk,pathlib,json
+import tkinter as tk,pathlib,json,time
 from unittest.mock import Mock
 from PIL import ImageGrab
 from jarvis.workspace import Workspace
@@ -13,8 +13,9 @@ def factory(name,notify,*args):
  def close():runtime.enabled=False
  runtime.enable.side_effect=enable;runtime.close.side_effect=close;created.append((name,runtime));return runtime
 root=tk.Tk();controller=WorkspaceVoice(factory);app=Workspace(root,controller)
-rows=[]
-def capture(name):root.update();ImageGrab.grab().save(out/(name+'.png'))
+rows=[];failed=[False]
+def capture(name):
+ root.update();time.sleep(.25);root.update();ImageGrab.grab().save(out/(name+'.png'))
 def voices():
  for i,name in enumerate(VOICES):
   app.select(i);controller.start(True).join(3);app.poll_voice();root.update()
@@ -37,5 +38,7 @@ def guarded():
  try:voices()
  except Exception:
   import traceback
-  traceback.print_exc();root.destroy();raise
+  traceback.print_exc();failed[0]=True;root.destroy()
 root.after(800,guarded);root.mainloop()
+
+if failed[0]:raise SystemExit(1)
