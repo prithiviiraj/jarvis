@@ -35,7 +35,7 @@ def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None):
 class StreamTransport:
     def __init__(self):self.http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
     def stream(self,provider,messages,key=None,cancel=None):
-        headers={'Content-Type':'application/json','Accept':'text/event-stream'}
+        headers={'Content-Type':'application/json','Accept':'text/event-stream','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
         if key:headers['Authorization']='Bearer '+key
         req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,data=json.dumps({'model':provider.model,'messages':messages,'stream':True,'max_tokens':300}).encode())
         try:
