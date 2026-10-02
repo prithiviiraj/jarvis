@@ -86,9 +86,16 @@ class Workspace:
   for name,role,color in ROSTER:
    card=tk.Frame(self.body,bg=PANEL,padx=12,pady=2);card.pack(fill='x',pady=1)
    self.label(card,name,11,color).pack(side='left');self.label(card,'  '+role,10,MUTED).pack(side='left');self.label(card,VOICES[name],8,MUTED).pack(side='right')
+  row=tk.Frame(self.body,bg=PANEL);row.pack(fill='x',pady=(5,2))
+  self.round_entry=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',10));self.round_entry.pack(side='left',fill='x',expand=True,padx=5)
+  self.button(row,'NOVA + JARVIS',self.start_team_round).pack(side='right')
+  self.round_status_label=self.label(self.body,'Type a topic for a local text round. No mic or background talking.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
   self.label(self.body,'SHARED SESSION CONVERSATION',8,MUTED).pack(anchor='w',pady=(10,4))
   self.team_transcript=tk.Text(self.body,bg=PANEL,fg=TEXT,relief='flat',font=('Segoe UI',10),wrap='word',height=7,padx=10,pady=8)
   self.team_transcript.pack(fill='both',expand=True);self.team_snapshot=None;self.update_team_transcript()
+ def start_team_round(self):
+  try:self.voice.team_round(self.round_entry.get());self.round_entry.delete(0,'end')
+  except (ValueError,RuntimeError) as exc:self.note('Local team round',str(exc))
  def update_team_transcript(self):
   if not hasattr(self,'team_transcript') or not self.team_transcript.winfo_exists():return
   turns=self.voice.memory.snapshot()
@@ -117,6 +124,8 @@ class Workspace:
    elif kind=='brain-check-result':
     callback,result=value
     callback(result)
+   elif kind=='round-status':
+    if hasattr(self,'round_status_label') and self.round_status_label.winfo_exists():self.round_status_label.configure(text=str(value))
    elif kind=='team-updated':self.update_team_transcript()
    elif kind=='transcript':self.caption='You: '+str(value)[:220]
    elif kind=='answer':self.response=ROSTER[self.selected][0]+': '+value['text'][:450]
