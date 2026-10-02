@@ -22,7 +22,7 @@ class Workspace:
  def label(self,parent,text,size=11,color=TEXT,bg=None,**kw):
   return tk.Label(parent,text=text,bg=bg or parent.cget('bg'),fg=color,font=('Segoe UI',size),anchor='w',justify='left',**kw)
  def button(self,parent,text,fn,bg=PANEL,color=TEXT,**kw):
-  return tk.Button(parent,text=text,command=fn,bg=bg,fg=color,activebackground=LINE,activeforeground=TEXT,relief='flat',bd=0,cursor='hand2',font=('Segoe UI',10),padx=10,pady=6,**kw)
+  return tk.Button(parent,text=text,command=fn,bg=bg,fg=color,activebackground=LINE,activeforeground=TEXT,relief='flat',bd=0,cursor='hand2',font=('Segoe UI',10),padx=10,pady=2 if parent is self.rail else 6,**kw)
  def build_rail(self):
   for child in self.rail.winfo_children():child.destroy()
   self.label(self.rail,'J A R V I S',15).pack(anchor='w',pady=(0,4));self.label(self.rail,'VOICE WORKSPACE',8,MUTED).pack(anchor='w',pady=(0,15))
@@ -33,11 +33,11 @@ class Workspace:
    title=self.button(row,name+'\n'+role,lambda n=i:self.select(n),bg=row.cget('bg'),anchor='w',justify='left');title.configure(pady=2);title.pack(side='left',fill='x',expand=True)
    c.bind('<Button-1>',lambda e,n=i:self.select(n))
   self.label(self.rail,'Voice profiles. Background\nworkers are not enabled.',9,MUTED,wraplength=170).pack(anchor='w',pady=(4,4))
-  self.button(self.rail,'Save notes + clear',self.save_notes).pack(fill='x',pady=4)
-  self.button(self.rail,'Provider pool',self.provider_pool).pack(fill='x',pady=4)
-  self.button(self.rail,'Session timer',self.session_timer).pack(fill='x',pady=4)
-  self.button(self.rail,'Settings',self.settings).pack(side='bottom',fill='x',pady=4)
-  self.button(self.rail,'Mini orb',self.open_mini).pack(side='bottom',fill='x',pady=4)
+  self.button(self.rail,'Save notes + clear',self.save_notes).pack(fill='x',pady=1)
+  self.button(self.rail,'Provider pool',self.provider_pool).pack(fill='x',pady=1)
+  self.button(self.rail,'Session timer',self.session_timer).pack(fill='x',pady=1)
+  self.button(self.rail,'Settings',self.settings).pack(side='bottom',fill='x',pady=1)
+  self.button(self.rail,'Mini orb',self.open_mini).pack(side='bottom',fill='x',pady=1)
  def select(self,i):self.voice.select(ROSTER[i][0]);self.voice_status='off';self.selected=i;self.caption='No conversation yet. Nothing is listening.';self.response='';self.build_rail();self.render()
  def set_view(self,view):self.view=view;self.render()
  def render(self):
