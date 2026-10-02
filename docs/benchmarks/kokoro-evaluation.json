@@ -1,0 +1,52 @@
+{
+  "test": "Kokoro v1 FP32 ONNX CPU, af_heart, 2 CPU threads, five synthetic sentences",
+  "load_s": 1.424,
+  "peak_process_rss_MiB": 518.0,
+  "model_sha256": "beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a",
+  "voices_sha256": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
+  "results": [
+    {
+      "sentence": "Hello. I am ready when you are.",
+      "synthesis_s": 1.28,
+      "audio_s": 2.031,
+      "RTF": 0.631,
+      "sample": "jarvis-kokoro-sample-1.wav"
+    },
+    {
+      "sentence": "Your meeting starts in ten minutes.",
+      "synthesis_s": 0.931,
+      "audio_s": 1.996,
+      "RTF": 0.467,
+      "sample": "jarvis-kokoro-sample-2.wav"
+    },
+    {
+      "sentence": "I found three useful ideas, and one needs your decision.",
+      "synthesis_s": 1.73,
+      "audio_s": 3.532,
+      "RTF": 0.49,
+      "sample": "jarvis-kokoro-sample-3.wav"
+    },
+    {
+      "sentence": "Would you like me to repeat that more slowly?",
+      "synthesis_s": 1.44,
+      "audio_s": 2.595,
+      "RTF": 0.555,
+      "sample": "jarvis-kokoro-sample-4.wav"
+    },
+    {
+      "sentence": "Take your time. We can work through this together.",
+      "synthesis_s": 1.263,
+      "audio_s": 2.593,
+      "RTF": 0.487,
+      "sample": "jarvis-kokoro-sample-5.wav"
+    }
+  ],
+  "packaging": "Private evaluation only. kokoro-onnx MIT wrapper uses GPL espeak-ng and phonemizer. Not cleared for app integration or redistributing this stack.",
+  "limits": [
+    "No physical playback/voice preference",
+    "No Tamil test",
+    "Not end-to-first-audio",
+    "Not laptop CPU/GPU/gaming test",
+    "Single voice, no all-engine ranking"
+  ]
+}
