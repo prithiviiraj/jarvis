@@ -36,3 +36,5 @@ class ModelTests(unittest.TestCase):
  def test_prefers_production_oss_fast(self):self.assertEqual(self.run_model([{'id':'llama-3.1-8b-instant','active':True},{'id':'openai/gpt-oss-20b'}]),'openai/gpt-oss-20b')
  def test_explicit_inactive_not_selected(self):
   with self.assertRaises(GroqCheckError):self.run_model([{'id':'openai/gpt-oss-20b','active':False}])
+
+ def test_quality_preference120_when_both_listed(self):self.assertEqual(self.run_model([{"id":"openai/gpt-oss-20b"},{"id":"openai/gpt-oss-120b"}]),"openai/gpt-oss-120b")
