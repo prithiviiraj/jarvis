@@ -1,5 +1,5 @@
 """Windows UI bridge smoke with synthetic runtime. No physical audio claim."""
-import tkinter as tk,pathlib,json,time
+import tkinter as tk,pathlib,json,time,threading
 from unittest.mock import Mock,patch
 from PIL import ImageGrab
 from jarvis.workspace import Workspace
@@ -35,6 +35,21 @@ def voices():
   app.groq_test_finished({'ok':False,'error':'Synthetic failure. No provider request.'});assert error.called;capture('groq-test-failure')
 
  assert not app.manual_model_entry.winfo_ismapped()
+ # Actual progress UI, synthetic downloads only. No owner network/provider calls.
+ released=threading.Event();began=threading.Event()
+ def fake_download(*args,**kw):
+  began.set();released.wait(3);kw['notify']('model.bin',12582912);time.sleep(.3)
+ with patch('jarvis.workspace.messagebox.askyesno',return_value=True),patch('jarvis.models.download',side_effect=fake_download),patch('jarvis.voice_assets.download'):
+  app.start_model_download();assert began.wait(1);assert app.model_download_button.cget('state')=='disabled'
+  capture('model-download-starting');released.set()
+  for _ in range(15):root.update();time.sleep(.01)
+  capture('model-download-bytes')
+  for _ in range(60):root.update();time.sleep(.01)
+  assert 'Ready:' in app.model_download_label.cget('text');capture('model-download-ready');app.model_download_window.destroy()
+ with patch('jarvis.workspace.messagebox.askyesno',return_value=True),patch('jarvis.models.download',side_effect=RuntimeError('SYNTHETIC failure')):
+  app.start_model_download()
+  for _ in range(30):root.update();time.sleep(.01)
+  assert 'failed' in app.model_download_label.cget('text');capture('model-download-failed');app.model_download_window.destroy()
  app.manual_model_toggle.invoke();app.manual_model_entry.insert(0,'llama-3.1-8b-instant');app.manual_model_lock()
  assert app.manual_model_entry.cget('state')=='disabled';capture('manual-model-locked')
 
