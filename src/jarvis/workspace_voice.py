@@ -80,9 +80,11 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False):
         keys=WindowsCredentials()
         if not keys.get('groq'):raise RuntimeError('Save your Groq API key in Settings first.')
         from .groq_models import resolve_model
-        model=resolve_model(model,True,True,keys)
+        model,listed=resolve_model(model,True,True,keys,details=True)
         notify('status','Groq model: '+model+' / Free plan confirmed by you, not verified by API.')
-        router=FreeSessionRouter(BrainRouter([configured('groq',model)],key_store=keys),True)
+        from dataclasses import replace
+        provider=replace(configured('groq',model),allow_20b_fallback='openai/gpt-oss-20b' in listed)
+        router=FreeSessionRouter(BrainRouter([provider],key_store=keys),True)
     else:
         ids=local_models()
         if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
