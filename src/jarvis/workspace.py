@@ -2,7 +2,7 @@
 Five planned profiles, not five running agents. Sensors/network stay off on launch.
 """
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox,ttk
 from .workspace_voice import WorkspaceVoice,VOICES
 import queue,threading
 BG='#101013';RAIL='#151518';PANEL='#19191e';LINE='#2b2b32';TEXT='#eeeeF1';MUTED='#96969f'
@@ -176,19 +176,54 @@ class Workspace:
   self.groq_cloud_consent=cloud;self.groq_free_confirmation=free
   def download():
    if self.setup_busy:return
-   if not messagebox.askyesno('Download models','Download roughly 500 MB of verified local speech models and all five voices? No audio is uploaded. Native frontend must also be installed by the build.',parent=win):return
-   self.setup_busy=True;self.download_cancel.clear()
+   if not messagebox.askyesno('Download models','Check existing cached models, then download only missing verified speech models and all five voices (roughly500MB if missing)? No audio is uploaded.',parent=win):return
+   self.setup_busy=True;self.download_cancel.clear();download_button.configure(state='disabled')
+   progress=tk.Toplevel(self.root);progress.title('JARVIS - Model downloads');progress.geometry('620x300');progress.configure(bg=PANEL);progress.transient(self.root)
+   pane=tk.Frame(progress,bg=PANEL,padx=24,pady=24);pane.pack(fill='both',expand=True)
+   self.label(pane,'Speech models and five voices',17).pack(anchor='w')
+   state_label=self.label(pane,'Starting: checking cached files and checksums...',11,wraplength=560);state_label.pack(anchor='w',pady=12)
+   meter=ttk.Progressbar(pane,mode='indeterminate');meter.pack(fill='x',pady=4);meter.start(80)
+   self.label(pane,'Activity meter, not overall percent. Bytes are for the current file.\nVerified cached models are reused. Partial downloads can resume.',9,MUTED,wraplength=560).pack(anchor='w',pady=8)
+   state={'text':'Starting: checking cached files and checksums...','done':False,'ok':False};guard=threading.Lock()
+   def update_text(text):
+    with guard:state['text']=text
+   def report(name,received):update_text('Downloading '+name+'\n'+format(received/1048576,'.2f')+' MiB received in this file. Checking checksum before install.')
+   def cancel():
+    if state['done']:progress.destroy();return
+    self.download_cancel.set();update_text('Cancelling... waiting for the current bounded network read.\nVerified files stay; partial downloads are kept for retry.');cancel_button.configure(state='disabled')
+   cancel_button=self.button(pane,'Cancel download',cancel);cancel_button.pack(anchor='e',pady=8)
+   progress.protocol('WM_DELETE_WINDOW',cancel)
+   self.model_download_window=progress;self.model_download_label=state_label;self.model_download_meter=meter
+   def poll():
+    if not progress.winfo_exists():return
+    with guard:values=dict(state)
+    state_label.configure(text=values['text'],fg='#b6e7d9' if values['done'] and values['ok'] else TEXT)
+    if values['done']:
+     meter.stop();cancel_button.configure(text='Close',state='normal')
+     if win.winfo_exists():download_button.configure(state='normal')
+     return
+    progress.after(100,poll)
    def run():
     try:
      from .paths import ensure_layout
      from . import models,voice_assets
-     cache=ensure_layout()/'models';models.download(cache,consent=True,cancel=self.download_cancel);voice_assets.download(cache/'voices',consent=True,cancel=self.download_cancel)
-     self.voice.notify('status','Models downloaded. Native frontend and LM Studio must be ready.')
-    except Exception:self.voice.notify('error','Model download failed or was cancelled. Retry to resume.')
-    finally:self.setup_busy=False
-   threading.Thread(target=run,daemon=True).start()
+     cache=ensure_layout()/'models';models.download(cache,consent=True,notify=report,cancel=self.download_cancel)
+     if self.download_cancel.is_set():raise RuntimeError('cancelled')
+     update_text('Checking speech assets complete. Checking cached voice models...')
+     voice_assets.download(cache/'voices',consent=True,notify=report,cancel=self.download_cancel)
+     if self.download_cancel.is_set():raise RuntimeError('cancelled')
+     update_text('Ready: all speech models and five voices are checksum-verified.\nCached files were reused where possible. Close this window, then Enable voice with headphones.')
+     with guard:state['ok']=True
+    except Exception:
+     update_text('Cancelled. Verified files kept; retry resumes eligible partial downloads.' if self.download_cancel.is_set() else 'Download failed. Existing verified files kept. Check connection, then retry.\nNo unverified file was installed.')
+    finally:
+     self.setup_busy=False
+     with guard:state['done']=True
+   progress.after(100,poll);threading.Thread(target=run,daemon=True).start()
+  self.start_model_download=download
   row=tk.Frame(frame,bg=PANEL);row.pack(fill='x',pady=12)
-  self.button(row,'Download models',download).pack(side='left',padx=4);self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
+  download_button=self.button(row,'Download models',download);download_button.pack(side='left',padx=4);self.model_download_button=download_button
+  self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
   self.download_cancel.set();self.voice.pause();self.voice_status='off'
   if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
