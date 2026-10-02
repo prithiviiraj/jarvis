@@ -4,6 +4,7 @@ root=pathlib.Path('source-runner/JARVIS-EXPERIMENTAL');root.mkdir(parents=True,e
 for folder in ['src','docs']:shutil.copytree(folder,root/folder,ignore=shutil.ignore_patterns('__pycache__','*.pyc'),dirs_exist_ok=True)
 for p in pathlib.Path('packaging/source-runner').iterdir():shutil.copy2(p,root/p.name)
 shutil.copy2('THIRD_PARTY.md',root/'THIRD_PARTY.md')
+for name in ['GROQ-DIAG.py','GROQ-DIAG.cmd']:shutil.copy2(pathlib.Path('diagnostics')/name,root/name)
 base=pathlib.Path('phonemis-upstream');native=root/'native-voice';native.mkdir(exist_ok=True)
 shutil.copy2(base/'build/Release/phonemis_runner.exe',native/'phonemis_runner.exe');(native/'en-us').mkdir(exist_ok=True)
 for name in ['lexicon_full.json','phonemizer_en_us.bin','tagger.json']:shutil.copy2(base/'data/en-us'/name,native/'en-us'/name)
