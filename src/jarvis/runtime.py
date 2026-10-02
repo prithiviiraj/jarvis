@@ -1,5 +1,5 @@
 """Single-owner voice runtime. Headphone/half-duplex safety mode, not AEC/barge-in."""
-import threading
+import threading,time
 from .audio import ContinuousMic
 class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
@@ -25,9 +25,9 @@ class VoiceRuntime:
         threading.Thread(target=self.turn,args=(audio,generation,cloud,history),daemon=True).start()
     def valid(self,generation):return self.enabled and generation==self.generation
     def turn(self,audio,generation,cloud,history):
-        ticket=self.speaker.generation
+        ticket=self.speaker.generation;started=time.monotonic();metrics={}
         try:
-            self.notify('state','transcribing');text=self.stt.transcribe(audio)
+            self.notify('state','transcribing');text=self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
@@ -39,12 +39,15 @@ class VoiceRuntime:
                     for delta in self.router.stream(messages,cloud_consent=cloud,cancel=self.cancel):
                         with self.lock:
                             if not self.valid(generation):return
+                            if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
                             pieces.append(delta['text']);provider[:]=[delta]
                             self.notify('answer',{'text':''.join(pieces),'provider':delta['provider']})
                         yield delta['text']
                 def clause(part):
                     with self.lock:
-                        if self.valid(generation):self.notify('state','speaking')
+                        if self.valid(generation):
+                            if 'first_clause_s' not in metrics:metrics['first_clause_s']=time.monotonic()-started
+                            self.notify('state','speaking')
                 SpeechQueue(self.speaker,self.cancel).play_stream(chunks(),ticket,clause)
                 answer={'text':''.join(pieces),'provider':provider[0]['provider'] if provider else 'local'}
                 if not answer['text']:raise RuntimeError('Empty reply')
@@ -63,6 +66,8 @@ class VoiceRuntime:
         finally:
             with self.lock:
                 self.busy=False
+                if self.valid(generation):
+                    metrics['turn_s']=time.monotonic()-started;metrics['scope']='processing/queued clause timing, not first audible audio';self.notify('metrics',metrics)
                 if self.valid(generation) and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
                 elif self.valid(generation):
                     self.enabled=False;self.mic.stop_event.set();self.speaker.stop();self.notify('state','off - voice failed, press Enable to retry')
