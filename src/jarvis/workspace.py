@@ -30,7 +30,7 @@ class Workspace:
   for i,(name,role,color) in enumerate(ROSTER):
    row=tk.Frame(self.rail,bg=LINE if i==self.selected else RAIL,pady=2,padx=6);row.pack(fill='x',pady=1)
    c=tk.Canvas(row,width=30,height=30,bg=row.cget('bg'),highlightthickness=0);c.pack(side='left',padx=(0,8));c.create_oval(1,1,29,29,fill=color,outline='');c.create_text(15,15,text=name[0],fill=BG,font=('Segoe UI',11,'bold'))
-   title=self.button(row,name+'\n'+role,lambda n=i:self.select(n),bg=row.cget('bg'),anchor='w',justify='left');title.pack(side='left',fill='x',expand=True)
+   title=self.button(row,name+'\n'+role,lambda n=i:self.select(n),bg=row.cget('bg'),anchor='w',justify='left');title.configure(pady=2);title.pack(side='left',fill='x',expand=True)
    c.bind('<Button-1>',lambda e,n=i:self.select(n))
   self.label(self.rail,'Voice profiles. Background\nworkers are not enabled.',9,MUTED,wraplength=170).pack(anchor='w',pady=(4,4))
   self.button(self.rail,'Save notes + clear',self.save_notes).pack(fill='x',pady=4)
