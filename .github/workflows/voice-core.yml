@@ -21,7 +21,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Source tests failed' }
           python -m jarvis --check
           if ($LASTEXITCODE -ne 0) { throw 'Foundation check failed' }
-      - name: Real Windows SAPI, no cloud or microphone
+      - name: Real Windows SAPI synthetic file, no physical output claim
         shell: pwsh
         run: |
           $env:PYTHONPATH = "$PWD\src"
