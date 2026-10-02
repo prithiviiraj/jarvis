@@ -77,9 +77,9 @@ class WorkspaceVoice:
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def team_round(self,topic,names=('NOVA','JARVIS')):
-        """Explicit two-profile local text round. Not autonomous or audible."""
+        """Explicit two-to-five-profile local text round. Not autonomous or audible."""
         if not isinstance(topic,str) or not topic.strip() or len(topic)>1000:raise ValueError('Type a topic up to1000characters.')
-        if not isinstance(names,tuple) or len(names)!=2 or len(set(names))!=2 or any(n not in VOICES for n in names):raise ValueError('Choose two different known profiles.')
+        if not isinstance(names,tuple) or not 2<=len(names)<=5 or len(set(names))!=len(names) or any(n not in VOICES for n in names):raise ValueError('Choose2to5different known profiles.')
         with self.lock:
             if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Pause voice and wait for the current conversation first.')
             self.busy=True;self.generation+=1;ticket=self.generation;initial_context=self.memory.messages()
