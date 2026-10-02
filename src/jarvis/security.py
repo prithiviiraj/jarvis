@@ -3,7 +3,7 @@ import ctypes
 from ctypes import wintypes
 import os
 
-PROVIDERS = {'gemini', 'nim', 'grok'}
+PROVIDERS = {'gemini', 'nim', 'groq', 'grok'}
 class CredentialError(RuntimeError):
     pass
 
