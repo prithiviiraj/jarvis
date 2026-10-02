@@ -6,6 +6,7 @@ class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
         self.cancel=threading.Event();self.streaming=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
+        self.shared_context=None;self.record_turn=None
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
     def enable(self,consent=False,cloud_consent=False):
         if not consent:raise ValueError('Microphone needs session consent.')
@@ -32,7 +33,8 @@ class VoiceRuntime:
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
-            messages=[{'role':'system','content':prompt(self.persona)}]+history[-6:]+[{'role':'user','content':text}]
+            context=self.shared_context() if callable(self.shared_context) else history[-6:]
+            messages=[{'role':'system','content':prompt(self.persona)}]+context+[{'role':'user','content':text}]
             if self.streaming:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
@@ -61,6 +63,7 @@ class VoiceRuntime:
                 self.speaker.speak(answer['text'],generation=ticket)
             with self.lock:
                 if not self.valid(generation):return
+                if callable(self.record_turn):self.record_turn(text,answer['text'])
                 self.history=(history+[{'role':'user','content':text},{'role':'assistant','content':answer['text']}])[-6:]
         except Exception:
             with self.lock:
