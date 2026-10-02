@@ -32,3 +32,14 @@ class RoundTests(unittest.TestCase):
  def test_oversized_or_blank_reply(self):
   for reply in ['', 'x'*3001,None]:
    c,r=self.setup_controller();r.ask.side_effect=None;r.ask.return_value={'text':reply};c.team_round('topic').join(2);self.assertEqual(c.memory.snapshot(),[])
+
+ def test_all_five_sequential_context(self):
+  c,r=self.setup_controller();names=('JARVIS','NOVA','KAI','LYRA','DEX');r.ask.side_effect=[{'text':n+' actual reply','provider':'local'} for n in names]
+  c.team_round('Topic',names).join(2);self.assertEqual([n for n,u,a in c.memory.snapshot()],list(names))
+  for i,call in enumerate(r.ask.call_args_list):
+   self.assertIn('You are '+names[i],call.args[0][0]['content'])
+   for prior in names[:i]:self.assertTrue(any('['+prior+'] '+prior+' actual reply'==m['content'] for m in call.args[0]))
+ def test_three_profiles_failure_atomic(self):
+  c,r=self.setup_controller();c.memory.append('JARVIS','old','kept');r.ask.side_effect=[{'text':'one'},{'text':'two'},RuntimeError('last failed')];c.team_round('topic',('NOVA','LYRA','DEX')).join(2);self.assertEqual(c.memory.snapshot(),[('JARVIS','old','kept')])
+ def test_three_profiles_selection_order(self):
+  c,r=self.setup_controller();r.ask.side_effect=[{'text':'one'},{'text':'two'},{'text':'three'}];c.team_round('topic',('DEX','KAI','NOVA')).join(2);self.assertEqual([n for n,u,a in c.memory.snapshot()],['DEX','KAI','NOVA'])
