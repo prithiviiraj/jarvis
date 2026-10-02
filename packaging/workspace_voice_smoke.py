@@ -1,0 +1,36 @@
+"""Windows UI bridge smoke with synthetic runtime. No physical audio claim."""
+import tkinter as tk,pathlib,json
+from unittest.mock import Mock
+from PIL import ImageGrab
+from jarvis.workspace import Workspace
+from jarvis.workspace_voice import WorkspaceVoice,VOICES
+out=pathlib.Path('workspace-evidence');out.mkdir(exist_ok=True)
+created=[]
+def factory(name,notify,*args):
+ runtime=Mock();runtime.enabled=False
+ def enable(**kw):
+  assert kw['consent'];runtime.enabled=True;notify('transcript','Hello. Which voice are you?');notify('answer',{'text':'Hello. I am '+name+'. This is a synthetic CI reply, not a live model response.'})
+ def close():runtime.enabled=False
+ runtime.enable.side_effect=enable;runtime.close.side_effect=close;created.append((name,runtime));return runtime
+root=tk.Tk();controller=WorkspaceVoice(factory);app=Workspace(root,controller)
+rows=[]
+def capture(name):root.update();ImageGrab.grab().save(out/(name+'.png'))
+def voices():
+ for i,name in enumerate(VOICES):
+  app.select(i);controller.start(True).join(3);app.poll_voice();root.update()
+  assert controller.runtime.enabled
+  assert name in app.response
+  rows.append({'profile':name,'voice':VOICES[name],'synthetic_runtime_connected':True})
+ app.select(0);capture('voice');app.set_view('Team Room');capture('team');app.set_view('Chat');capture('chat')
+ app.settings();capture('settings');app.settings_window.destroy()
+ app.voice_setup();capture('onboarding')
+ for window in root.winfo_children():
+  if isinstance(window,tk.Toplevel):window.destroy()
+ app.groq_key();capture('key-onboarding')
+ for window in root.winfo_children():
+  if isinstance(window,tk.Toplevel):window.destroy()
+ app.open_mini();capture('mini');app.mini.destroy();app.edit_profile();capture('profile')
+ app.pause();assert controller.runtime is None
+ result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
+ (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
+root.after(800,voices);root.mainloop()
