@@ -27,7 +27,7 @@ jobs:
       - name: Native MSVC build and upstream regression tests
         shell: pwsh
         run: |
-          cmake -S phonemis-upstream -B phonemis-upstream/build -DBUILD_RUNNER=ON -DBUILD_TESTS=ON
+          cmake -S phonemis-upstream -B phonemis-upstream/build -DBUILD_RUNNER=ON -DBUILD_TESTS=ON -DCMAKE_CXX_FLAGS="/utf-8"
           if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
           cmake --build phonemis-upstream/build --config Release --parallel 2
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
