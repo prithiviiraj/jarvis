@@ -1,5 +1,6 @@
 """Reasoning-provider router. Cloud is opt-in; no tool calls or key files."""
 from dataclasses import dataclass
+from .chat_payload import payload,reply_metadata
 import json
 import time
 import threading
@@ -40,14 +41,14 @@ class HttpTransport:
         headers={'Content-Type':'application/json','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
         if key:headers['Authorization']='Bearer '+key
         req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,
-          data=json.dumps({'model':provider.model,'messages':messages,'stream':False,'max_tokens':300}).encode())
+          data=json.dumps(payload(provider.model,messages)).encode())
         try:
             with self.http.open(req,timeout=provider.timeout) as r:
                 raw=r.read(1048577)
                 if len(raw)>1048576:raise ProviderFailure('oversize',False)
                 j=json.loads(raw)
                 answer=j['choices'][0]['message']['content']
-                if not isinstance(answer,str) or not answer.strip():raise ProviderFailure('empty')
+                if not isinstance(answer,str) or not answer.strip():raise ProviderFailure('empty-token-limit' if reply_metadata(j)['finish_category']=='length' else 'empty')
                 return answer.strip()
         except urllib.error.HTTPError as e:
             raise ProviderFailure('http-'+str(e.code),e.code in (408,429,500,502,503,504)) from None
