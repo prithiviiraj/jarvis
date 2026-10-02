@@ -347,5 +347,6 @@ class Workspace:
   from .orbs import OrbOverlay
   self.orb_overlay=OrbOverlay(self.root,lambda:(ROSTER[self.selected][0],self.voice_status),self.select,self.pause)
   self.mini=self.orb_overlay.window
+  self.root.withdraw()
  def close(self):self.download_cancel.set();self.voice.close();self.root.destroy()
 def main():root=tk.Tk();Workspace(root);root.mainloop()
