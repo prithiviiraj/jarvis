@@ -1,7 +1,7 @@
-"""Owner-run Groq diagnostic v2. Never prints keys, response text or error messages."""
+"""Owner-run Groq diagnostic v3. Never prints keys, response text or error messages."""
 import argparse,json,pathlib,ssl,socket,time,urllib.request,urllib.error,sys
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent/'src'))
-UA='JARVIS-experimental/diagnostic-v2 (+https://github.com/prithiviiraj/jarvis)'
+UA='JARVIS-experimental/diagnostic-v3 (+https://github.com/prithiviiraj/jarvis)'
 KNOWN={'model_permission_blocked_org':'MODEL_PERMISSION_BLOCKED_ORG','model_permission_blocked_project':'MODEL_PERMISSION_BLOCKED_PROJECT','invalid_api_key':'INVALID_API_KEY','model_not_found':'MODEL_NOT_FOUND'}
 
 def classify(exc):
@@ -45,12 +45,15 @@ def probe(key,model,context,opener_factory=urllib.request.build_opener):
  try:
   data,seconds=request('models');items=data['data']
   if not isinstance(items,list):raise ValueError()
-  ids={x['id'] for x in items if isinstance(x,dict) and isinstance(x.get('id'),str) and x.get('active') is True}
-  rows.append({'step':'models','code':'OK_MODELS_KEY_ACCEPTED_FOR_LIST','requested_model_active':model in ids,'seconds':seconds})
+  from jarvis.groq_models import listed_ids,PREFERRED
+  ids=listed_ids(items)
+  known=[m for m in PREFERRED if m in ids]
+  if not model:model=next(iter(known),'')
+  rows.append({'step':'models','code':'OK_MODELS_KEY_ACCEPTED_FOR_LIST','model_list_count':len(ids),'known_chat_models':known,'selected_model':model if model in PREFERRED else 'manual-override','selected_model_listed':model in ids,'seconds':seconds})
  except Exception as exc:
   rows.append(dict(step='models',**classify(exc)));return rows
  if model not in ids:
-  rows.append({'step':'greeting','code':'SKIPPED_REQUESTED_MODEL_NOT_ACTIVE'});return rows
+  rows.append({'step':'greeting','code':'SKIPPED_NO_SELECTED_LISTED_CHAT_MODEL'});return rows
  try:
   data,seconds=request('chat/completions',{'model':model,'messages':[{'role':'user','content':'Say hello in one short sentence.'}],'stream':False,'max_tokens':32})
   text=data['choices'][0]['message']['content']
@@ -59,10 +62,10 @@ def probe(key,model,context,opener_factory=urllib.request.build_opener):
  return rows
 
 def main():
- parser=argparse.ArgumentParser(description='v2: saved local key, models-list check, then at most one greeting. Outputs fixed categories only.')
- parser.add_argument('--model',default='llama-3.3-70b-versatile');parser.add_argument('--free-plan',action='store_true');parser.add_argument('--consent',action='store_true');args=parser.parse_args()
+ parser=argparse.ArgumentParser(description='v3: saved local key, models-list check, then at most one greeting. Outputs fixed categories only.')
+ parser.add_argument('--model',default='');parser.add_argument('--free-plan',action='store_true');parser.add_argument('--consent',action='store_true');args=parser.parse_args()
  if not args.free_plan or not args.consent:raise SystemExit('Confirm Free plan and approve models lookup plus one greeting first. No request sent.')
- if not args.model.strip() or len(args.model)>200:raise SystemExit('Invalid model ID. No request sent.')
+ if len(args.model)>200:raise SystemExit('Invalid model ID. No request sent.')
  from jarvis.security import WindowsCredentials
  from jarvis.paths import ensure_layout
  try:key=WindowsCredentials().get('groq')
@@ -78,7 +81,7 @@ def main():
      rows += [dict(trust='certifi',**r) for r in probe(key,args.model.strip(),ssl.create_default_context(cafile=certifi.where()))]
     except Exception:rows.append({'trust':'certifi','code':'CERTIFI_TRUST_UNAVAILABLE'})
  key=None
- result={'diagnostic_version':2,'checks':rows,'tls_verification':'ON','client':'JARVIS-experimental','billing_verified_by_api':False}
+ result={'diagnostic_version':3,'checks':rows,'tls_verification':'ON','client':'JARVIS-experimental','billing_verified_by_api':False}
  path=ensure_layout()/'logs'/'groq-diagnostic.json';path.write_text(json.dumps(result,indent=2),encoding='utf-8')
  print(json.dumps(result,indent=2));print('Diagnostic saved to %LOCALAPPDATA%\\JARVIS\\logs\\groq-diagnostic.json')
 if __name__=='__main__':main()
