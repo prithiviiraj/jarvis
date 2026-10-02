@@ -148,6 +148,7 @@ class Workspace:
   self.label(frame,'Local default: LM Studio, one loaded model, server on port 1234.\nGroq key: Settings > Usage & Billing. No paid tier is permitted.',10,MUTED,wraplength=605).pack(anchor='w',pady=5)
   def enable():
    try:
+    self.voice.pool_config=None
     self.voice.start(mic.get(),cloud.get(),locked.get(),free.get())
     self.session_setup={'mic':mic.get(),'cloud':cloud.get(),'free':free.get(),'model':locked.get()}
     win.destroy()
