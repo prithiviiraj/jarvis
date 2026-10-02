@@ -1,5 +1,6 @@
 """Bounded OpenAI-style SSE parsing. No tools or side effects, text deltas only."""
 import json,time,urllib.request,urllib.error
+from .chat_payload import payload
 from .router import NoRedirect,ProviderFailure
 
 def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None):
@@ -21,6 +22,7 @@ def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None):
             if 'error' in event:raise ProviderFailure('stream-error')
             choices=event.get('choices',[])
             if not choices:continue # usage events
+            if choices[0].get('finish_reason')=='length':raise ProviderFailure('completion-token-limit',False)
             delta=choices[0].get('delta',{})
             # Ignore tool/function calls, role metadata and all non-text data.
             text=delta.get('content')
@@ -37,7 +39,7 @@ class StreamTransport:
     def stream(self,provider,messages,key=None,cancel=None):
         headers={'Content-Type':'application/json','Accept':'text/event-stream','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
         if key:headers['Authorization']='Bearer '+key
-        req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,data=json.dumps({'model':provider.model,'messages':messages,'stream':True,'max_tokens':300}).encode())
+        req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,data=json.dumps(payload(provider.model,messages,True)).encode())
         try:
             with self.http.open(req,timeout=provider.timeout) as response:
                 if 'text/event-stream' not in response.headers.get('Content-Type',''):raise ProviderFailure('not-streaming')
