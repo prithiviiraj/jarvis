@@ -233,7 +233,7 @@ class Workspace:
   self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''}
-  self.download_cancel.set();self.voice.pause();self.voice_status='off'
+  self.download_cancel.set();self.voice.pause();self.voice.memory.clear();self.voice_status='off'
   if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
  def settings(self):
   if self.settings_window and self.settings_window.winfo_exists():self.settings_window.lift();return
@@ -289,8 +289,8 @@ class Workspace:
   self.button(panel,'Close',win.destroy).pack(anchor='e')
  def open_mini(self):
   if self.mini and self.mini.winfo_exists():self.mini.lift();return
-  win=tk.Toplevel(self.root);self.mini=win;win.title('JARVIS - Mini orb / OFF');win.geometry('200x190');win.attributes('-topmost',True);win.configure(bg=BG)
-  c=tk.Canvas(win,width=180,height=130,bg=BG,highlightthickness=0);c.pack();c.create_oval(48,24,132,108,fill='#365c61',outline='#76cab3',width=2);c.create_text(90,65,text='OFF',fill=TEXT,font=('Segoe UI',13))
-  self.button(win,'Open workspace',self.root.lift).pack()
+  from .orbs import OrbOverlay
+  self.orb_overlay=OrbOverlay(self.root,lambda:(ROSTER[self.selected][0],self.voice_status),self.select,self.pause)
+  self.mini=self.orb_overlay.window
  def close(self):self.download_cancel.set();self.voice.close();self.root.destroy()
 def main():root=tk.Tk();Workspace(root);root.mainloop()
