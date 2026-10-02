@@ -65,11 +65,15 @@ def voices():
   if isinstance(window,tk.Toplevel):window.destroy()
  app.groq_key();capture('key-onboarding')
  with patch('jarvis.security.WindowsCredentials') as store:
+  store.return_value.status.return_value={'present':True,'saved_at':'2026-10-03T00:00:00+05:30'}
   assert app.groq_key_entry.get()==''
   app.groq_key_entry.insert(0,'SYNTHETIC-NOT-A-REAL-KEY');app.groq_key_save()
   store.return_value.set.assert_called_once_with('groq','SYNTHETIC-NOT-A-REAL-KEY');store.return_value.get.assert_not_called()
   assert app.groq_key_entry.get()=='SYNTHETIC-NOT-A-REAL-KEY'
   assert 'Saved' in app.groq_key_status.cget('text');capture('key-saved-visible')
+  for window in root.winfo_children():
+   if isinstance(window,tk.Toplevel):window.destroy()
+  app.groq_key();assert app.groq_key_entry.get()=='';assert 'No re-paste needed' in app.groq_key_status.cget('text');store.return_value.get.assert_not_called();capture('key-reopened-saved-state')
 
  for window in root.winfo_children():
   if isinstance(window,tk.Toplevel):window.destroy()
