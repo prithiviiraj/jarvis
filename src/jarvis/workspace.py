@@ -215,9 +215,7 @@ class Workspace:
    try:
     self.voice.pool_config=None
     self.voice.start(mic.get(),cloud.get(),locked.get(),free.get())
-    from .experimental.session_awareness import SessionAwareness
-  self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
-  self.session_setup={'mic':mic.get(),'cloud':cloud.get(),'free':free.get(),'model':locked.get()}
+    self.session_setup={'mic':mic.get(),'cloud':cloud.get(),'free':free.get(),'model':locked.get()}
     win.destroy()
    except Exception as exc:messagebox.showerror('Cannot start voice',str(exc),parent=win)
   check_status=self.label(frame,'No text test run yet. This test does not speak or use your microphone.',9,MUTED,wraplength=605)
@@ -304,8 +302,6 @@ class Workspace:
  def pause(self):
   self.awareness.stop()
   if self.timer_window and self.timer_window.winfo_exists():self.timer_status.configure(text="OFF. Pause all cleared the session timer.")
-  from .experimental.session_awareness import SessionAwareness
-  self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''}
   self.download_cancel.set();self.voice.pause();self.voice.memory.clear();self.voice.pool_config=None;self.voice_status='off'
   if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
