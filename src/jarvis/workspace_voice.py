@@ -21,7 +21,7 @@ class WorkspaceVoice:
         self.notify('state','off')
     def start(self,consent=False,cloud=False,model='',verified_free=False):
         if not consent:raise ValueError('Microphone session consent required.')
-        if cloud and (not model.strip() or not verified_free):raise ValueError('Groq needs a model and confirmed Free-tier account.')
+        if cloud and not verified_free:raise ValueError('Groq needs a confirmed Free-tier account.')
         with self.lock:
             if self.closed or self.busy:raise RuntimeError('Voice setup is busy or closed.')
             self.busy=True;self.generation+=1;ticket=self.generation;name=self.name
@@ -76,10 +76,13 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False):
     from .native_frontend import verified_frontend
     exe,data=verified_frontend()
     if cloud:
-        if not verified_free or not model.strip():raise ValueError('Confirm Groq Free-tier status and model.')
+        if not verified_free:raise ValueError('Confirm Groq Free-tier status.')
         keys=WindowsCredentials()
         if not keys.get('groq'):raise RuntimeError('Save your Groq API key in Settings first.')
-        router=FreeSessionRouter(BrainRouter([configured('groq',model.strip())],key_store=keys),True)
+        from .groq_models import resolve_model
+        model=resolve_model(model,True,True,keys)
+        notify('status','Groq model: '+model+' / Free plan confirmed by you, not verified by API.')
+        router=FreeSessionRouter(BrainRouter([configured('groq',model)],key_store=keys),True)
     else:
         ids=local_models()
         if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
