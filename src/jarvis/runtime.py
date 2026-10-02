@@ -43,6 +43,7 @@ class VoiceRuntime:
                             if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
                             pieces.append(delta['text']);provider[:]=[delta]
                             self.notify('answer',{'text':''.join(pieces),'provider':delta['provider']})
+                            if delta.get('model'):self.notify('status',delta['provider']+' model '+delta['model'])
                         yield delta['text']
                 def clause(part):
                     with self.lock:
