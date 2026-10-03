@@ -35,7 +35,7 @@ async fn overlay(app:tauri::AppHandle)->Result<(),String>{
  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;
  let scale=monitor.scale_factor();let size=monitor.size();let origin=monitor.position();
  let width=340.;let height=110.;let x=origin.x as f64/scale+(size.width as f64/scale-width)/2.;let y=origin.y as f64/scale+12.;
- WebviewWindowBuilder::new(&app,"faces",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_OVERLAY__ = true; document.documentElement.classList.add('overlay-root');").title("JARVIS / Floating faces").inner_size(width,height).position(x,y).decorations(false).shadow(false).resizable(false).transparent(true).always_on_top(true).build().map_err(|e|e.to_string())?;Ok(())
+ WebviewWindowBuilder::new(&app,"faces",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_OVERLAY__ = true; document.documentElement.classList.add('overlay-root');").title("JARVIS / Floating faces").inner_size(width,height).position(x,y).decorations(false).shadow(false).no_redirection_bitmap(true).resizable(false).transparent(true).always_on_top(true).build().map_err(|e|e.to_string())?;Ok(())
 }
 #[tauri::command]
 async fn workspace(app:tauri::AppHandle)->Result<(),String>{let w=app.get_webview_window("main").ok_or("Workspace missing")?;w.show().map_err(|e|e.to_string())?;w.set_focus().map_err(|e|e.to_string())?;Ok(())}
