@@ -26,7 +26,10 @@ class AwarenessPanel:
   if not self.camera.stopped():return
   self.show_badge() # Visible BEFORE device acquisition, even while workspace is hidden.
   self.camera.start(consent=True)
- def stop_camera(self):self.camera.stop()
+ def stop_camera(self):
+  self.camera.stop()
+  with self.context.lock:
+   self.context.presence='unknown';self.context.events.clear()
  def set_apps(self):
   self.context.set_apps(self.apps.get());self.app_error=False
   if self.context.apps:self.show_badge()
