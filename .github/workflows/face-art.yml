@@ -1,0 +1,19 @@
+name: JARVIS original 3D face art
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Original transparent 3D expression loops
+        run: bash modern-ui/art/render-faces.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-original-3D-face-pack
+          path: modern-ui/public/faces
+          retention-days: 7
+          if-no-files-found: error
