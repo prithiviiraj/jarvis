@@ -31,7 +31,8 @@ class AwarenessPanel:
   self.context.set_apps(self.apps.get());self.app_error=False
   if self.context.apps:self.show_badge()
  def set_titles(self):
-  self.title_allowed=self.titles.get();self.context.app=None;self.last_app=0
+  self.title_allowed=self.titles.get();self.last_app=0
+  with self.context.lock:self.context.app=None
   if not self.title_allowed:
    with self.context.lock:self.context.events.clear()
  def show_badge(self):
