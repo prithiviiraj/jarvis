@@ -80,11 +80,15 @@ class Workspace:
  def chat_view(self):
   card=tk.Frame(self.body,bg=PANEL,padx=18,pady=18);card.pack(fill='x',pady=12)
   self.label(card,'A calm place for your conversations.',15,wraplength=460).pack(anchor='w');self.chat_caption=self.label(card,self.caption+'\n'+self.response,11,wraplength=460);self.chat_caption.pack(anchor='w');self.label(card,'Voice replies appear here for this session.\nTyped chat uses local LM Studio only. Mic stays OFF.',10,MUTED,wraplength=460).pack(anchor='w',pady=10)
+  route=tk.Frame(self.body,bg=BG);route.pack(fill='x')
+  self.auto_pick=tk.BooleanVar(value=True)
+  tk.Checkbutton(route,text='Pick one relevant persona',variable=self.auto_pick,bg=BG,fg=TEXT,selectcolor=LINE,activebackground=BG,font=('Segoe UI',10)).pack(anchor='w')
+  self.reply_route=self.label(route,'One reply. Directly address a name to choose; mixed topics go to JARVIS.',9,MUTED,wraplength=460);self.reply_route.pack(anchor='w')
   row=tk.Frame(self.body,bg=PANEL,padx=10,pady=10);row.pack(side='bottom',fill='x')
   entry=tk.Entry(row,bg=PANEL,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));entry.pack(side='left',fill='x',expand=True);self.chat_entry=entry;entry.bind('<Return>',lambda e:self.send_chat())
   self.button(row,'Send local',self.send_chat).pack(side='right')
  def send_chat(self):
-  try:self.voice.send_text(self.chat_entry.get());self.chat_entry.delete(0,'end')
+  try:self.voice.send_text(self.chat_entry.get(),auto_pick=self.auto_pick.get());self.chat_entry.delete(0,'end')
   except (ValueError,RuntimeError) as exc:self.note('Local text chat',str(exc))
  def team_view(self):
   self.label(self.body,'Team Room',17).pack(anchor='w',pady=(2,4));self.label(self.body,'Five distinct voices. No background workers are running.',10,MUTED,wraplength=460).pack(anchor='w',pady=(0,8))
@@ -180,8 +184,10 @@ class Workspace:
      if ticket!=self.voice.generation:continue
      self.banter_preview.configure(state='normal');self.banter_preview.insert('end',str(n)+'/'+str(total)+' '+name+': '+text+'\n\n');self.banter_preview.see('end');self.banter_preview.configure(state='disabled')
    elif kind=='team-updated':self.update_team_transcript()
+   elif kind=='reply-route':
+    if hasattr(self,'reply_route') and self.reply_route.winfo_exists():self.reply_route.configure(text=str(value))
    elif kind=='transcript':self.caption='You: '+str(value)[:220]
-   elif kind=='answer':self.response=ROSTER[self.selected][0]+': '+value['text'][:450]
+   elif kind=='answer':self.response=value.get('profile',ROSTER[self.selected][0])+': '+value['text'][:450]
   if self.status_label.winfo_exists():self.status_label.configure(text='VOICE / '+self.voice_status.upper()[:20])
   if self.mic_button.winfo_exists():self.mic_button.configure(text='Mic ON' if self.voice.runtime and self.voice.runtime.enabled else 'Mic OFF')
   if hasattr(self,'caption_label') and self.caption_label.winfo_exists():self.caption_label.configure(text=self.caption+'\n'+self.response)
