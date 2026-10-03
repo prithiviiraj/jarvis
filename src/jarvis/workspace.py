@@ -478,6 +478,6 @@ class Workspace:
   self.orb_overlay.menu.add_command(label='Stop all sensing',command=self.local_awareness.stop_all)
   self.mini=self.orb_overlay.window
   self.root.withdraw()
- def close(self):self.local_awareness.stop_all();self.awareness.stop();self.download_cancel.set();self.voice.close();self.root.destroy()
+ def close(self):self.local_awareness.stop_all();self.local_awareness.judge.close();self.awareness.stop();self.download_cancel.set();self.voice.close();self.root.destroy()
 def main():
  root=tk.Tk();root.withdraw();app=Workspace(root);root.after(150,app.open_mini);root.mainloop()
