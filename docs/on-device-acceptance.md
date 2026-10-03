@@ -1,22 +1,32 @@
-# JARVIS experimental voice workspace: device acceptance
+# JARVIS experimental candidate: laptop acceptance
 
-CI is not microphone or speaker acceptance. Run these on the owner's Windows 11 RTX 3060 laptop before calling Phase 1 complete. No installer should be presented as production ready until the connected source build passes.
+Source runner, not a finished installer. CI and synthetic UI replies do not prove your microphone, speakers, accent, live providers or audible latency. Keep the working build until this candidate passes on your Windows 11 x64 laptop. Python 3.12 required.
 
-## Setup
-- Install the audited native frontend and verified speech assets. Start LM Studio with exactly one chat model and its server on port 1234.
-- Launch `python -m jarvis --workspace-preview`. Microphone, cloud, camera and workers must start OFF.
-- Connect headphones. Enable microphone only after ticking session consent. This build is half-duplex: no AEC or interruption-based barge-in is claimed.
-- Optional Groq: save key through Settings > Usage & Billing. Check the account's billing page for Free plan, enter a current model ID, and explicitly allow recognized text disclosure for this session. Audio stays local. A key alone is not plan proof. No paid request is authorized.
+## Setup and privacy
+1. Extract the whole source-runner ZIP to a writable folder. Run SETUP.cmd and wait for "Setup finished". Setup downloads verified voice assets as needed.
+2. Run LAUNCH.cmd with headphones. Confirm microphone, cloud, camera and worker controls start OFF.
+3. For local Chat/rounds/banter, load exactly one chat model in LM Studio and start its local server on port 1234. No cloud key or microphone consent is needed for local typed interaction.
+4. For voice, open session setup and explicitly allow microphone. Half-duplex only: AEC and barge-in are not implemented.
+5. Optional Groq: save the key only in app Settings. Reopen to see saved presence/timestamp, not the stored secret. Check the account billing page yourself. Automatic model selection is default; manual override is optional. Explicitly allow recognized/shared text disclosure for this session. A key alone is not Free-plan proof. No paid fallback is authorized.
+6. Provider pool slots/routes are session-scoped. Saving does not start recording or model calls. Verify exact live model IDs, access, quota and billing. Never put keys in screenshots, reports or chat.
 
-## Required measurements
-- Mic/speaker: hear a reply without clipping; repeat at quiet, normal and loud speaking levels. Verify five profiles speak with their assigned voices.
-- Pause, close, profile switch: mic capture stops and no late response plays. Re-enable works without duplicate capture. Closing must leave no microphone process.
-- Accent: read 20 English sentences in your usual Tamil accent. Record expected vs recognized text and errors. Tamil-language support is not claimed by the English STT setup.
-- Latency: measure at least 20 turns from the end of user speech to the first audible reply, separately for warm local and Groq sessions. Report p50, p95, maximum and cold start. Target 1 second is NOT passed by synthetic timing or by synthesis-only benchmarks.
-- Noise: repeat with fan/background speech. Note wrong transcripts, false triggers and missed turns.
-- Echo/barge-in: NOT implemented. Keep headphones/half-duplex. Do not claim these checks pass merely because playback capture is suppressed.
-- Offline/local: disconnect network after models are installed; local chat works if LM Studio is running. Groq fails safely without key, consent, Free-plan confirmation, or network. No paid fallback.
-- CPU/memory/gaming: measure idle/listening/responding memory and CPU while a game runs. No RTX acceleration/performance claim from CPU CI.
-- UI: all views, Settings, captions and five team cards fit above the taskbar at your display scaling. Review longer transcripts and errors.
+## New feature checks
+- Typed Chat with Mic OFF: selected-profile reply, local-server error, cancellation and no late saved reply.
+- Team Room: completed shared history, correct persona labels, long transcript scrolling, Pause all/close clear RAM history.
+- Team rounds: 2 then 5 selected personas, ordered prior-reply context. Failure/switch/Pause/close must save no partial round.
+- Banter session: OFF/default unchecked consent; topic, 2-12 turns, 2-30s gaps, maximum120seconds; local text only. Stop/close/switch/Pause must discard staged session. An in-flight local request can finish but may not save after Stop. These are personas on one model, not separate workers or sensed context.
+- Notes: save to a private folder; inspect Markdown/recap before trusting cleared context. Cancel/failure must preserve history. No automatic Obsidian sync or LM Studio cache clearing.
+- Mini orb: five borderless faces only; select, middle-drag, right-click restore/Pause/reduced-motion/close. Animation is voice state, not emotion or audio lip-sync.
+- Timer: OFF by default. Declare activity, consent, interval15-180minutes. Real elapsed reminder while idle/visible; quiet/busy/hidden defer. Stop/panel-close/Pause/app-close clear. No game/screen/camera sensing.
+- UI at your normal display scaling: all rail controls above taskbar, longer errors/captions/transcripts readable.
 
-Record device, audio devices, build commit, exact model IDs, scenario, counts, timings and failures. Leave hardware-dependent items open until these results exist.
+## Voice and performance measurements
+- Mic/output: quiet, normal and loud levels. Hear all5assigned voices without clipping.
+- Pause/close/switch: capture stops; no late audio; re-enable without duplicate capture; app close releases microphone.
+- Accent: 20 English sentences in your normal Tamil accent. Record expected/recognized text and errors. English STT is not proof of Tamil-language support.
+- Latency: at least20turns per route, end of speech to first audible reply; warm local and live Groq separately. Report p50/p95/max/cold-start. First WAV write or synthetic brain timing is not audible latency.
+- Noise: fan/background speech, false triggers, missed turns and wrong transcripts.
+- Game load: idle/listening/responding CPU/memory and responsiveness. Windows CI callback Hz is not display FPS or laptop gaming performance.
+- Offline: after assets install, local routes with LM Studio should work without network. Cloud fails safely without access/consent/network; no paid fallback.
+
+Record hardware/audio devices, commit, model IDs, route, scenario, turn count, timings, resource use and failures. Keep hardware-dependent checks OPEN until results exist. No camera/screen/browser executor/Laya model/background24/7work is active in this candidate.
