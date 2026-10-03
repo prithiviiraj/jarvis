@@ -7,7 +7,7 @@ checks=[];window=None
 try:
  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30);window.set_focus()
  def button(name,root=None):
-  item=(root or window).child_window(title=name,control_type='Button');item.wait('visible',timeout=20);return item
+  item=(root or window).child_window(title_re=('(?s)DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('visible',timeout=20);return item
  def click(name,root=None):button(name,root).click_input();checks.append(name)
  click('Connect local core');time.sleep(2)
  click('DEX Coder')
