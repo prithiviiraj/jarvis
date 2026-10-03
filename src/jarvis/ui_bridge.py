@@ -5,10 +5,21 @@ from .local_awareness import LocalContext,CameraWorker,foreground_app
 from .proactive import ProactiveJudge
 from .voice_setup import VoiceSetup
 class Bridge:
- def __init__(self,voice=None):
+ def __init__(self,voice=None,history=None):
   self.voice=voice or WorkspaceVoice();self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context)
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,build_proactive_speaker)
-  self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.lock=threading.RLock()
+  self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.lock=threading.RLock();self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
+  if self.history is None and voice is None:
+   try:
+    from .paths import ensure_layout
+    from .chat_history import ChatHistory
+    self.history=ChatHistory(ensure_layout()/'chat-history.sqlite')
+   except Exception:self.history_error='Local chat storage unavailable. Existing file preserved; this session is not saved.'
+  if self.history:
+   previous=self.history.list();self.chat_id=previous[0]['id'] if previous else self.history.new()
+   if previous:
+    try:self.messages=self.history.load(self.chat_id);self.voice.memory.restore(self.messages)
+    except Exception:self.history_error='Saved chat could not be restored. Original archive preserved.';self.chat_id=self.history.new()
  def poll(self):
   if self.context.apps and time.monotonic()-self.last_app>=1:
    self.last_app=time.monotonic()
@@ -18,14 +29,27 @@ class Bridge:
   if busy and self.judge.busy:self.judge.stop()
   self.judge.poll(busy)
  def stop(self):
-  self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.voice.memory.clear();self.messages=[];self.status='off';self.error=''
+  self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.voice.memory.clear();self.messages=[];self.archive_dirty=False;self.status='off';self.error=''
   if not self.camera.stopped():self.context.camera_state('stopping')
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Cloud and arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel'}
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','history-list','history-open','history-new','history-delete','history-clear'}
   if cmd not in allowed:raise ValueError('Unknown command')
-  if cmd=='chat':
+  if cmd.startswith('history-'):
+   if not self.history:raise ValueError(self.history_error or 'History unavailable')
+   if cmd!='history-list' and (self.voice.busy or self.voice.runtime is not None):raise ValueError('Stop voice and wait for the turn before changing chats')
+   if cmd=='history-open':
+    rows=self.history.load(request.get('chat_id'));self.messages=rows;self.chat_id=request['chat_id'];self.voice.memory.restore(rows)
+   elif cmd=='history-new':self.messages=[];self.voice.memory.clear();self.chat_id=self.history.new()
+   elif cmd=='history-delete':
+    self.history.delete(request.get('chat_id'))
+    if request.get('chat_id')==self.chat_id:self.messages=[];self.voice.memory.clear();self.chat_id=self.history.new()
+   elif cmd=='history-clear':
+    if request.get('confirm')is not True:raise ValueError('Confirm delete all chat history')
+    self.history.clear();self.messages=[];self.voice.memory.clear();self.chat_id=self.history.new()
+   self.archive_dirty=False;self.error=''
+  elif cmd=='chat':
    self.error='';text=request.get('text');self.voice.send_text(text,auto_pick=True)
   elif cmd=='select':self.judge.stop();self.voice.select(request.get('name'))
   elif cmd=='pause':self.stop()
@@ -48,11 +72,14 @@ class Bridge:
    if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
    self.judge.stop();self.judge.gaming=request.get('gaming',False)
    if request['enabled']:self.judge.enable(True,request.get('audio',False))
-  elif cmd=='close':self.setup.stop();self.stop();self.judge.close();self.voice.close();self.closed=True
+  elif cmd=='close':
+   if self.archive_dirty and self.history:self.history.save(self.chat_id,self.messages);self.archive_dirty=False
+   self.setup.stop();self.stop();self.judge.close();self.voice.close();self.closed=True
   self.poll()
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
    except queue.Empty:break
+   if kind in ('transcript','answer'):self.archive_dirty=True
    if kind=='error':self.error=str(value)[:300]
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
    elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]})
@@ -61,13 +88,16 @@ class Bridge:
     if 'stream_id' in value:row['stream_id']=value['stream_id']
     if self.messages and self.messages[-1]['name']==row['name'] and (self.voice.runtime is not None or ('stream_id' in row and self.messages[-1].get('stream_id')==row['stream_id'])):self.messages[-1]=row
     else:self.messages.append(row)
-  self.messages=self.messages[-50:]
+  self.messages=self.messages[-200:]
+  if self.archive_dirty and self.history and (not self.voice.busy or time.monotonic()-self.archive_saved_at>=1):
+   try:self.history.save(self.chat_id,self.messages);self.archive_dirty=False;self.archive_saved_at=time.monotonic()
+   except Exception:self.history_error='Chat could not be saved. Current session remains available.'
   # Runtime activity, not decorative preview. Reserved visemes can be added by an audio clock.
   voice_state=self.status.lower();actor='JARVIS' if self.judge.busy else self.voice.reply_actor if self.voice.busy else self.voice.name
   active=self.voice.busy or (self.voice.runtime is not None and self.voice.runtime.busy) or self.judge.busy
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
-  return {'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
+  return {'history':self.history.list() if self.history else [],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Saved on this laptop in plain text, not uploaded. At most50 chats and200 messages/chat; oldest chats removed at limit. Delete removes archive entries, not external backups.', 'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
  def close(self):self.setup.stop();self.stop();self.judge.close();self.voice.close()
 def main():
  bridge=Bridge()
