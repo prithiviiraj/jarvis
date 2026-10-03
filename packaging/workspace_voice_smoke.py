@@ -124,6 +124,10 @@ def voices():
  app.poll_voice();controls['stop']()
  for _ in range(10):root.update();time.sleep(.01)
  app.poll_voice();assert not controller.memory.snapshot();assert not controller.banter_active;app.banter_window.lift();capture('banter-stopped');app.banter_window.destroy();capture('workspace-banter-button')
+ app.pause();app.set_view('Chat');local_router.ask.side_effect=None;local_router.ask.return_value={'text':'Synthetic DEX: this is one selected coder reply, not all personas.','provider':'local'}
+ app.chat_entry.insert(0,'debug this Python function');app.send_chat()
+ for _ in range(20):root.update();time.sleep(.01)
+ app.poll_voice();assert len(controller.memory.snapshot())==1 and controller.memory.snapshot()[0][0]=='DEX';assert 'DEX' in app.reply_route.cget('text');capture('moderator-single-reply');app.pause()
  # Blank visual fixture behind borderless faces, so no terminal text is captured.
  backdrop=tk.Toplevel(root);backdrop.geometry('1024x768+0+0');backdrop.overrideredirect(True);backdrop.configure(bg='#e7ecef');backdrop.attributes('-topmost',True)
  tk.Label(backdrop,text='Floating-first interface • controlled Windows capture',bg='#e7ecef',fg='#585254',font=('Segoe UI',15)).pack(pady=(140,0))
