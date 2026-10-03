@@ -1,8 +1,13 @@
-# Modern JARVIS migration candidate
-Tauri2 + React/TypeScript, black/grey workspace, colored persona SVG faces, native floating faces, font selection and accent/name/avatar bubbles. Explicit local backend connection; no sensors start at launch. Installed system fonts with Arial fallback, no remote font requests.
+# Modern Windows preview
 
-The bridge supports local typed chat, selected persona, local microphone (existing verified speech assets required), opt-in frontal-face camera presence, process names, separately consented window titles, and local-only event judgment with optional output-only speech. Persistent CAM/MIC badges and Pause/STOP clear context and stop workers. Camera may show STOPPING while its native read releases. No cloud/shell/files/URLs accepted by IPC. Routines, cloud account settings and asset downloads still use the working workspace. This is NOT a full replacement or no-Python installer yet.
+Download the **JARVIS-Windows-Portable-Preview** artifact from the passing modern-ui workflow. Extract the entire ZIP, then double-click `JARVIS.exe` at the root. Keep `backend/` beside it. No Python, Node or compilation is required on your laptop.
 
-Launch requires Python and prepared backend/src beside the EXE or backend/.venv. No model downloads on construction. npm ci; npm run build; npm run tauri dev after platform prerequisites. Native CI tests use a test-process-only WebView2 debug flag, not production configuration. They test actual WebView2 DOM/IPC/floating windows; physical laptop webcam, speech assets, audible model output and resource/24h acceptance remain unrun. Preserve working40/41 until successor laptop acceptance. No guaranteed FPS/RAM claim. Retain Lucide ISC notice; full installer/transitive notices audit remains open.
+Faces launch first. Right-click them and choose Open workspace. The backend is a fixed bundled local executable; there is no system-Python fallback and no arbitrary shell command interface. Camera and microphone start OFF. Windows 10/11 x64 and Microsoft Edge WebView2 are required. The preview is unsigned and may show a Windows publisher warning; do not disable security software.
 
-CI acceptance EXEs enable the ci-acceptance/devtools feature and are TEST-ONLY, not distribution builds. Production default excludes devtools. CI isolates WebView2 user data and uses a loopback debug port only in test environment.
+This is not the full replacement. Local chat/judgment require LM Studio with one loaded model and its local server. Camera support is bundled, with explicit consent. Speech models, native speech frontend and optional audio dependencies are not bundled yet. Keep the working prior app until laptop acceptance.
+
+## Acceptance
+
+The CI builds a production Tauri executable with custom-protocol, not a dev server. It freezes the local Python bridge, tests that frozen bridge without Python in PATH, and drives the exact packaged JARVIS.exe through Windows UI Automation (WebView2). Evidence includes real window screenshots, frozen status/consent/clear checks and file digests. A green build is not proof of physical webcam/audio or real-model performance.
+
+Developer-only build and package commands live in `.github/workflows/modern-ui.yml`. Users should not run them. The separate CI-acceptance artifact contains diagnostics, not the user app.
