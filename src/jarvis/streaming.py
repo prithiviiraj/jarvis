@@ -1,7 +1,7 @@
 """Bounded OpenAI-style SSE parsing. No tools or side effects, text deltas only."""
 import json,time,urllib.request,urllib.error
 from .chat_payload import payload
-from .router import NoRedirect,ProviderFailure
+from .router import NoRedirect,ProviderFailure,local_http
 
 def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None):
     size=0;count=0
@@ -35,13 +35,17 @@ def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None):
             yield text
 
 class StreamTransport:
-    def __init__(self):self.http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+    def __init__(self):self.http=local_http();self.cloud_http=None
+    def opener(self,provider):
+        if not provider.cloud:return self.http
+        if self.cloud_http is None:self.cloud_http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+        return self.cloud_http
     def stream(self,provider,messages,key=None,cancel=None):
         headers={'Content-Type':'application/json','Accept':'text/event-stream','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
         if key:headers['Authorization']='Bearer '+key
         req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,data=json.dumps(payload(provider.model,messages,True)).encode())
         try:
-            with self.http.open(req,timeout=provider.timeout) as response:
+            with self.opener(provider).open(req,timeout=provider.timeout) as response:
                 if 'text/event-stream' not in response.headers.get('Content-Type',''):raise ProviderFailure('not-streaming')
                 yield from text_deltas(response,cancel,deadline=time.monotonic()+30)
         except urllib.error.HTTPError as e:raise ProviderFailure('http-'+str(e.code),e.code in (408,429,500,502,503,504)) from None
