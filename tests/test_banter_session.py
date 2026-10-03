@@ -61,3 +61,7 @@ class BanterTests(unittest.TestCase):
   r.ask.side_effect=answer;w=c.start_banter('x',('NOVA','JARVIS'),True,2,2);self.assertTrue(entered.wait(1));c.stop_banter()
   with self.assertRaises(RuntimeError):c.start_banter('x',('NOVA','JARVIS'),True,2,2)
   release.set();w.join(2);self.assertFalse(c.busy);self.assertEqual(c.memory.snapshot(),[])
+ def test_default_short_session(self):
+  c,r=self.make()
+  with patch('jarvis.workspace_voice.banter_wait',return_value=False):c.start_banter('short',('NOVA','JARVIS'),True).join(2)
+  self.assertEqual(r.ask.call_count,2);self.assertIn('at most20words',r.ask.call_args.args[0][-1]['content'])
