@@ -41,3 +41,7 @@ The talking-core work is not complete. See docs/phase1-progress.md and docs/spee
 `python -m jarvis --workspace-preview` now uses the workspace voice bridge. Five fixed profiles map to five Kokoro voices. No background agent workers, typed-chat sending, tool execution, tray/autostart, AEC or barge-in are claimed. Microphone/cloud start OFF. Headphone half-duplex and session consent are required. Secure Groq key onboarding uses Windows Credential Manager, but the app does not automatically verify account billing: a session confirmation of the Free plan is required. No real Groq call has been verified.
 
 Pinned speech assets download only after approval. The audited native frontend must be installed separately until packaging is verified. This source build is not a new voice installer. The old Phase0 foundation installer does not prove voice workspace installation. See docs/on-device-acceptance.md for remaining hardware tests.
+
+## October 3 local awareness foundation
+
+The original foundation-runtime statements above do not describe the later experimental workspace. In the workspace, local camera presence and Windows foreground-app events are optional, OFF on launch, RAM-only and model-dispatch-disabled. A separate topmost sensing indicator has one-click OFF. Titles have a separate opt-in. No screen capture, cloud vision, automatic persona speech or 24/7 reliability claim. See docs/local-awareness-acceptance.md. OpenCV is an optional source dependency; no new binary redistribution clearance.
