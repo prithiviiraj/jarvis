@@ -16,7 +16,7 @@ def summarize(starts,costs):
     return {'callbacks':len(starts),'duration_s':starts[-1]-starts[0],
       'callback_rate_hz':(len(starts)-1)/(starts[-1]-starts[0]),
       'interval_ms':{'p50':percentile(gaps,.5),'p95':percentile(gaps,.95),'max':max(gaps)},
-      'draw_update_cpu_ms':{'p50':percentile(ms,.5),'p95':percentile(ms,.95),'max':max(ms)},
+      'draw_update_wall_ms':{'p50':percentile(ms,.5),'p95':percentile(ms,.95),'max':max(ms)},
       'interval_over_16_667_ms_pct':100*sum(x>1000/60 for x in gaps)/len(gaps),
       'interval_over_33_333_ms_pct':100*sum(x>1000/30 for x in gaps)/len(gaps),
       'display_fps_measured':False}
