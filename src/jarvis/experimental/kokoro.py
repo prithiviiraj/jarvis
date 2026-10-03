@@ -41,12 +41,17 @@ class NativeG2P:
             try:pipe.close()
             except Exception:pass
 
+_SESSIONS={};_SESSION_LOCK=threading.RLock()
+
 class KokoroSynth:
     def __init__(self,model,voice,config,g2p):
         import numpy as np,onnxruntime as ort
-        self.np=np;self.g2p=g2p;self.lock=threading.Lock()
+        self.np=np;self.g2p=g2p;self.lock=_SESSION_LOCK
         opts=ort.SessionOptions();opts.intra_op_num_threads=2;opts.inter_op_num_threads=1
-        self.session=ort.InferenceSession(str(model),sess_options=opts,providers=['CPUExecutionProvider'])
+        with _SESSION_LOCK:
+            key=str(model)
+            if key not in _SESSIONS:_SESSIONS[key]=ort.InferenceSession(key,sess_options=opts,providers=['CPUExecutionProvider'])
+            self.session=_SESSIONS[key]
         self.vocab=json.loads(Path(config).read_text(encoding='utf-8'))['vocab']
         # Approved-format raw style matrices, not pickle or unknown archive execution.
         self.voice=np.fromfile(str(voice),dtype='<f4').reshape(510,256)
