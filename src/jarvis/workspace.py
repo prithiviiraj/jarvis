@@ -11,6 +11,8 @@ class Workspace:
  def __init__(self,root,controller=None):
   self.root=root;self.voice=controller or WorkspaceVoice();self.voice_status='off';self.caption='No conversation yet. Nothing is listening.';self.response='';self.setup_busy=False;self.download_cancel=threading.Event();root.title('JARVIS - Voice workspace / experimental');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG);glass(root)
   from .experimental.session_awareness import SessionAwareness
+  from .awareness_ui import AwarenessPanel
+  self.local_awareness=AwarenessPanel(root)
   self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''};self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
   root.grid_columnconfigure(1,weight=1);root.grid_rowconfigure(0,weight=1)
@@ -56,9 +58,10 @@ class Workspace:
    self.button(tabs,view,lambda v=view:self.set_view(v),bg=LINE if self.view==view else BG).pack(side='left',padx=(0,6))
   self.label(self.center,'Experimental voice - headphones required / no AEC or barge-in',9,MUTED,wraplength=530).pack(anchor='w')
   bar=tk.Frame(self.center,bg=BG);bar.pack(side='bottom',fill='x',pady=(10,0))
-  for label,fn in [('Mic OFF',self.voice_setup),('Camera OFF',lambda:self.note('Camera','Camera is not implemented in this build. It remains OFF.')),('Privacy ON',lambda:self.note('Privacy','Audio stays local. No recordings, camera or screen capture. Groq is off unless you consent this session; if enabled, recognized text and shared recent team conversation are sent to Groq.')),('Pause all',self.pause)]:
+  for label,fn in [('Mic OFF',self.voice_setup),('Camera OFF',self.local_awareness.open),('Privacy ON',lambda:self.note('Privacy','Audio stays local. No recordings or screen capture. Optional camera/app events stay local and are not shared with any model. Groq is off unless you consent this session; if enabled, recognized text and shared recent team conversation are sent to Groq.')),('Pause all',self.pause)]:
    button=self.button(bar,label,fn,bg=PANEL);button.pack(side='left',padx=(0,5))
    if label=='Mic OFF':self.mic_button=button
+   if label=='Camera OFF':self.camera_button=button
   self.label(self.center,'Voice integration test build. Hardware acceptance pending. No agent workers.',8,MUTED,wraplength=630).pack(side='bottom',anchor='w',pady=(5,0))
   self.body=tk.Frame(self.center,bg=BG);self.body.pack(fill='both',expand=True,pady=12)
   if self.view=='Voice':self.voice_view(name,color)
@@ -194,6 +197,8 @@ class Workspace:
   if hasattr(self,'caption_label') and self.caption_label.winfo_exists():self.caption_label.configure(text=self.caption+'\n'+self.response)
   if hasattr(self,'chat_caption') and self.chat_caption.winfo_exists():self.chat_caption.configure(text=self.caption+'\n'+self.response)
   self.update_team_transcript()
+  self.local_awareness.tick()
+  if self.camera_button.winfo_exists():self.camera_button.configure(text='Camera '+self.local_awareness.context.camera.upper())
   self.poll_timer()
   self.root.after(80,self.poll_voice)
  def session_timer(self):
@@ -350,6 +355,7 @@ class Workspace:
   download_button=self.button(row,'Download models',download);download_button.pack(side='left',padx=4);self.model_download_button=download_button
   self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
+  self.local_awareness.stop_all()
   self.awareness.stop()
   if hasattr(self,'banter_window') and self.banter_window.winfo_exists():
    self.banter_status.configure(text='OFF. Pause all discarded the partial session.');self.banter_preview.configure(state='normal');self.banter_preview.delete('1.0','end');self.banter_preview.configure(state='disabled')
@@ -364,7 +370,7 @@ class Workspace:
   def page(tab):
    for x in content.winfo_children():x.destroy()
    self.label(content,tab,19).pack(anchor='w',pady=(0,12))
-   texts={'General':'Dark workspace preview\nFive planned profiles\nStartup: OFF\nAuto-update: not enabled','Computer':'Microphone: OFF\nCamera: OFF\nScreen capture: OFF\nNo device permission is requested here.','Usage & Billing':'No paid providers or billing setup.\nGroq requires verified Free-tier status.\nAPI keys must use Windows Credential Manager.','Voice':'JARVIS: am_michael\nNOVA: af_heart\nKAI: am_liam\nLYRA: af_sky\nDEX: am_fenrir\nHeadphone half-duplex. Hardware acceptance pending.'}
+   texts={'General':'Dark workspace preview\nFive planned profiles\nStartup: OFF\nAuto-update: not enabled','Computer':'Optional local camera/app awareness: open Camera controls.\nStarts OFF. No screen capture or model sharing.\nVisible indicator + one-click OFF while sensing.','Usage & Billing':'No paid providers or billing setup.\nGroq requires verified Free-tier status.\nAPI keys must use Windows Credential Manager.','Voice':'JARVIS: am_michael\nNOVA: af_heart\nKAI: am_liam\nLYRA: af_sky\nDEX: am_fenrir\nHeadphone half-duplex. Hardware acceptance pending.'}
    self.label(content,texts[tab],11,wraplength=400).pack(anchor='w')
    if tab=='Usage & Billing':
     self.button(content,'Manage Groq API key',self.groq_key).pack(anchor='w',pady=10)
@@ -465,8 +471,10 @@ class Workspace:
   if self.mini and self.mini.winfo_exists():self.mini.lift();return
   from .orbs import OrbOverlay
   self.orb_overlay=OrbOverlay(self.root,lambda:(ROSTER[self.selected][0],self.voice_status),self.select,self.pause)
+  self.orb_overlay.menu.add_command(label='Local awareness',command=self.local_awareness.open)
+  self.orb_overlay.menu.add_command(label='Stop all sensing',command=self.local_awareness.stop_all)
   self.mini=self.orb_overlay.window
   self.root.withdraw()
- def close(self):self.awareness.stop();self.download_cancel.set();self.voice.close();self.root.destroy()
+ def close(self):self.local_awareness.stop_all();self.awareness.stop();self.download_cancel.set();self.voice.close();self.root.destroy()
 def main():
  root=tk.Tk();root.withdraw();app=Workspace(root);root.after(150,app.open_mini);root.mainloop()
