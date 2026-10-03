@@ -8,7 +8,7 @@ class Bridge:
  def __init__(self,voice=None):
   self.voice=voice or WorkspaceVoice();self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context)
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,build_proactive_speaker)
-  self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.error='';self.lock=threading.RLock()
+  self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.lock=threading.RLock()
  def poll(self):
   if self.context.apps and time.monotonic()-self.last_app>=1:
    self.last_app=time.monotonic()
@@ -58,11 +58,12 @@ class Bridge:
    elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]})
    elif kind in ('answer','proactive-answer'):
     row={'name':value.get('profile',self.voice.name),'text':value['text'][:4000],'provider':value.get('provider','local')}
-    if self.voice.runtime is not None and self.messages and self.messages[-1]['name']==row['name']:self.messages[-1]=row
+    if 'stream_id' in value:row['stream_id']=value['stream_id']
+    if self.messages and self.messages[-1]['name']==row['name'] and (self.voice.runtime is not None or ('stream_id' in row and self.messages[-1].get('stream_id')==row['stream_id'])):self.messages[-1]=row
     else:self.messages.append(row)
   self.messages=self.messages[-50:]
   # Runtime activity, not decorative preview. Reserved visemes can be added by an audio clock.
-  voice_state=self.status.lower();actor='JARVIS' if self.judge.busy else self.voice.name
+  voice_state=self.status.lower();actor='JARVIS' if self.judge.busy else self.voice.reply_actor if self.voice.busy else self.voice.name
   active=self.voice.busy or (self.voice.runtime is not None and self.voice.runtime.busy) or self.judge.busy
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
