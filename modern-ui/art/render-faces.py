@@ -1,6 +1,6 @@
 import bpy,math,pathlib,json,sys
 from mathutils import Vector
-out=pathlib.Path(sys.argv[sys.argv.index('--out')+1] if '--out' in sys.argv else '/tmp/jarvis-art/frames');out.mkdir(exist_ok=True)
+out=pathlib.Path(sys.argv[sys.argv.index('--out')+1] if '--out' in sys.argv else '/tmp/jarvis-art/frames');out.mkdir(parents=True,exist_ok=True)
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
 scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=16;scene.cycles.use_denoising=True;scene.render.resolution_x=512;scene.render.resolution_y=512;scene.render.resolution_percentage=100;scene.render.film_transparent=True;scene.render.image_settings.file_format='PNG';scene.render.image_settings.color_mode='RGBA';scene.world.color=(.22,.22,.22)
 scene.view_settings.view_transform='AgX'
