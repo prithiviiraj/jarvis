@@ -12,6 +12,13 @@ await page.waitForFunction(()=>document.querySelector('.toolbar>span')?.textCont
 await page.getByRole('button',{name:'DEX Coder'}).click();
 await page.getByRole('heading',{name:'DEX',exact:true}).waitFor();
 await page.getByLabel('Font selector').selectOption('Verdana');
+await page.getByRole('button',{name:'Local awareness',exact:true}).click();
+await page.getByRole('button',{name:'Allow app names',exact:true}).click();
+await page.waitForFunction(()=>document.body.textContent.includes('Apps: on'));
+await page.getByRole('button',{name:'Allow local context judgment',exact:true}).click();
+await page.waitForFunction(()=>document.body.textContent.includes('Judgment on'));
+await page.getByRole('button',{name:'Stop and clear local context',exact:true}).click();
+await page.waitForFunction(()=>document.body.textContent.includes('Apps: off')&&document.body.textContent.includes('Judgment off'));
 await page.getByRole('button',{name:'Pause all'}).click();
 await page.getByRole('button',{name:'Floating faces'}).click();
 let faces;
@@ -22,5 +29,5 @@ await faces.getByRole('button',{name:'STOP',exact:true}).click();
 await faces.screenshot({path:'ui-evidence/tauri-floating-renderer.png'});
 await page.screenshot({path:'ui-evidence/tauri-connected-renderer.png'});
 if(errors.length)throw Error(errors.join('\n'));
-fs.writeFileSync('ui-evidence/native-checks.json',JSON.stringify({host:'actual Tauri2/WebView2',checks:['native frontend loaded','explicit backend connect','persona select','font select','pause all','native floating window','overlay link','overlay stop'],models:0,sensors:0,unrun:['physical laptop resources','microphone/audio','real model answer','pixel transparency on user desktop']},null,2));
+fs.writeFileSync('ui-evidence/native-checks.json',JSON.stringify({host:'actual Tauri2/WebView2',checks:['native frontend loaded','explicit backend connect','persona select','font select','pause all','native floating window','overlay link','overlay stop','explicit process opt-in','local judgment opt-in','stop clears judgment/process state'],model_requests:0,sensors:'brief process-name test only, no mic or webcam',unrun:['physical laptop resources','microphone/audio','real model answer','pixel transparency on user desktop']},null,2));
 process.exit(0); // Leave host alive for the physical window screenshot/WM_CLOSE.
