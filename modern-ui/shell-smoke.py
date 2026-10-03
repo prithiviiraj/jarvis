@@ -2,7 +2,7 @@
 import subprocess,time,pathlib,ctypes,json,os
 from PIL import ImageGrab
 # Test-only loopback debugging. Production launches never set this environment.
-env=dict(os.environ,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9222')
+env=dict(os.environ,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9222',WEBVIEW2_USER_DATA_FOLDER=str(pathlib.Path('ui-evidence/test-webview-profile').resolve()))
 p=subprocess.Popen([str(pathlib.Path('src-tauri/target/release/jarvis-modern-ui.exe').resolve())],env=env);found=[]
 try:
  subprocess.run(['node','native-smoke.mjs'],check=True,timeout=90)
