@@ -18,6 +18,8 @@ jobs:
       - name: Backend tests
         shell: pwsh
         run: |
+          python -m pip install numpy==2.2.6
+          if ($LASTEXITCODE -ne 0) { throw "Test dependencies failed" }
           $env:PYTHONPATH="../src"
           python -m unittest discover -s ../tests
           if ($LASTEXITCODE -ne 0) { throw "Backend tests failed" }
