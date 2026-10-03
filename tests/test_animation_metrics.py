@@ -37,3 +37,9 @@ class AnimationMetricsTests(unittest.TestCase):
  def test_easing_reduced_and_clock(self):
   from jarvis.orbs import ease
   self.assertEqual(ease(21,28,.016,True),28);self.assertEqual(ease(21,28,-1),21)
+ def test_floating_first_launch(self):
+  from unittest.mock import Mock,patch
+  from jarvis.workspace import main
+  root=Mock();app=Mock()
+  with patch('jarvis.workspace.tk.Tk',return_value=root),patch('jarvis.workspace.Workspace',return_value=app):main()
+  root.after.assert_called_once_with(150,app.open_mini);root.mainloop.assert_called_once();app.voice.start.assert_not_called()
