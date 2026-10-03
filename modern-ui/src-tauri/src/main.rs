@@ -21,7 +21,7 @@ async fn bridge(request:Value,state:State<'_,Shared>)->Result<Value,String>{
 }
 fn exchange(request:Value,state:Arc<Mutex<Option<Backend>>>)->Result<Value,String>{
  let command=request.get("command").and_then(Value::as_str).ok_or("Invalid command")?;
- if !["status","chat","select","pause","close","camera-on","camera-off","apps","judgment","voice-on","voice-off"].contains(&command){return Err("Unknown command".into())}
+ if !["status","chat","select","pause","close","camera-on","camera-off","apps","judgment","voice-on","voice-off","voice-setup","voice-check","voice-cancel"].contains(&command){return Err("Unknown command".into())}
  let line=serde_json::to_string(&request).map_err(|_|"Invalid request")?;if line.len()>10000{return Err("Request too large".into())}
  let mut guard=state.lock().map_err(|_|"Backend busy")?;if guard.is_none(){*guard=Some(backend()?)}
  let b=guard.as_mut().ok_or("Backend unavailable")?;writeln!(b.input,"{}",line).map_err(|_|"Backend stopped")?;b.input.flush().map_err(|_|"Backend stopped")?;
