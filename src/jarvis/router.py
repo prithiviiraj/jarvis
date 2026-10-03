@@ -88,7 +88,7 @@ class BrainRouter:
                 errors.append((p.name,exc.code))
                 self.disabled_until[p.name]=self.clock()+self.break_seconds
                 if not exc.retryable:break
-        raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
+        raise RouterError('No enabled brain answered'+(' ('+', '.join(name+':'+code for name,code in errors)+')' if errors else '')+'. Check your local server or enabled provider settings.')
 
     def stream(self,messages,cloud_consent=False,preferred=None,cancel=None,stream_transport=None,verified_free_providers=()):
         """Fail over only before any text has escaped; never mix provider answers."""
