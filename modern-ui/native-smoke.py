@@ -27,11 +27,19 @@ try:
  import tkinter as tk
  bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();faces.set_focus();time.sleep(.5)
  rect=faces.rectangle();screen_w=bg.winfo_screenwidth();scale=ctypes.windll.user32.GetDpiForWindow(faces.handle)/96
- assert abs(rect.width()-340*scale)<4, f'Unexpected strip width: {rect}'
+ deadline=time.monotonic()+10
+ while abs(rect.width()-450*scale)>=4 and time.monotonic()<deadline:time.sleep(.2);rect=faces.rectangle()
+ assert abs(rect.width()-450*scale)<4, f'Unexpected strip width: {rect}'
  assert abs((rect.left+rect.right)/2-screen_w/2)<4, f'Not top-centred: {rect}'
  assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
  ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
+ # Frame captures prove the default idle loop changes actual packaged pixels.
+ frames=[]
+ for i in range(12):
+  image=faces.capture_as_image();image.save('ui-evidence/idle-motion-'+str(i)+'.png');frames.append(image.tobytes());time.sleep(.085)
+ assert len(set(frames))>=6,'Packaged idle art is static'
+ checks.append('packaged idle loop pixel advancement across12frames')
  if (pathlib.Path('public/faces/manifest.json')).is_file():
   deadline=time.monotonic()+15
   while True:
@@ -42,7 +50,7 @@ try:
   for persona in ['JARVIS','NOVA','KAI','LYRA','DEX']:
    if persona+' idle face' not in face_text:raise RuntimeError('Original3D image did not load: '+persona+' / '+face_text)
   checks.append('allfive original3D image alt names present in actualWindows overlay')
- bg.destroy();checks.append('compact 340x110 logical pixels, top-centred, shadow disabled')
+ bg.destroy();checks.append('medium 450x140 logical pixels, top-centred, shadow disabled')
  faces.click_input(button='right');time.sleep(.5)
  entry=faces.child_window(title='Open workspace',control_type='Button');entry.wait('exists',timeout=10);entry.wrapper_object().invoke();checks.append('faces-only launch + right-click workspace')
  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=20);window.set_focus()
