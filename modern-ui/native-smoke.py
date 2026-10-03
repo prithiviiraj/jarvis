@@ -6,6 +6,16 @@ p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/t
 checks=[];window=None
 try:
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=30);faces.set_focus();time.sleep(1)
+ # Capture compact top-centred faces against a controlled desktop-colored background.
+ import tkinter as tk
+ bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();faces.set_focus();time.sleep(.5)
+ rect=faces.rectangle();screen_w=bg.winfo_screenwidth();scale=ctypes.windll.user32.GetDpiForWindow(faces.handle)/96
+ assert abs(rect.width()-340*scale)<4, f'Unexpected strip width: {rect}'
+ assert abs((rect.left+rect.right)/2-screen_w/2)<4, f'Not top-centred: {rect}'
+ assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
+ ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
+ faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
+ bg.destroy();checks.append('compact 340x110 logical pixels, top-centred, shadow disabled')
  faces.click_input(button='right');time.sleep(.5)
  entry=faces.child_window(title='Open workspace',control_type='Button');entry.wait('exists',timeout=10);entry.wrapper_object().invoke();checks.append('faces-only launch + right-click workspace')
  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=20);window.set_focus()
