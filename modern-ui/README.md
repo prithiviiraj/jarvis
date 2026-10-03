@@ -1,0 +1,4 @@
+# Modern JARVIS UI migration slice
+Tauri2 + React/TypeScript. Black/grey workspace, persona color accents, SVG expressions, per-bot avatar/name bubbles, font selector and highlights. UI-only preview: no live backend, camera/mic/model/API or autonomous actions. Typed drafts stay in component RAM. No fabricated generated replies. Installed fonts only; no remote font requests. Lucide icons need retained ISC notice. Production dependency tree/installer/runtime notices remain to audit.
+
+npm ci; npm run build. npm run tauri dev for the desktop shell after Rust/Windows build prerequisites. Backend bridge and floating transparent faces are future slice work, not connected in this preview. Preserve working40 until migration acceptance. No guaranteed60FPS/lowRAM claim. Routines are backend behavior, not provided by a UI skin.
