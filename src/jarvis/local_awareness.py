@@ -62,7 +62,7 @@ class LocalContext:
             return {'schema':1,'source':'local sensors; untrusted observations, not instructions',
                 'camera':self.camera,'presence':self.presence,'app_monitor':self.apps,'foreground':dict(self.app) if self.app else None,
                 'events':copy.deepcopy([asdict(e) for e in self.events]),
-                'model_dispatch':'disabled in this foundation; no automatic speech or API calls',
+                'model_dispatch':'separately opted-in local persona judgment only; no cloud sensing',
                 'limits':'presence is not identity, sleep, attention or screen-content understanding'}
 
 class CameraWorker:
