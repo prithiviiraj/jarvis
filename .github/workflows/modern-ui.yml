@@ -31,6 +31,9 @@ jobs:
         run: |
           npm run tauri build -- --no-bundle
           if ($LASTEXITCODE -ne 0) { throw 'Tauri shell failed' }
+          python -m pip install Pillow==11.3.0
+          python shell-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri shell launch failed' }
       - uses: actions/upload-artifact@v4
         with:
           name: JARVIS-modern-UI-preview
