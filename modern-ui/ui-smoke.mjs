@@ -1,0 +1,9 @@
+import { chromium } from 'playwright';import fs from 'node:fs';
+fs.mkdirSync('ui-evidence',{recursive:true});
+const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1220,height:780},reducedMotion:'reduce'});let requests=[];page.on('request',r=>requests.push(r.url()));let errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('http://127.0.0.1:8765');await page.getByRole('heading',{name:'A calm place to think.'}).waitFor();await page.screenshot({path:'ui-evidence/modern-chat.png'});
+await page.getByRole('button',{name:'DEX Coder'}).click();await page.getByRole('heading',{name:'DEX',exact:true}).waitFor();await page.getByRole('button',{name:'speaking',exact:true}).click();await page.screenshot({path:'ui-evidence/modern-DEX-expression.png'});
+await page.getByLabel('Font selector').selectOption('Verdana');await page.getByLabel('Message draft').fill('Draft stays local.');await page.getByLabel('Add local draft').click();await page.getByText('Draft stays local.',{exact:true}).waitFor();await page.screenshot({path:'ui-evidence/modern-draft-font.png'});
+await page.getByRole('button',{name:'Local awareness',exact:true}).click();await page.getByRole('heading',{name:'Sensing stays OFF.'}).waitFor();await page.getByRole('button',{name:'Pause all'}).click();await page.screenshot({path:'ui-evidence/modern-awareness-off.png'});
+if(errors.length)throw Error(errors.join('\n'));if(requests.some(x=>!x.startsWith('http://127.0.0.1:8765')))throw Error('Unexpected external request');
+fs.writeFileSync('ui-evidence/checks.json',JSON.stringify({platform:process.platform,scope:'web renderer only; no live backend or Tauri overlay',checks:['persona select','expression state','font selector','local draft','awareness off','pause','no external web requests','no page errors']},null,2));await browser.close();
