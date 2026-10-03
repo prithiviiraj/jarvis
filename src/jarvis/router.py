@@ -36,15 +36,27 @@ class Provider:
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
+class LocalOnlyHTTPS(urllib.request.HTTPSHandler):
+    """Suppress default TLS/certificate-store initialization for HTTP loopback."""
+    def __init__(self):pass
+    def https_open(self,request):raise ProviderFailure('local-https-refused',False)
+
+def local_http():
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect(),LocalOnlyHTTPS())
+
 class HttpTransport:
-    def __init__(self):self.http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+    def __init__(self):self.http=local_http();self.cloud_http=None
+    def opener(self,provider):
+        if not provider.cloud:return self.http
+        if self.cloud_http is None:self.cloud_http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+        return self.cloud_http
     def complete(self,provider,messages,key=None):
         headers={'Content-Type':'application/json','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
         if key:headers['Authorization']='Bearer '+key
         req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,
           data=json.dumps(payload(provider.model,messages)).encode())
         try:
-            with self.http.open(req,timeout=provider.timeout) as r:
+            with self.opener(provider).open(req,timeout=provider.timeout) as r:
                 raw=r.read(1048577)
                 if len(raw)>1048576:raise ProviderFailure('oversize',False)
                 j=json.loads(raw)
