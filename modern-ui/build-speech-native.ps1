@@ -2,7 +2,7 @@ $ErrorActionPreference='Stop'
 git clone --branch v4.8.2 --depth 1 --recurse-submodules --shallow-submodules https://github.com/OpenNMT/CTranslate2.git ct2-cpu
 if ($LASTEXITCODE -ne 0) { throw 'Pinned CPU source clone failed' }
 $prefix = Join-Path (Get-Location) 'ct2-install'
-cmake -S ct2-cpu -B ct2-cpu/build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$prefix" -DBUILD_CLI=OFF -DBUILD_TESTS=OFF -DWITH_MKL=OFF -DWITH_DNNL=OFF -DWITH_CUDA=OFF -DWITH_CUDNN=OFF -DWITH_RUY=ON -DOPENMP_RUNTIME=COMP
+cmake -S ct2-cpu -B ct2-cpu/build "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_INSTALL_PREFIX="$prefix" -DBUILD_CLI=OFF -DBUILD_TESTS=OFF -DWITH_MKL=OFF -DWITH_DNNL=OFF -DWITH_CUDA=OFF -DWITH_CUDNN=OFF -DWITH_RUY=ON -DOPENMP_RUNTIME=COMP
 if ($LASTEXITCODE -ne 0) { throw 'CPU configure failed' }
 cmake --build ct2-cpu/build --config Release --target install --parallel 2
 if ($LASTEXITCODE -ne 0) { throw 'CPU build failed' }
