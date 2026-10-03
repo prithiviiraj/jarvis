@@ -27,12 +27,13 @@ class VoiceRuntime:
         threading.Thread(target=self.turn,args=(audio,generation,cloud,history),daemon=True).start()
     def valid(self,generation):return self.enabled and generation==self.generation
     def turn(self,audio,generation,cloud,history):
-        ticket=self.speaker.generation;started=time.monotonic();metrics={}
+        ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription'
         try:
             self.notify('state','transcribing');text=self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
+            stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
             messages=[{'role':'system','content':prompt(self.persona)}]+context+[{'role':'user','content':text}]
             if self.streaming:
@@ -65,9 +66,11 @@ class VoiceRuntime:
                 if not self.valid(generation):return
                 if callable(self.record_turn):self.record_turn(text,answer['text'])
                 self.history=(history+[{'role':'user','content':text},{'role':'assistant','content':answer['text']}])[-6:]
-        except Exception:
+        except Exception as exc:
+            from .router import RouterError
+            detail=str(exc)[:200] if isinstance(exc,RouterError) else type(exc).__name__
             with self.lock:
-                if self.valid(generation):self.notify('error','Voice turn failed. Check the brain server or repeat clearly. No action was taken.')
+                if self.valid(generation):self.notify('error','Voice turn failed at '+stage+': '+detail+'. Microphone can listen again; no action was taken.')
         finally:
             with self.lock:
                 self.busy=False
