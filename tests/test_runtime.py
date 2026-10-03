@@ -31,3 +31,7 @@ class RuntimeTests(unittest.TestCase):
  def test_shared_context_and_completed_turn_record(self):
   self.v.shared_context=lambda:[{'role':'assistant','content':'[JARVIS] earlier'}];self.v.record_turn=Mock();self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
   self.assertIn({'role':'assistant','content':'[JARVIS] earlier'},self.v.router.ask.call_args.args[0]);self.v.record_turn.assert_called_once_with('Hi','Hello')
+
+ def test_close_hook_once_and_callbacks_released(self):
+  hook=Mock();self.v.close_hook=hook;self.v.shared_context=Mock();self.v.record_turn=Mock()
+  self.v.close();self.v.close();hook.assert_called_once();self.assertIsNone(self.v.shared_context);self.assertIsNone(self.v.record_turn)
