@@ -47,7 +47,7 @@ jobs:
           npm install --no-save playwright@1.51.1
           npx playwright install chromium
           $server = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','dist' -PassThru
-          try { node ui-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI smoke failed' } } finally { Stop-Process -Id $server.Id }
+          try { node ui-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI smoke failed' }; if (Test-Path 'public/faces/manifest.json') { node face-pack-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Face persistence failed' } } } finally { Stop-Process -Id $server.Id }
       - name: Build Tauri Windows executable
         shell: pwsh
         run: |
