@@ -233,3 +233,19 @@ def build_text_router():
     ids=local_models()
     if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
     return BrainRouter([configured('local',ids[0])])
+
+def build_proactive_speaker():
+    """JARVIS output only: no microphone/STT/cloud/model download."""
+    from .paths import ensure_layout
+    from .voice_assets import ready
+    from .experimental.kokoro import NativeG2P,KokoroSynth
+    from .experimental.kokoro_speaker import KokoroSpeaker
+    from .native_frontend import verified_frontend
+    assets=ensure_layout()/'models'/'voices'
+    if not ready(assets):raise RuntimeError('Verified voice assets missing')
+    exe,data=verified_frontend();g2p=NativeG2P(exe,data)
+    try:
+        speaker=KokoroSpeaker(KokoroSynth(assets/'model.onnx',assets/(VOICES['JARVIS']+'.bin'),assets/'config.json',g2p))
+        speaker.close=lambda:(speaker.stop(),g2p.close())
+        return speaker
+    except Exception:g2p.close();raise
