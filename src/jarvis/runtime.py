@@ -6,7 +6,7 @@ class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
         self.cancel=threading.Event();self.streaming=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
-        self.shared_context=None;self.record_turn=None
+        self.shared_context=None;self.record_turn=None;self.close_hook=None
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
     def enable(self,consent=False,cloud_consent=False):
         if not consent:raise ValueError('Microphone needs session consent.')
@@ -76,4 +76,7 @@ class VoiceRuntime:
                 if self.valid(generation) and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
                 elif self.valid(generation):
                     self.enabled=False;self.mic.stop_event.set();self.speaker.stop();self.notify('state','off - voice failed, press Enable to retry')
-    def close(self):self.pause();self.history=[]
+    def close(self):
+        self.pause();self.history=[];self.shared_context=None;self.record_turn=None
+        hook=self.close_hook;self.close_hook=None
+        if hook:hook()
