@@ -1,8 +1,8 @@
 """Real Windows UI Automation against the actual Tauri WebView2 window."""
-import subprocess,pathlib,time,json,ctypes
+import subprocess,pathlib,time,json,ctypes,os
 from PIL import ImageGrab
 from pywinauto import Desktop
-p=subprocess.Popen([str(pathlib.Path('src-tauri/target/release/jarvis-modern-ui.exe').resolve())])
+p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
 try:
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=30);faces.set_focus();time.sleep(1)
