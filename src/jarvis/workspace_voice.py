@@ -35,6 +35,7 @@ class WorkspaceVoice:
             runtime=None
             try:
                 def notify(kind,value):
+                    if kind=='answer' and isinstance(value,dict):value={**value,'profile':name}
                     with self.lock:
                         if not self.closed and ticket==self.generation:self.notify(kind,value)
                 if self.pool_config is not None and self.factory is build_runtime:
@@ -213,7 +214,8 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
     else:
         ids=local_models()
         if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
-        router=BrainRouter([configured('local',ids[0])])
+        from dataclasses import replace
+        router=BrainRouter([replace(configured('local',ids[0]),timeout=30)])
     g2p=NativeG2P(exe,data)
     try:
         synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
