@@ -17,3 +17,5 @@ html.overlay-root body{font-family:'Segoe UI',Arial,sans-serif}
 .floating-sensors{left:50%;transform:translateX(-50%);bottom:auto;top:62px;font-size:7px;line-height:10px;border-radius:5px;padding:2px 6px;background:#202027d9;white-space:nowrap}
 .floating-menu{left:50%;transform:translateX(-50%);bottom:2px;padding:3px;border:0;border-radius:6px;white-space:nowrap}
 .floating-menu button{font-size:9px!important;padding:4px 6px!important}
+
+.chat-error{border:1px solid #a76565;background:#3c2326;color:#ffd8d8;border-radius:8px;padding:12px;margin-bottom:16px;line-height:1.5;font-size:12px}.chat-pending{color:#95d5c5;font-size:11px;margin-bottom:16px}
