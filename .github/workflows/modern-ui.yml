@@ -15,6 +15,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Backend tests
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH="../src"
+          python -m unittest discover -s ../tests
+          if ($LASTEXITCODE -ne 0) { throw "Backend tests failed" }
       - name: Pinned frontend and real browser interactions
         shell: pwsh
         run: |
