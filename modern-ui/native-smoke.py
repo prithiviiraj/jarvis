@@ -13,7 +13,11 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
   text=body['messages'][-1]['content']
   if 'failure-probe' in text:self.send_response(503);self.end_headers();return
-  self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'choices':[{'message':{'content':'Packaged local chat round-trip confirmed.'},'finish_reason':'stop'}]}).encode())
+  assert body['stream']
+  self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
+  for part in ['Packaged local ','chat round-trip ','confirmed.']:
+   self.wfile.write(('data: '+json.dumps({'choices':[{'delta':{'content':part}}]})+'\n\n').encode());self.wfile.flush();time.sleep(1)
+  self.wfile.write(b'data: [DONE]\n\n')
 server=http.server.ThreadingHTTPServer(('127.0.0.1',1234),LocalFixture);threading.Thread(target=server.serve_forever,daemon=True).start()
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
@@ -51,7 +55,18 @@ try:
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('voice model setup and explicit Mic ON controls visible')
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
- click('Add local draft');time.sleep(3)
+ click('Add local draft')
+ deadline=time.monotonic()+8
+ while time.monotonic()<deadline:
+  text=' '.join(x.window_text() for x in window.descendants())
+  if 'Packaged local ' in text and 'Packaged local chat round-trip confirmed.' not in text:break
+  time.sleep(.1)
+ else:raise RuntimeError('Incremental reply was not visible before completion')
+ window.capture_as_image().save('ui-evidence/tauri-chat-streaming-partial.png')
+ faces_text=' '.join(x.window_text() for x in faces.descendants())
+ assert 'JARVIS thinking face' in faces_text, 'Runtime thinking art not observed: '+faces_text
+ faces.capture_as_image().save('ui-evidence/tauri-live-thinking.png');checks.append('actual partial streamed text plus live runtime thinking3D before completion')
+ time.sleep(3)
  text=' '.join(x.window_text() for x in window.descendants())
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  window.capture_as_image().save('ui-evidence/tauri-chat-roundtrip.png');checks.append('packaged UI IPC frozen-core local HTTP reply shown')
