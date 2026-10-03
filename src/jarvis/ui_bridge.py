@@ -21,12 +21,17 @@ class Bridge:
   if not self.camera.stopped():self.context.camera_state('stopping')
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close'} # Sensor commands await visible native controls/indicator migration.
+  if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Cloud and arbitrary destinations are unavailable')
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd=='chat':
-   text=request.get('text');self.voice.send_text(text,auto_pick=True);self.messages.append({'name':'You','text':text[:2000]})
-  elif cmd=='select':self.voice.select(request.get('name'))
+   text=request.get('text');self.voice.send_text(text,auto_pick=True)
+  elif cmd=='select':self.judge.stop();self.voice.select(request.get('name'))
   elif cmd=='pause':self.stop()
+  elif cmd=='voice-on':
+   if request.get('consent') is not True:raise ValueError('Microphone consent required')
+   self.judge.stop();self.voice.start(consent=True,cloud=False)
+  elif cmd=='voice-off':self.voice.pause()
   elif cmd=='camera-on':
    if request.get('consent') is not True:raise ValueError('Camera consent required')
    self.camera.start(True)
@@ -35,17 +40,20 @@ class Bridge:
    if type(request.get('enabled')) is not bool or type(request.get('titles',False)) is not bool:raise ValueError('Invalid app consent')
    self.judge.stop();self.titles=request.get('titles',False) and request['enabled'];self.context.set_apps(request['enabled']);self.context.events.clear()
   elif cmd=='judgment':
-   self.judge.stop();self.judge.gaming=request.get('gaming') is True
-   if request.get('enabled') is True:self.judge.enable(request.get('context_consent') is True,request.get('audio') is True)
+   if type(request.get('enabled')) is not bool or type(request.get('audio',False)) is not bool or type(request.get('gaming',False)) is not bool:raise ValueError('Invalid judgment options')
+   if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
+   self.judge.stop();self.judge.gaming=request.get('gaming',False)
+   if request['enabled']:self.judge.enable(True,request.get('audio',False))
   elif cmd=='close':self.stop();self.judge.close();self.voice.close();self.closed=True
   self.poll()
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
    except queue.Empty:break
    if kind in ('state','status','error','proactive-status'):self.status=str(value)[:220]
+   elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]})
    elif kind in ('answer','proactive-answer'):self.messages.append({'name':value.get('profile','JARVIS'),'text':value['text'][:4000],'provider':value.get('provider','local')})
   self.messages=self.messages[-50:]
-  return {'selected':self.voice.name,'status':self.status,'busy':self.voice.busy,'messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
+  return {'selected':self.voice.name,'status':self.status,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None,'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
  def close(self):self.stop();self.judge.close();self.voice.close()
 def main():
  bridge=Bridge()
