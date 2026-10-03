@@ -109,6 +109,12 @@ try:
  image=faces.capture_as_image().convert('RGB');corner=image.crop((image.width-18,image.height-18,image.width,image.height))
  white=sum(min(pixel)>230 for pixel in corner.getdata())
  assert white<20, f'White native corner still visible: {white} pixels' 
+ # Native close hides rather than destroys the workspace, and overlay OPEN restores it.
+ ctypes.windll.user32.PostMessageW(window.handle,0x0010,0,0);time.sleep(.8)
+ assert not window.is_visible(),'Workspace close did not hide'
+ click('Open workspace',faces);window.wait('visible',timeout=10);window.set_focus()
+ checks.append('native workspace close hides and overlay OPEN restores same window')
+ window.capture_as_image().save('ui-evidence/tauri-workspace-restored.png')
  window.set_focus();
  from pywinauto import mouse
  mouse.scroll(coords=(550,450),wheel_dist=-6);time.sleep(1)
