@@ -13,7 +13,15 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
   text=body['messages'][-1]['content']
   if 'failure-probe' in text:self.send_response(503);self.end_headers();return
-  assert body['stream'];assert body['model']=='qwen2.5-vl-3b-instruct'
+  assert body['model']=='qwen2.5-vl-3b-instruct'
+  if 'empty-stream-probe' in text:
+   self.send_response(200)
+   if body['stream']:
+    self.send_header('Content-Type','text/event-stream');self.end_headers();self.wfile.write(b'data: [DONE]\n\n')
+   else:
+    self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(json.dumps({'choices':[{'message':{'content':[{'type':'text','text':'Local nonstream retry confirmed.'}]},'finish_reason':'stop'}]}).encode())
+   return
+  assert body['stream']
   self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
   for part in ['Packaged local ','chat round-trip ','confirmed.']:
    self.wfile.write(('data: '+json.dumps({'choices':[{'delta':{'content':part}}]})+'\n\n').encode());self.wfile.flush();time.sleep(1)
@@ -78,6 +86,14 @@ try:
  text=' '.join(x.window_text() for x in window.descendants())
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  window.capture_as_image().save('ui-evidence/tauri-chat-roundtrip.png');checks.append('packaged UI IPC frozen-core local HTTP reply shown')
+ field.wrapper_object().set_edit_text('empty-stream-probe');click('Add local draft')
+ deadline=time.monotonic()+10
+ while time.monotonic()<deadline:
+  text=' '.join(x.window_text() for x in window.descendants())
+  if 'Local nonstream retry confirmed.' in text:break
+  time.sleep(.1)
+ else:raise RuntimeError('Empty stream nonstream retry failed: '+text)
+ window.capture_as_image().save('ui-evidence/tauri-chat-empty-retry.png');checks.append('empty local SSE retried once without streaming and final text-array answer visible')
  field.wrapper_object().set_edit_text('failure-probe');click('Add local draft');time.sleep(4)
  text=' '.join(x.window_text() for x in window.descendants())
  assert 'http-503' in text, 'Failure not persistently visible: '+text
