@@ -123,8 +123,8 @@ class Workspace:
    v=tk.BooleanVar(value=name in ('NOVA','JARVIS'));names[name]=v
    tk.Checkbutton(row,text=name,variable=v,bg=PANEL,fg=color,selectcolor=LINE,activebackground=PANEL,font=('Segoe UI',9)).pack(side='left')
   row=tk.Frame(f,bg=PANEL);row.pack(fill='x',pady=6)
-  self.label(row,'Turns 2-12',9,MUTED).pack(side='left');turns=tk.Spinbox(row,from_=2,to=12,width=3,bg=LINE,fg=TEXT);turns.delete(0,'end');turns.insert(0,'6');turns.pack(side='left',padx=8)
-  self.label(row,'Gap 2-30 sec',9,MUTED).pack(side='left');gap=tk.Spinbox(row,from_=2,to=30,width=3,bg=LINE,fg=TEXT);gap.delete(0,'end');gap.insert(0,'5');gap.pack(side='left',padx=8)
+  self.label(row,'Turns 2-12',9,MUTED).pack(side='left');turns=tk.Spinbox(row,from_=2,to=12,width=3,bg=LINE,fg=TEXT);turns.delete(0,'end');turns.insert(0,'2');turns.pack(side='left',padx=8)
+  self.label(row,'Gap 2-30 sec',9,MUTED).pack(side='left');gap=tk.Spinbox(row,from_=2,to=30,width=3,bg=LINE,fg=TEXT);gap.delete(0,'end');gap.insert(0,'3');gap.pack(side='left',padx=8)
   consent=tk.BooleanVar(value=False)
   tk.Checkbutton(f,text='Allow this bounded local text session',variable=consent,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL,font=('Segoe UI',10)).pack(anchor='w')
   self.banter_status=self.label(f,'OFF. Maximum 120 seconds. Stop/close discards partial session.',9,MUTED,wraplength=505);self.banter_status.pack(anchor='w',pady=6)
@@ -461,4 +461,5 @@ class Workspace:
   self.mini=self.orb_overlay.window
   self.root.withdraw()
  def close(self):self.awareness.stop();self.download_cancel.set();self.voice.close();self.root.destroy()
-def main():root=tk.Tk();Workspace(root);root.mainloop()
+def main():
+ root=tk.Tk();app=Workspace(root);root.after(150,app.open_mini);root.mainloop()
