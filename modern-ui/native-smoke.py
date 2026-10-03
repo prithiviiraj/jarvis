@@ -112,7 +112,7 @@ try:
  # Native close hides rather than destroys the workspace, and overlay OPEN restores it.
  ctypes.windll.user32.PostMessageW(window.handle,0x0010,0,0);time.sleep(.8)
  assert not window.is_visible(),'Workspace close did not hide'
- click('Open workspace',faces);window.wait('visible',timeout=10);window.set_focus()
+ click('Reopen workspace',faces);window.wait('visible',timeout=10);window.set_focus()
  checks.append('native workspace close hides and overlay OPEN restores same window')
  window.capture_as_image().save('ui-evidence/tauri-workspace-restored.png')
  window.set_focus();
