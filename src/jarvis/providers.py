@@ -1,6 +1,6 @@
 """Optional provider presets. No provider is enabled here and models are user-editable."""
 import json,urllib.request
-from .router import Provider,NoRedirect,RouterError
+from .router import Provider,NoRedirect,RouterError,local_http
 ENDPOINTS={
  'local':'http://127.0.0.1:1234/v1',
  'gemini':'https://generativelanguage.googleapis.com/v1beta/openai',
@@ -12,7 +12,7 @@ def configured(name,model):
  if name not in ENDPOINTS:raise ValueError('Unknown provider.')
  return Provider(name,ENDPOINTS[name],model,name!='local',requires_free_plan=name=='groq')
 def local_models(timeout=2):
- http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+ http=local_http()
  try:
   with http.open(ENDPOINTS['local']+'/models',timeout=timeout) as response:
    raw=response.read(65537)
