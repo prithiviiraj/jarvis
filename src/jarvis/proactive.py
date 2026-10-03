@@ -29,6 +29,10 @@ class ProactiveJudge:
     def stop(self):
         with self.lock:self.enabled=False;self.audio=False;self.generation+=1;self.history.clear()
         if self.speaker:self.speaker.stop()
+    def close(self):
+        self.stop()
+        if self.speaker and hasattr(self.speaker,'close'):self.speaker.close()
+        self.speaker=None
     def poll(self,conversation_busy=False):
         with self.lock:
             seq=self.context.seq
