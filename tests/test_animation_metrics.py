@@ -44,4 +44,4 @@ class AnimationMetricsTests(unittest.TestCase):
   from jarvis.workspace import main
   root=Mock();app=Mock()
   with patch('jarvis.workspace.tk.Tk',return_value=root),patch('jarvis.workspace.Workspace',return_value=app):main()
-  root.after.assert_called_once_with(150,app.open_mini);root.mainloop.assert_called_once();app.voice.start.assert_not_called()
+  root.withdraw.assert_called_once();root.after.assert_called_once_with(150,app.open_mini);root.mainloop.assert_called_once();app.voice.start.assert_not_called()
