@@ -60,7 +60,11 @@ def run():
     progress('runtime-ready',persona=name,load_s=time.monotonic()-loaded)
     runtime=bridge.voice.runtime;assert runtime is not None,bridge.execute({'command':'status'})
     runtime.speaker.output_factory=Sink
-    progress('turn-start',persona=name);started=time.monotonic();runtime.turn(audio,runtime.generation,False,[])
+    # Threaded execution matches the real mic path and keeps the diagnostic clock responsive.
+    progress('turn-start',persona=name);started=time.monotonic();runtime.busy=True
+    turn=threading.Thread(target=runtime.turn,args=(audio,runtime.generation,False,[]),daemon=True);turn.start();turn.join(60)
+    if turn.is_alive():
+     progress('turn-timeout',persona=name);faulthandler.dump_traceback(file=trace);trace.flush();raise RuntimeError('Speech software turn exceeded60seconds: '+name)
     progress('turn-done',persona=name,turn_s=time.monotonic()-started);state=bridge.execute({'command':'status'})
     assert any('country' in x['text'].lower() for x in state['messages'])
     assert any(x['name']==name and x['text']=='Hello. I am ready when you are.' for x in state['messages']),state
