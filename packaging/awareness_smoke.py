@@ -7,7 +7,7 @@ from jarvis.workspace import Workspace
 from jarvis.local_awareness import foreground_app,CameraWorker
 out=pathlib.Path('workspace-evidence');out.mkdir(exist_ok=True)
 root=tk.Tk();app=Workspace(root);root.update();backdrop=tk.Toplevel(root);backdrop.geometry('1024x768+0+0');backdrop.overrideredirect(True);backdrop.configure(bg='#e7ecef');backdrop.lower(root);app.local_awareness.open();root.update();panel=app.local_awareness
-panel.window.geometry('620x575+385+60')
+panel.window.geometry('680x670+325+40')
 checks={}
 def capture(name):
  root.update();time.sleep(.3);root.update();ImageGrab.grab().save(out/(name+'.png'))
@@ -27,6 +27,12 @@ try:
  cap=Cap();panel.camera=CameraWorker(panel.context,lambda:cap,lambda f:True);panel.start_camera()
  for _ in range(30):root.update();time.sleep(.1)
  panel.tick();panel.window.lift();assert panel.context.presence=='present';assert panel.badge.winfo_exists();capture('local-awareness-synthetic-present')
+ # Deterministic model adapter exercises actual asynchronous judgment controls.
+ from types import SimpleNamespace
+ panel.judge.router_factory=lambda:SimpleNamespace(providers=[SimpleNamespace(cloud=False)],ask=lambda *a,**k:{'text':'{"speak":true,"text":"Want a little water, master?"}','cloud':False,'model':'synthetic-ci-not-llm'})
+ panel.judge.hour=lambda:9;panel.judge_consent.set(True);panel.configure_judge()
+ panel.context.app_event({'process':'synthetic-work.exe','title':''});worker=panel.judge.poll();assert worker;worker.join(3);app.poll_voice();panel.refresh();assert 'water' in panel.comment;panel.window.lift();capture('local-persona-judgment-synthetic')
+ panel.judge.stop();panel.judge_consent.set(False)
  # Visible indicator must survive faces-only/hidden workspace.
  root.withdraw();panel.window.withdraw();backdrop.attributes('-topmost',True);panel.tick();panel.badge.lift();capture('local-awareness-indicator-hidden-workspace');assert panel.badge.winfo_viewable()
  panel.stop_all();panel.camera.thread.join(2);panel.tick();assert cap.released and panel.context.camera=='off';assert not any(e.kind in ('presence','foreground-app') for e in panel.context.events);assert not panel.context.apps
