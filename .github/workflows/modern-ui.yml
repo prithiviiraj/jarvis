@@ -34,6 +34,8 @@ jobs:
           npm run tauri build -- --no-bundle
           if ($LASTEXITCODE -ne 0) { throw 'Tauri shell failed' }
           python -m pip install Pillow==11.3.0
+          python bridge-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Stdio bridge smoke failed' }
           python shell-smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Tauri shell launch failed' }
       - uses: actions/upload-artifact@v4
@@ -44,5 +46,6 @@ jobs:
             modern-ui/ui-evidence
             modern-ui/dist
             modern-ui/src-tauri/target/release/jarvis-modern-ui.exe
+            modern-ui/src-tauri/target/release/backend/src
           retention-days: 7
           if-no-files-found: error
