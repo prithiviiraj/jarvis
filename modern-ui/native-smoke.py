@@ -7,7 +7,7 @@ checks=[];window=None
 try:
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=30);faces.set_focus();time.sleep(1)
  faces.click_input(button='right');time.sleep(.5)
- faces.child_window(title='Open workspace',control_type='Button').wait('exists',timeout=10).wrapper_object().invoke();checks.append('faces-only launch + right-click workspace')
+ entry=faces.child_window(title='Open workspace',control_type='Button');entry.wait('exists',timeout=10);entry.wrapper_object().invoke();checks.append('faces-only launch + right-click workspace')
  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=20);window.set_focus()
  def button(name,root=None):
   item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
