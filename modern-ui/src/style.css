@@ -19,3 +19,5 @@ html.overlay-root body{font-family:'Segoe UI',Arial,sans-serif}
 .floating-menu button{font-size:9px!important;padding:4px 6px!important}
 
 .chat-error{border:1px solid #a76565;background:#3c2326;color:#ffd8d8;border-radius:8px;padding:12px;margin-bottom:16px;line-height:1.5;font-size:12px}.chat-pending{color:#95d5c5;font-size:11px;margin-bottom:16px}
+
+.voice-setup-card{background:#18181d;border:1px solid #383841;border-radius:10px;padding:14px;margin-bottom:20px;font-size:11px;line-height:1.6}.voice-setup-card p{color:#9b9baa}.voice-setup-card button{background:#303038;border-radius:6px;font-size:10px;padding:7px;margin:8px 6px 0 0}.voice-setup-card span{color:#95d5c5}
