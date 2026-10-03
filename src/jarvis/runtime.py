@@ -49,6 +49,8 @@ class VoiceRuntime:
                             if delta.get('model'):self.notify('status',delta['provider']+' model '+delta['model'])
                         yield delta['text']
                 def clause(part):
+                    nonlocal stage
+                    stage='speech synthesis/playback'
                     with self.lock:
                         if self.valid(generation):
                             if 'first_clause_s' not in metrics:metrics['first_clause_s']=time.monotonic()-started
@@ -61,6 +63,7 @@ class VoiceRuntime:
                 with self.lock:
                     if not self.valid(generation):return
                     self.notify('answer',answer);self.notify('state','speaking')
+                stage='speech synthesis/playback'
                 self.speaker.speak(answer['text'],generation=ticket)
             with self.lock:
                 if not self.valid(generation):return
