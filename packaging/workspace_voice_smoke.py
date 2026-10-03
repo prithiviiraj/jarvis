@@ -117,7 +117,7 @@ def voices():
  controls['start']();root.update();app.poll_voice();assert controller.banter_active;app.banter_window.lift();capture('banter-running')
  until=time.monotonic()+5
  while controller.busy and time.monotonic()<until:root.update();time.sleep(.02)
- app.poll_voice();assert len(controller.memory.snapshot())==2;assert 'Completed2' in app.banter_status.cget('text');app.banter_window.lift();capture('banter-completed')
+ app.poll_voice();assert len(controller.memory.snapshot())==2;assert 'Completed 2' in app.banter_status.cget('text'),app.banter_status.cget('text');app.banter_window.lift();capture('banter-completed')
  app.pause();local_router.ask.side_effect=None;local_router.ask.return_value={'text':'Synthetic staged reply, must be discarded on Stop.','provider':'local'}
  controls['turns'].delete(0,'end');controls['turns'].insert(0,'6');controls['start']()
  for _ in range(10):root.update();time.sleep(.01)
