@@ -2,6 +2,19 @@
 import subprocess,pathlib,time,json,ctypes,os
 from PIL import ImageGrab
 from pywinauto import Desktop
+# Controlled OpenAI-compatible local test server. Not a real model acceptance claim.
+import http.server,threading
+requests=[]
+class LocalFixture(http.server.BaseHTTPRequestHandler):
+ def log_message(self,*args):pass
+ def do_GET(self):
+  requests.append({'path':self.path});self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'data':[{'id':'fixture-local-model'}]}).encode())
+ def do_POST(self):
+  body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
+  text=body['messages'][-1]['content']
+  if 'failure-probe' in text:self.send_response(503);self.end_headers();return
+  self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'choices':[{'message':{'content':'Packaged local chat round-trip confirmed.'},'finish_reason':'stop'}]}).encode())
+server=http.server.ThreadingHTTPServer(('127.0.0.1',1234),LocalFixture);threading.Thread(target=server.serve_forever,daemon=True).start()
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
 try:
@@ -24,6 +37,16 @@ try:
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
  click('Connect local core');time.sleep(2)
  click('DEX Coder')
+ field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
+ click('Add local draft');time.sleep(3)
+ text=' '.join(x.window_text() for x in window.descendants())
+ assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
+ window.capture_as_image().save('ui-evidence/tauri-chat-roundtrip.png');checks.append('packaged UI IPC frozen-core local HTTP reply shown')
+ field.wrapper_object().set_edit_text('failure-probe');click('Add local draft');time.sleep(4)
+ text=' '.join(x.window_text() for x in window.descendants())
+ assert 'http-503' in text, 'Failure not persistently visible: '+text
+ window.capture_as_image().save('ui-evidence/tauri-chat-error.png');checks.append('model error remains visible after idle polling')
+ pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
  click('Local awareness');click('Allow app names');time.sleep(2)
  click('Allow local context judgment');time.sleep(2)
  click('Stop and clear local context');time.sleep(1)
@@ -51,6 +74,7 @@ except Exception:
   except Exception:pass
  raise
 finally:
+ server.shutdown();server.server_close()
  if 'faces' in locals():
   try:ctypes.windll.user32.PostMessageW(faces.handle,0x0010,0,0)
   except Exception:pass
