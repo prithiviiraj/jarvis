@@ -5,11 +5,11 @@ import tkinter as tk
 from tkinter import messagebox,ttk
 from .workspace_voice import WorkspaceVoice,VOICES
 import queue,threading,time
-BG='#101013';RAIL='#151518';PANEL='#19191e';LINE='#2b2b32';TEXT='#eeeeF1';MUTED='#96969f'
+from .ui_theme import BG,RAIL,PANEL,LINE,TEXT,MUTED,glass,hover
 ROSTER=[('JARVIS','Team leader','#5bc8b2'),('NOVA','Secretary','#aa8be9'),('KAI','Researcher','#ec9d65'),('LYRA','Writer','#e287b5'),('DEX','Coder','#79a9e8')]
 class Workspace:
  def __init__(self,root,controller=None):
-  self.root=root;self.voice=controller or WorkspaceVoice();self.voice_status='off';self.caption='No conversation yet. Nothing is listening.';self.response='';self.setup_busy=False;self.download_cancel=threading.Event();root.title('JARVIS - Voice workspace / experimental');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG)
+  self.root=root;self.voice=controller or WorkspaceVoice();self.voice_status='off';self.caption='No conversation yet. Nothing is listening.';self.response='';self.setup_busy=False;self.download_cancel=threading.Event();root.title('JARVIS - Voice workspace / experimental');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG);glass(root)
   from .experimental.session_awareness import SessionAwareness
   self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''};self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
@@ -22,7 +22,8 @@ class Workspace:
  def label(self,parent,text,size=11,color=TEXT,bg=None,**kw):
   return tk.Label(parent,text=text,bg=bg or parent.cget('bg'),fg=color,font=('Segoe UI',size),anchor='w',justify='left',**kw)
  def button(self,parent,text,fn,bg=PANEL,color=TEXT,**kw):
-  return tk.Button(parent,text=text,command=fn,bg=bg,fg=color,activebackground=LINE,activeforeground=TEXT,relief='flat',bd=0,cursor='hand2',font=('Segoe UI',10),padx=10,pady=2 if parent is self.rail else 6,**kw)
+  widget=tk.Button(parent,text=text,command=fn,bg=bg,fg=color,activebackground=LINE,activeforeground=TEXT,relief='flat',bd=0,cursor='hand2',font=('Segoe UI',10),padx=10,pady=2 if parent is self.rail else 6,**kw)
+  hover(widget,bg);return widget
  def build_rail(self):
   for child in self.rail.winfo_children():child.destroy()
   self.label(self.rail,'J A R V I S',15).pack(anchor='w',pady=(0,4));self.label(self.rail,'VOICE WORKSPACE',8,MUTED).pack(anchor='w',pady=(0,15))
@@ -116,7 +117,7 @@ class Workspace:
  def banter_panel(self):
   if hasattr(self,'banter_window') and self.banter_window.winfo_exists():self.banter_window.lift();return
   self.voice.pause();self.voice_status='off'
-  win=tk.Toplevel(self.root);self.banter_window=win;win.title('JARVIS - Local banter session');win.geometry('550x580+190+65');win.configure(bg=PANEL);win.transient(self.root)
+  win=tk.Toplevel(self.root);self.banter_window=win;win.title('JARVIS - Local banter session');win.geometry('550x580+190+65');win.configure(bg=PANEL);glass(win);win.transient(self.root)
   f=tk.Frame(win,bg=PANEL,padx=18,pady=14);f.pack(fill='both',expand=True)
   self.label(f,'Bounded local banter',17).pack(anchor='w')
   self.label(f,'OFF until you consent and Start. One local model, text only.\nNo microphone, cloud, screen/game sensing or independent workers.',10,MUTED,wraplength=505).pack(anchor='w',pady=6)
@@ -224,7 +225,7 @@ class Workspace:
   nudge=self.awareness.poll(quiet=self.timer_quiet or hidden,busy=self.voice.busy or self.voice.runtime is not None)
   if nudge and self.timer_window and self.timer_window.winfo_exists():self.timer_status.configure(text=nudge.text)
  def voice_setup(self):
-  win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x670');win.configure(bg=PANEL);win.transient(self.root)
+  win=tk.Toplevel(self.root);win.title('JARVIS - Voice setup');win.geometry('680x670');win.configure(bg=PANEL);glass(win);win.transient(self.root)
   frame=tk.Frame(win,bg=PANEL,padx=24,pady=12);frame.pack(fill='both',expand=True)
   self.label(frame,'Voice setup / '+VOICES[ROSTER[self.selected][0]],17).pack(anchor='w')
   self.label(frame,'Microphone starts OFF. Headphones required. Half-duplex only.\nNo echo cancellation or barge-in. Physical acceptance is pending.',10,MUTED,wraplength=610).pack(anchor='w',pady=10)
@@ -302,7 +303,7 @@ class Workspace:
    if self.setup_busy:return
    if not messagebox.askyesno('Download models','Check existing cached models, then download only missing verified speech models and all five voices (roughly500MB if missing)? No audio is uploaded.',parent=win):return
    self.setup_busy=True;self.download_cancel.clear();download_button.configure(state='disabled')
-   progress=tk.Toplevel(self.root);progress.title('JARVIS - Model downloads');progress.geometry('620x300');progress.configure(bg=PANEL);progress.transient(self.root)
+   progress=tk.Toplevel(self.root);progress.title('JARVIS - Model downloads');progress.geometry('620x300');progress.configure(bg=PANEL);glass(progress);progress.transient(self.root)
    pane=tk.Frame(progress,bg=PANEL,padx=24,pady=24);pane.pack(fill='both',expand=True)
    self.label(pane,'Speech models and five voices',17).pack(anchor='w')
    state_label=self.label(pane,'Starting: checking cached files and checksums...',11,wraplength=560);state_label.pack(anchor='w',pady=12)
@@ -358,7 +359,7 @@ class Workspace:
   if self.mini and self.mini.winfo_exists():self.mini.title('JARVIS - Mini orb / OFF')
  def settings(self):
   if self.settings_window and self.settings_window.winfo_exists():self.settings_window.lift();return
-  win=tk.Toplevel(self.root);self.settings_window=win;win.title('JARVIS - Settings preview');win.geometry('660x440');win.configure(bg=PANEL);win.transient(self.root)
+  win=tk.Toplevel(self.root);self.settings_window=win;win.title('JARVIS - Settings preview');win.geometry('660x440');win.configure(bg=PANEL);glass(win);win.transient(self.root)
   nav=tk.Frame(win,bg=RAIL,padx=15,pady=20,width=175);nav.pack(side='left',fill='y');content=tk.Frame(win,bg=PANEL,padx=28,pady=22);content.pack(side='left',fill='both',expand=True)
   def page(tab):
    for x in content.winfo_children():x.destroy()
@@ -371,7 +372,7 @@ class Workspace:
   for tab in ['General','Computer','Usage & Billing','Voice']:self.button(nav,tab,lambda t=tab:page(t),bg=RAIL).pack(fill='x',pady=4)
   page('General')
  def groq_key(self,provider='groq'):
-  win=tk.Toplevel(self.root);win.title(provider+' - secure key onboarding');win.geometry('620x360');win.configure(bg=PANEL);win.transient(self.root)
+  win=tk.Toplevel(self.root);win.title(provider+' - secure key onboarding');win.geometry('620x360');win.configure(bg=PANEL);glass(win);win.transient(self.root)
   panel=tk.Frame(win,bg=PANEL,padx=24,pady=22);panel.pack(fill='both',expand=True)
   self.label(panel,provider+' API key',18).pack(anchor='w')
   self.label(panel,'Stored only in Windows Credential Manager. Never in config or logs.\nAdding a key does not enable cloud calls or prove a Free plan.\nCheck your provider account billing before enabling cloud.',10,MUTED,wraplength=560).pack(anchor='w',pady=12)
@@ -402,7 +403,7 @@ class Workspace:
   row=tk.Frame(panel,bg=PANEL);row.pack(fill='x')
   self.button(row,'Save securely',save).pack(side='left',padx=4);self.button(row,'Remove key',delete).pack(side='left',padx=4);self.button(row,'Close',win.destroy).pack(side='right')
  def edit_profile(self):
-  win=tk.Toplevel(self.root);win.title('JARVIS - Profile preview');win.geometry('560x500');win.configure(bg=PANEL);win.transient(self.root);panel=tk.Frame(win,bg=PANEL,padx=28,pady=25);panel.pack(fill='both',expand=True)
+  win=tk.Toplevel(self.root);win.title('JARVIS - Profile preview');win.geometry('560x500');win.configure(bg=PANEL);glass(win);win.transient(self.root);panel=tk.Frame(win,bg=PANEL,padx=28,pady=25);panel.pack(fill='both',expand=True)
   self.label(panel,'Agent profile',19).pack(anchor='w',pady=(0,15))
   for field,value in [('Name',ROSTER[self.selected][0]),('Role',ROSTER[self.selected][1]),('Voice',VOICES[ROSTER[self.selected][0]]),('Allowed tools','None enabled')]:
    self.label(panel,field,9,MUTED).pack(anchor='w',pady=(7,5));e=tk.Entry(panel,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',11));e.insert(0,value);e.pack(fill='x',ipady=7)
