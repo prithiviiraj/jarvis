@@ -21,3 +21,19 @@ class AnimationMetricsTests(unittest.TestCase):
   from jarvis.orbs import next_frame_delay
   deadline,delay=next_frame_delay(0,1)
   self.assertAlmostEqual(deadline,1+1/60);self.assertGreaterEqual(delay,15)
+
+ def test_easing_monotonic_and_bounded(self):
+  from jarvis.orbs import ease
+  x=21
+  for _ in range(15):
+   n=ease(x,28,1/60);self.assertGreater(n,x);self.assertLess(n,28);x=n
+  self.assertGreater(x,27)
+ def test_easing_time_independent(self):
+  from jarvis.orbs import ease
+  a=b=21
+  for _ in range(6):a=ease(a,28,1/60)
+  for _ in range(3):b=ease(b,28,1/30)
+  self.assertAlmostEqual(a,b)
+ def test_easing_reduced_and_clock(self):
+  from jarvis.orbs import ease
+  self.assertEqual(ease(21,28,.016,True),28);self.assertEqual(ease(21,28,-1),21)
