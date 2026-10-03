@@ -1,5 +1,5 @@
 """Build a no-system-Python portable preview and verify the frozen stdio core."""
-import pathlib, shutil, subprocess, json, os, hashlib
+import pathlib, shutil, subprocess, json, os, hashlib,queue,threading
 root=pathlib.Path(__file__).resolve().parent
 out=root/'windows-portable'
 if out.exists():shutil.rmtree(out)
@@ -26,11 +26,20 @@ if os.environ.get('JARVIS_PACKAGE_VOICE')=='1':
  start=out/'START HERE.txt';start.write_text(start.read_text().replace('Voice/audio assets and optional speech dependencies are NOT included in this preview.','Local speech runtime is bundled. Click Download local voice models (roughly500MB), then Mic ON. Headphones required for this first half-duplex test. No AEC/barge-in yet. Microphone starts OFF.'))
 core=out/'backend/jarvis-local-core.exe'
 env=dict(os.environ);env.pop('PYTHONPATH',None);env['PATH']=str(pathlib.Path(os.environ['WINDIR'])/'System32')
-p=subprocess.Popen([str(core)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True,env=env,cwd=out)
+log=open(root/'ui-evidence/frozen-core-stderr.txt','w')
+p=subprocess.Popen([str(core)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True,env=env,cwd=out)
+lines=queue.Queue()
+def drain():
+ for line in p.stdout:lines.put(line)
+ lines.put(None)
+threading.Thread(target=drain,daemon=True).start()
 checks=[]
 try:
  for req in [{'command':'status'},{'command':'select','name':'DEX'},{'command':'apps','enabled':True},{'command':'judgment','enabled':True,'context_consent':True},{'command':'pause'},{'command':'shell'},{'command':'close'}]:
-  p.stdin.write(json.dumps(req)+'\n');p.stdin.flush();checks.append(json.loads(p.stdout.readline()))
+  p.stdin.write(json.dumps(req)+'\n');p.stdin.flush();
+  line=lines.get(timeout=30)
+  if not line:raise RuntimeError('Frozen core exited: '+str(p.poll()))
+  print('Frozen reply:',line.strip(),flush=True);checks.append(json.loads(line))
  assert checks[0]['data']['awareness']['camera']=='off'
  assert checks[1]['data']['selected']=='DEX'
  assert checks[2]['data']['awareness']['app_monitor'] is True
@@ -41,6 +50,7 @@ try:
  p.wait(10)
 finally:
  if p.poll() is None:p.kill()
+ log.close()
 (root/'ui-evidence/frozen-core-checks.json').write_text(json.dumps({'bundled_core':True,'system_python_removed_from_PATH':True,'checks':checks},indent=2))
 manifest={str(p.relative_to(out)):{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in out.rglob('*') if p.is_file()}
 (root/'ui-evidence/portable-manifest.json').write_text(json.dumps(manifest,indent=2))
