@@ -1,0 +1,22 @@
+# JARVIS Windows UI modernization recommendation
+3 October 2026. Research only; no rewrite started.
+
+Recommend a Tauri 2 + React/TypeScript UI proof-of-concept, retaining the Python voice/sensor core behind a narrow local bridge. Use PySide6 + Qt Quick/QML as the fallback if transparent faces, WebView2 behavior or total resource measurements fail. Electron can deliver the visual target but is third choice for a gaming/24-hour laptop app due to shipping and maintaining Chromium/Node alongside the existing speech stack. These are architecture choices, not measured performance guarantees.
+
+Locked design: black/grey base; current colorful personas; expressive detailed faces; modern fonts with a selector; highlighted key text; per-bot avatar/name/accent chat bubbles; short intentional animation. The second video's description is a north-star reference, not verified pixels here. Routines/scheduled tasks are behavior, not something a new UI framework implements automatically.
+
+| Route | Fit | Cost/risk |
+| --- | --- | --- |
+| Tauri2 web shell | CSS typography, vector icons, chat bubbles, SVG/canvas expressions; existing Python sidecar supported | System WebView2 prerequisite, Rust/JS/Python build pipeline and explicit IPC permissions; smaller shell distribution does not prove lower RAM or GPU cost |
+| Qt Quick/PySide6 | QML scene graph and render-thread animation; direct Python integration, no web runtime necessary | Qt/Nuitka/QML packaging weight and LGPL/GPL/commercial licensing review; avoid unneeded QtWebEngine/plugins |
+| Electron | Same rich web design; bundled Chromium provides a controlled rendering version | Chromium/Node process tree and installer/runtime weight, patch maintenance; must isolate renderer and validate IPC; benchmark rather than assuming a memory figure |
+
+Tauri packaging docs list WebView2 installer additions around 1.8 MB for bootstrapper, 127 MB offline installer, 180 MB fixed runtime. These are vendor estimates for WebView2 distribution options, not total JARVIS app/model size. Using an existing Evergreen runtime avoids copying it into our app but does not make its running processes free.
+
+Community memory evidence disputes blanket Tauri-vs-Electron RAM rankings. Windows GPU/transparent-window behavior also has known issue reports. Do not promise smaller RAM, 60 FPS or a smaller complete no-Python download until measuring the actual JARVIS screen and complete process tree on the user's laptop.
+
+Trial: one workspace chat screen plus floating faces and sensing OFF indicator; no new behavior/model routes. Bundle local licensed fonts/icons, expose only validated backend commands, keep keys in backend Credential Manager and never render them unnecessarily. Display untrusted model replies/window titles as text, not executable markup. Use virtualized/bounded chat, transforms/opacity for motion, reduced-motion mode, hidden-view pause, and no always-running blur/parallax. Test 100%/125%/150% DPI, Tamil/English fallback fonts, keyboard access, screen reader labels, overlay click-through/topmost and one-click stop.
+
+Compare old Tk build versus Tauri slice on idle workspace, hidden workspace with faces, speaking expressions, long chat, game foreground and lock/resume. Record full process-tree working/private memory, CPU and GPU, startup, frame presentation/gaps, power, install/update size and teardown. Set acceptance budgets after baseline, not arbitrary claims. Preserve current build until slice/laptop acceptance. A packaged Python sidecar can remove the user's Python-install requirement but does not settle the existing model/native/runtime redistribution audit.
+
+Sources checked: https://v2.tauri.app/distribute/windows-installer/ ; https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution ; https://v2.tauri.app/develop/sidecar/ ; https://v2.tauri.app/security/capabilities/ ; https://v2.tauri.app/reference/javascript/api/namespacewindow/ ; https://www.electronjs.org/docs/latest/tutorial/process-model ; https://www.electronjs.org/docs/latest/tutorial/security ; https://doc.qt.io/qtforpython-6/deployment/deployment-pyside6-deploy.html ; https://doc.qt.io/qtforpython-6/licenses.html ; https://doc.qt.io/qtforpython-6/overviews/qtquick-visualcanvas-scenegraph.html ; https://github.com/tauri-apps/tauri/issues/5889 ; https://github.com/tauri-apps/tauri/issues/13270 ; https://lucide.dev/license . Vendor docs establish capabilities, community issues are caveats not comparable benchmarks. No hardware numbers adopted.
