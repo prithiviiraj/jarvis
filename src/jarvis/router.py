@@ -1,6 +1,6 @@
 """Reasoning-provider router. Cloud is opt-in; no tool calls or key files."""
 from dataclasses import dataclass,replace
-from .chat_payload import payload,reply_metadata
+from .chat_payload import payload,reply_metadata,answer_text
 import json
 import time
 import threading
@@ -60,7 +60,7 @@ class HttpTransport:
                 raw=r.read(1048577)
                 if len(raw)>1048576:raise ProviderFailure('oversize',False)
                 j=json.loads(raw)
-                answer=j['choices'][0]['message']['content']
+                answer=answer_text(j['choices'][0]['message'].get('content'))
                 if not isinstance(answer,str) or not answer.strip():raise ProviderFailure('empty-token-limit' if reply_metadata(j)['finish_category']=='length' else 'empty')
                 return answer.strip()
         except urllib.error.HTTPError as e:
