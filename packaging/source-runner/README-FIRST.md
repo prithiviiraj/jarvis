@@ -64,3 +64,5 @@ Bounded local banter: Team Room > Banter session. OFF until you enter a topic, s
 Glass-dark polish: lightweight dark-blue surfaces, window-wide97percent opacity and eased button hover transitions. No live backdrop blur, GPU compositor or new graphics dependencies are added. Native window shadows depend on Windows; no shadow/render-performance guarantee. Reduced motion applies to floating face expressions.
 
 Typed Chat moderator: default Pick one relevant persona. Direct address at the start selects a name; otherwise bounded keyword rules choose one specialist, with mixed/general topics going to JARVIS. One local request only. Uncheck to keep the selected persona. This is deterministic text routing, not human-level intent understanding or voice auto-switching.
+
+Local awareness foundation: see docs/local-awareness-acceptance.md. Optional camera dependency: ENABLE-CAMERA-DEPS.cmd. Camera/app/title awareness starts OFF, keeps observations local in RAM, has an always-visible sensing indicator and one-click OFF. No automatic persona speech or cloud sensing. Physical webcam and 24/7 acceptance remain open.
