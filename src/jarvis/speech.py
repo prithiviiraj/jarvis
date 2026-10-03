@@ -3,16 +3,24 @@ import os
 import subprocess
 import threading
 
+_STT_MODELS={};_STT_LOCK=threading.RLock()
+
 class WhisperSTT:
     def __init__(self,path,vocabulary='',language=None):
         from faster_whisper import WhisperModel
-        self.model=WhisperModel(str(path),device='cpu',compute_type='int8',cpu_threads=2,num_workers=1,local_files_only=True)
+        # Retain one CPU model for the process; Windows native disposal can block.
+        with _STT_LOCK:
+            key=str(path)
+            if key not in _STT_MODELS:_STT_MODELS[key]=WhisperModel(key,device='cpu',compute_type='int8',cpu_threads=2,num_workers=1,local_files_only=True)
+            self.model=_STT_MODELS[key]
+        self.lock=_STT_LOCK
         self.vocabulary=vocabulary[:1000];self.language=language
     def transcribe(self,audio):
-        segments,info=self.model.transcribe(audio,beam_size=1,language=self.language,initial_prompt=self.vocabulary or None,vad_filter=False)
-        parts=[]
-        for s in segments:
-            if s.no_speech_prob<.6 and s.avg_logprob> -1.0:parts.append(s.text)
+        with self.lock:
+            segments,info=self.model.transcribe(audio,beam_size=1,language=self.language,initial_prompt=self.vocabulary or None,vad_filter=False)
+            parts=[]
+            for s in segments:
+                if s.no_speech_prob<.6 and s.avg_logprob> -1.0:parts.append(s.text)
         text=' '.join(parts).strip()
         if not text:raise ValueError('Speech was unclear. Please repeat.')
         return text
