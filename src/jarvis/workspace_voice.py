@@ -3,6 +3,8 @@ import queue
 import threading
 from pathlib import Path
 
+def banter_wait(stop,interval):return stop.wait(interval)
+
 VOICES = {'JARVIS':'am_michael','NOVA':'af_heart','KAI':'am_liam','LYRA':'af_sky','DEX':'am_fenrir'}
 
 class WorkspaceVoice:
@@ -12,7 +14,7 @@ class WorkspaceVoice:
         self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock()
         from .team_memory import TeamMemory
-        self.memory=TeamMemory();self.pool_config=None
+        self.memory=TeamMemory();self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
     def notify(self,kind,value):self.events.put((kind,value))
     def select(self,name):
         if name not in VOICES:raise ValueError('Unknown voice profile.')
@@ -109,8 +111,59 @@ class WorkspaceVoice:
                     self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
+    def start_banter(self,topic,names,consent=False,turn_limit=6,interval=5):
+        """Opt-in bounded local text session. No mic, cloud, tools or sensing."""
+        if consent is not True:raise ValueError('Banter session consent required.')
+        if not isinstance(topic,str) or not topic.strip() or len(topic)>1000:raise ValueError('Type a topic up to1000characters.')
+        if not isinstance(names,tuple) or not 2<=len(names)<=5 or len(set(names))!=len(names) or any(n not in VOICES for n in names):raise ValueError('Choose2to5different known profiles.')
+        if type(turn_limit) is not int or not 2<=turn_limit<=12:raise ValueError('Choose2to12turns.')
+        if type(interval) is not int or not 2<=interval<=30:raise ValueError('Choose2to30seconds between turns.')
+        with self.lock:
+            if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Pause voice and wait for the current conversation first.')
+            self.busy=True;self.banter_active=True;self.banter_stop=threading.Event();stop=self.banter_stop
+            self.generation+=1;ticket=self.generation;context=self.memory.messages()
+        self.notify('banter-status','Running local text session. No audio or sensing; Stop discards this session.')
+        def run():
+            nonlocal context
+            import time
+            from .personas import prompt
+            staged=[];deadline=time.monotonic()+120
+            try:
+                router=self.text_factory()
+                for i in range(turn_limit):
+                    with self.lock:
+                        if self.closed or ticket!=self.generation or stop.is_set():return
+                    if time.monotonic()>=deadline:raise TimeoutError('Session time limit')
+                    name=names[i%len(names)]
+                    instruction='User-started bounded playful conversation: '+topic.strip()+'\nReply as '+name+' in one or two short sentences to the supplied prior conversation. You have no screen, camera, game, emotion or work observation. Never claim independent work, actions or sensing. Do not invent facts about the user. Other personas are characters sharing one local model. No tools. Keep banter kind, not personal or hostile.'
+                    answer=router.ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':instruction}],cloud_consent=False)
+                    text=answer.get('text')
+                    if not isinstance(text,str) or not text.strip() or len(text)>1000:raise ValueError('Invalid banter reply')
+                    with self.lock:
+                        if self.closed or ticket!=self.generation or stop.is_set():return
+                    if time.monotonic()>=deadline:raise TimeoutError('Session time limit')
+                    staged.append((name,topic.strip(),text));context=context+[{'role':'user','content':instruction},{'role':'assistant','content':'['+name+'] '+text}]
+                    # Bounded supplied context even across repeated persona turns.
+                    while len(context)>2 and sum(len(m['content']) for m in context)>12000:context=context[2:]
+                    self.notify('banter-preview',(ticket,name,text,i+1,turn_limit))
+                    if i+1<turn_limit and banter_wait(stop,interval):return
+                with self.lock:
+                    if self.closed or ticket!=self.generation or stop.is_set():return
+                    for name,user,text in staged:self.memory.append(name,user,text)
+                    self.notify('team-updated',names[-1]);self.notify('banter-status','Completed '+str(turn_limit)+' local text turns. Saved to shared conversation. Session OFF.')
+            except Exception:
+                with self.lock:
+                    if not self.closed and ticket==self.generation:self.notify('banter-status','Session failed or reached120seconds. No partial session saved. Check LM Studio.')
+            finally:
+                with self.lock:
+                    self.busy=False;self.banter_active=False
+        worker=threading.Thread(target=run,daemon=True);worker.start();return worker
+    def stop_banter(self):
+        with self.lock:
+            self.banter_stop.set();self.generation+=1;self.banter_active=False
+        self.notify('banter-status','OFF. Current session discarded. In-flight local request may finish, but its reply will not be saved.')
     def pause(self):
-        with self.lock:self.generation+=1;runtime=self.runtime;self.runtime=None
+        with self.lock:self.banter_stop.set();self.banter_active=False;self.generation+=1;runtime=self.runtime;self.runtime=None
         if runtime:runtime.close()
         self.notify('state','off')
     def close(self):
