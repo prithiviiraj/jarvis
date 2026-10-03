@@ -111,7 +111,7 @@ class WorkspaceVoice:
                     self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
-    def start_banter(self,topic,names,consent=False,turn_limit=6,interval=5):
+    def start_banter(self,topic,names,consent=False,turn_limit=2,interval=3):
         """Opt-in bounded local text session. No mic, cloud, tools or sensing."""
         if consent is not True:raise ValueError('Banter session consent required.')
         if not isinstance(topic,str) or not topic.strip() or len(topic)>1000:raise ValueError('Type a topic up to1000characters.')
@@ -135,7 +135,7 @@ class WorkspaceVoice:
                         if self.closed or ticket!=self.generation or stop.is_set():return
                     if time.monotonic()>=deadline:raise TimeoutError('Session time limit')
                     name=names[i%len(names)]
-                    instruction='User-started bounded playful conversation: '+topic.strip()+'\nReply as '+name+' in one or two short sentences to the supplied prior conversation. You have no screen, camera, game, emotion or work observation. Never claim independent work, actions or sensing. Do not invent facts about the user. Other personas are characters sharing one local model. No tools. Keep banter kind, not personal or hostile.'
+                    instruction='User-started bounded playful conversation: '+topic.strip()+'\nReply as '+name+' in one punchy sentence, at most20words, to the supplied prior conversation. You have no screen, camera, game, emotion or work observation. Never claim independent work, actions or sensing. Do not invent facts about the user. Other personas are characters sharing one local model. No tools. Keep banter kind, not personal or hostile.'
                     answer=router.ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':instruction}],cloud_consent=False)
                     text=answer.get('text')
                     if not isinstance(text,str) or not text.strip() or len(text)>1000:raise ValueError('Invalid banter reply')
