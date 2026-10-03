@@ -91,6 +91,7 @@ class Workspace:
   row=tk.Frame(self.body,bg=PANEL);row.pack(fill='x',pady=(5,2))
   self.round_entry=tk.Entry(row,bg=LINE,fg=TEXT,insertbackground=TEXT,relief='flat',font=('Segoe UI',10));self.round_entry.pack(side='left',fill='x',expand=True,padx=5)
   self.button(row,'Start round',self.start_team_round).pack(side='right')
+  self.button(row,'Banter session',self.banter_panel).pack(side='right')
   choices=tk.Frame(self.body,bg=BG);choices.pack(fill='x')
   self.round_agents={}
   for name,role,color in ROSTER:
@@ -105,6 +106,39 @@ class Workspace:
  def start_team_round(self):
   try:self.voice.team_round(self.round_entry.get(),tuple(name for name in self.round_agents if self.round_agents[name].get()));self.round_entry.delete(0,'end')
   except (ValueError,RuntimeError) as exc:self.note('Local team round',str(exc))
+ def banter_panel(self):
+  if hasattr(self,'banter_window') and self.banter_window.winfo_exists():self.banter_window.lift();return
+  self.voice.pause();self.voice_status='off'
+  win=tk.Toplevel(self.root);self.banter_window=win;win.title('JARVIS - Local banter session');win.geometry('550x580+190+65');win.configure(bg=PANEL);win.transient(self.root)
+  f=tk.Frame(win,bg=PANEL,padx=18,pady=14);f.pack(fill='both',expand=True)
+  self.label(f,'Bounded local banter',17).pack(anchor='w')
+  self.label(f,'OFF until you consent and Start. One local model, text only.\nNo microphone, cloud, screen/game sensing or independent workers.',10,MUTED,wraplength=505).pack(anchor='w',pady=6)
+  self.label(f,'Topic (use shared conversation only)',9,MUTED).pack(anchor='w')
+  topic=tk.Entry(f,bg=LINE,fg=TEXT,insertbackground=TEXT,font=('Segoe UI',10),relief='flat');topic.pack(fill='x',pady=5)
+  names={};row=tk.Frame(f,bg=PANEL);row.pack(fill='x')
+  for name,role,color in ROSTER:
+   v=tk.BooleanVar(value=name in ('NOVA','JARVIS'));names[name]=v
+   tk.Checkbutton(row,text=name,variable=v,bg=PANEL,fg=color,selectcolor=LINE,activebackground=PANEL,font=('Segoe UI',9)).pack(side='left')
+  row=tk.Frame(f,bg=PANEL);row.pack(fill='x',pady=6)
+  self.label(row,'Turns2-12',9,MUTED).pack(side='left');turns=tk.Spinbox(row,from_=2,to=12,width=3,bg=LINE,fg=TEXT);turns.delete(0,'end');turns.insert(0,'6');turns.pack(side='left',padx=8)
+  self.label(row,'Gap2-30sec',9,MUTED).pack(side='left');gap=tk.Spinbox(row,from_=2,to=30,width=3,bg=LINE,fg=TEXT);gap.delete(0,'end');gap.insert(0,'5');gap.pack(side='left',padx=8)
+  consent=tk.BooleanVar(value=False)
+  tk.Checkbutton(f,text='Allow this bounded local text session',variable=consent,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL,font=('Segoe UI',10)).pack(anchor='w')
+  self.banter_status=self.label(f,'OFF. Maximum120seconds. Stop/close discards partial session.',9,MUTED,wraplength=505);self.banter_status.pack(anchor='w',pady=6)
+  self.banter_preview=tk.Text(f,bg=BG,fg=TEXT,font=('Segoe UI',10),wrap='word',height=10,relief='flat',padx=8,pady=8,state='disabled');self.banter_preview.pack(fill='both',expand=True)
+  def start():
+   try:
+    self.voice.start_banter(topic.get(),tuple(n for n in names if names[n].get()),consent.get(),int(turns.get()),int(gap.get()))
+    self.banter_preview.configure(state='normal');self.banter_preview.delete('1.0','end');self.banter_preview.configure(state='disabled');self.banter_status.configure(text='Running local text session. Waiting for first reply...')
+   except (ValueError,RuntimeError) as exc:self.banter_status.configure(text=str(exc))
+  def stop():
+   self.voice.stop_banter();self.banter_status.configure(text='OFF. Partial session discarded. An in-flight request may finish without saving.')
+   self.banter_preview.configure(state='normal');self.banter_preview.delete('1.0','end');self.banter_preview.configure(state='disabled')
+  def close():stop();win.destroy()
+  row=tk.Frame(f,bg=PANEL);row.pack(fill='x',pady=(10,0))
+  self.button(row,'Start session',start).pack(side='left');self.button(row,'Stop',stop).pack(side='left',padx=8);self.button(row,'Close',close).pack(side='right')
+  win.protocol('WM_DELETE_WINDOW',close)
+  self.banter_controls={'topic':topic,'names':names,'turns':turns,'gap':gap,'consent':consent,'start':start,'stop':stop}
  def update_team_transcript(self):
   if not hasattr(self,'team_transcript') or not self.team_transcript.winfo_exists():return
   turns=self.voice.memory.snapshot()
@@ -135,6 +169,13 @@ class Workspace:
     callback(result)
    elif kind=='round-status':
     if hasattr(self,'round_status_label') and self.round_status_label.winfo_exists():self.round_status_label.configure(text=str(value))
+   elif kind=='banter-status':
+    if hasattr(self,'banter_status') and self.banter_status.winfo_exists():self.banter_status.configure(text=str(value))
+   elif kind=='banter-preview':
+    if hasattr(self,'banter_preview') and self.banter_preview.winfo_exists():
+     ticket,name,text,n,total=value
+     if ticket!=self.voice.generation:continue
+     self.banter_preview.configure(state='normal');self.banter_preview.insert('end',str(n)+'/'+str(total)+' '+name+': '+text+'\n\n');self.banter_preview.see('end');self.banter_preview.configure(state='disabled')
    elif kind=='team-updated':self.update_team_transcript()
    elif kind=='transcript':self.caption='You: '+str(value)[:220]
    elif kind=='answer':self.response=ROSTER[self.selected][0]+': '+value['text'][:450]
@@ -300,6 +341,8 @@ class Workspace:
   self.button(row,'Enable voice',enable,bg='#b6e7d9',color='#11231f').pack(side='left',padx=4);self.button(row,'Cancel',win.destroy).pack(side='right')
  def pause(self):
   self.awareness.stop()
+  if hasattr(self,'banter_window') and self.banter_window.winfo_exists():
+   self.banter_status.configure(text='OFF. Pause all discarded the partial session.');self.banter_preview.configure(state='normal');self.banter_preview.delete('1.0','end');self.banter_preview.configure(state='disabled')
   if self.timer_window and self.timer_window.winfo_exists():self.timer_status.configure(text="OFF. Pause all cleared the session timer.")
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''}
   self.download_cancel.set();self.voice.pause();self.voice.memory.clear();self.voice.pool_config=None;self.voice_status='off'
