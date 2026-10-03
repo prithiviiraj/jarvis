@@ -23,6 +23,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
           python packaging/workspace_voice_smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Workspace smoke failed' }
+          python packaging/animation_benchmark.py
+          if ($LASTEXITCODE -ne 0) { throw 'Animation measurement failed' }
       - uses: actions/upload-artifact@v4
         with:
           name: JARVIS-workspace-voice-bridge-evidence
