@@ -113,6 +113,7 @@ class BrainRouter:
             ordered.sort(key=lambda p:p.name!=preferred)
         # Same-provider smaller-model fallback only after a transient pre-text failure.
         pending_fallback=False
+        errors=[]
         expanded=[]
         for item in ordered:
             expanded.append((item,False))
@@ -141,9 +142,10 @@ class BrainRouter:
                 if cancel is not None and cancel.is_set():return
                 raise ProviderFailure('empty')
             except ProviderFailure as exc:
+                errors.append((p.name,exc.code))
                 pending_fallback=(not emitted and not is_fallback and p.name=='groq' and p.model=='openai/gpt-oss-120b' and exc.retryable and exc.code in ('http-429','http-408','http-500','http-502','http-503','http-504','connection','stream-timeout'))
                 if not pending_fallback:
                     with self.lock:self.disabled_until[p.name]=self.clock()+self.break_seconds
                 if emitted:raise RouterError('The answer stopped mid-sentence. Please try again.') from None
                 if not exc.retryable:break
-        raise RouterError('No enabled brain answered. Check your local server or enabled provider settings.')
+        raise RouterError('No enabled brain answered'+(' ('+', '.join(name+':'+code for name,code in errors)+')' if errors else '')+'. Check your local server or enabled provider settings.')
