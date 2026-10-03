@@ -17,10 +17,12 @@ jobs:
         env:
           PYTHONPATH: src
         run: |
-          python -m pip install Pillow==11.3.0 numpy==2.2.6
+          python -m pip install Pillow==11.3.0 opencv-python-headless==4.14.0.94 numpy==2.2.6
           if ($LASTEXITCODE -ne 0) { throw 'Pixel dependency failed' }
           python -m unittest discover -s tests -v
           if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
+          python packaging/awareness_smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Local awareness smoke failed' }
           python packaging/workspace_voice_smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Workspace smoke failed' }
           python packaging/animation_benchmark.py
