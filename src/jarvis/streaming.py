@@ -1,7 +1,7 @@
 """Bounded OpenAI-style SSE parsing. No tools or side effects, text deltas only."""
 import json,time,urllib.request,urllib.error
-from .chat_payload import payload
-from .router import NoRedirect,ProviderFailure,local_http
+from .chat_payload import payload,answer_text,reply_metadata
+from .router import NoRedirect,ProviderFailure,local_http,HttpTransport
 
 def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None):
     size=0;count=0
@@ -23,11 +23,12 @@ def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None):
             choices=event.get('choices',[])
             if not choices:continue # usage events
             if choices[0].get('finish_reason')=='length':raise ProviderFailure('completion-token-limit',False)
-            delta=choices[0].get('delta',{})
+            delta=choices[0].get('delta') or choices[0].get('message') or {}
             # Ignore tool/function calls, role metadata and all non-text data.
             text=delta.get('content')
             if text is None:continue
-            if not isinstance(text,str):raise ValueError()
+            if not isinstance(text,(str,list)):raise ValueError()
+            text=answer_text(text)
         except (ValueError,TypeError,AttributeError,IndexError):raise ProviderFailure('malformed',False) from None
         if text:
             count+=len(text)
@@ -46,8 +47,34 @@ class StreamTransport:
         req=urllib.request.Request(provider.url.rstrip('/')+'/chat/completions',headers=headers,data=json.dumps(payload(provider.model,messages,True)).encode())
         try:
             with self.opener(provider).open(req,timeout=provider.timeout) as response:
-                if 'text/event-stream' not in response.headers.get('Content-Type',''):raise ProviderFailure('not-streaming')
-                yield from text_deltas(response,cancel,deadline=time.monotonic()+30)
+                content_type=response.headers.get('Content-Type','').lower()
+                emitted=False
+                if 'text/event-stream' in content_type:
+                    for text in text_deltas(response,cancel,deadline=time.monotonic()+30):
+                        emitted=True
+                        yield text
+                elif not provider.cloud and 'application/json' in content_type:
+                    raw=response.read(1048577)
+                    if len(raw)>1048576:raise ProviderFailure('oversize',False)
+                    try:
+                        data=json.loads(raw)
+                        if 'error' in data:raise ProviderFailure('local-api-error',False)
+                        text=answer_text(data['choices'][0]['message'].get('content'))
+                        if not text and reply_metadata(data)['finish_category']=='length':raise ProviderFailure('completion-token-limit',False)
+                    except (ValueError,KeyError,IndexError,TypeError):raise ProviderFailure('malformed',False) from None
+                    if text.strip():
+                        emitted=True
+                        yield text.strip()
+                else:raise ProviderFailure('not-streaming')
+            if cancel is not None and cancel.is_set():return
+            # A local server can finish an SSE response without content. Retry once
+            # in non-streaming mode only before any text has escaped.
+            if not emitted and not provider.cloud:
+                try:text=HttpTransport().complete(provider,messages,key)
+                except ProviderFailure as exc:
+                    if exc.code=='empty':raise ProviderFailure('local-empty-after-retry',False) from None
+                    raise
+                if cancel is None or not cancel.is_set():yield text
         except urllib.error.HTTPError as e:raise ProviderFailure('http-'+str(e.code),e.code in (408,429,500,502,503,504)) from None
         except (urllib.error.URLError,TimeoutError,OSError):raise ProviderFailure('connection') from None
 
