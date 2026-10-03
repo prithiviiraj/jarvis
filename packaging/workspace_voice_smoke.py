@@ -129,13 +129,19 @@ def voices():
  for _ in range(20):root.update();time.sleep(.01)
  app.poll_voice();assert len(controller.memory.snapshot())==1 and controller.memory.snapshot()[0][0]=='DEX';assert 'DEX' in app.reply_route.cget('text');capture('moderator-single-reply');app.pause()
  # Blank visual fixture behind borderless faces, so no terminal text is captured.
+ app.root.attributes('-alpha',1) # UI functional captures keep text opaque for reliable fixtures.
  backdrop=tk.Toplevel(root);backdrop.geometry('1024x768+0+0');backdrop.overrideredirect(True);backdrop.configure(bg='#e7ecef');backdrop.attributes('-topmost',True)
  tk.Label(backdrop,text='Floating-first interface • controlled Windows capture',bg='#e7ecef',fg='#585254',font=('Segoe UI',15)).pack(pady=(140,0))
- app.open_mini();app.mini.lift();capture('floating-first-idle')
+ app.open_mini();app.mini.lift();controller.notify('state','off');app.poll_voice()
+ until=time.monotonic()+.5
+ while time.monotonic()<until:root.update();time.sleep(.01)
+ app.mini.lift();capture('floating-first-idle')
  controller.notify('state','speaking');app.poll_voice()
  until=time.monotonic()+.4
  while time.monotonic()<until:root.update();time.sleep(.01)
  app.mini.lift();capture('floating-first-speaking');app.orb_overlay.toggle_motion();capture('floating-first-reduced');app.orb_overlay.close();backdrop.destroy()
+ backdrop=tk.Toplevel(root);backdrop.geometry('1024x768+0+0');backdrop.overrideredirect(True);backdrop.configure(bg='#758997');backdrop.lower(root)
+ root.deiconify();root.lift();root.attributes('-alpha',.97);app.set_view('Chat');capture('glass-dark-workspace');backdrop.destroy()
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
  (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
 def guarded():
