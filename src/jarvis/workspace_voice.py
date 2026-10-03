@@ -52,7 +52,7 @@ class WorkspaceVoice:
             finally:
                 with self.lock:self.busy=False
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
-    def send_text(self,text):
+    def send_text(self,text,auto_pick=False):
         if not isinstance(text,str) or not text.strip():raise ValueError('Type a message first.')
         if len(text)>2000:raise ValueError('Message limit is2000characters.')
         with self.lock:
@@ -60,6 +60,10 @@ class WorkspaceVoice:
             if self.runtime is not None:raise RuntimeError('Pause voice before typed chat.')
             self.busy=True;self.generation+=1;ticket=self.generation;name=self.name
             context=self.memory.messages()
+            if auto_pick:
+                from .moderator import pick
+                name,reason=pick(text,self.name)
+                self.notify('reply-route',name+' / '+reason+' / one reply')
         self.notify('transcript',text.strip());self.notify('state','thinking')
         def run():
             try:
@@ -69,7 +73,7 @@ class WorkspaceVoice:
                 with self.lock:
                     if self.closed or ticket!=self.generation:return
                     self.memory.append(name,text.strip(),answer['text'])
-                    self.notify('answer',answer);self.notify('team-updated',name)
+                    self.notify('answer',{**answer,'profile':name});self.notify('team-updated',name)
             except Exception:
                 with self.lock:
                     if not self.closed and ticket==self.generation:self.notify('error','Local text chat failed. Load exactly one model in LM Studio and start its local server. Nothing was saved.')
