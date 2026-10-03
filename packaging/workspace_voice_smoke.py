@@ -124,6 +124,14 @@ def voices():
  app.poll_voice();controls['stop']()
  for _ in range(10):root.update();time.sleep(.01)
  app.poll_voice();assert not controller.memory.snapshot();assert not controller.banter_active;app.banter_window.lift();capture('banter-stopped');app.banter_window.destroy();capture('workspace-banter-button')
+ # Blank visual fixture behind borderless faces, so no terminal text is captured.
+ backdrop=tk.Toplevel(root);backdrop.geometry('1024x768+0+0');backdrop.overrideredirect(True);backdrop.configure(bg='#e7ecef');backdrop.attributes('-topmost',True)
+ tk.Label(backdrop,text='Floating-first interface • controlled Windows capture',bg='#e7ecef',fg='#585254',font=('Segoe UI',15)).pack(pady=(140,0))
+ app.open_mini();app.mini.lift();capture('floating-first-idle')
+ controller.notify('state','speaking');app.poll_voice()
+ until=time.monotonic()+.4
+ while time.monotonic()<until:root.update();time.sleep(.01)
+ app.mini.lift();capture('floating-first-speaking');app.orb_overlay.toggle_motion();capture('floating-first-reduced');app.orb_overlay.close();backdrop.destroy()
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
  (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
 def guarded():
