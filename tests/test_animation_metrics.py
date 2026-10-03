@@ -10,3 +10,14 @@ class AnimationMetricsTests(unittest.TestCase):
  def test_invalid_samples(self):
   for a,b in [([0,1],[0,0]),([0,1,2],[0]),([0,0,2],[0]*3),([0,2,1],[0]*3),([0,1,float('inf')],[0]*3),([0,1,True],[0]*3),([0,1,2],[0,-1,0])]:
    with self.assertRaises(ValueError):summarize(a,b)
+
+ def test_deadline_no_drift(self):
+  from jarvis.orbs import next_frame_delay
+  deadline,delay=next_frame_delay(0,.002)
+  self.assertAlmostEqual(deadline,1/60);self.assertEqual(delay,14)
+  second,delay=next_frame_delay(deadline,.018)
+  self.assertAlmostEqual(second,2/60);self.assertEqual(delay,15)
+ def test_deadline_missed_skips(self):
+  from jarvis.orbs import next_frame_delay
+  deadline,delay=next_frame_delay(0,1)
+  self.assertAlmostEqual(deadline,1+1/60);self.assertGreaterEqual(delay,15)
