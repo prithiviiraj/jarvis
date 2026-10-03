@@ -9,6 +9,10 @@ def face_pose(name,selected,state,elapsed,reduced=False):
     blink=(not reduced and (elapsed+next(i for i,(n,_) in enumerate(ROSTER) if n==name)*.65)%4.5<.12)
     mode=state if name==selected else 'off'
     return {'mode':mode,'eye':.025 if blink or mode=='off' else .11,'mouth':(.07 if reduced else .07+.055*(1+math.sin(elapsed*14))) if speaking else .025}
+def ease(current,target,dt,reduced=False):
+    """Time-based easing, independent of callback frequency."""
+    if reduced:return target
+    return current+(target-current)*(1-math.exp(-min(.1,max(0,dt))/0.09))
 def next_frame_delay(deadline,now):
     """A missed frame is skipped, not replayed in a catch-up burst."""
     deadline+=1/60
@@ -18,7 +22,7 @@ class OrbOverlay:
     def __init__(self,root,state,select,pause):
         import tkinter as tk
         self.tk=tk
-        self.root=root;self.state=state;self.select=select;self.started=time.monotonic();self.reduced=False;self.job=None;self.next_frame=time.monotonic()
+        self.root=root;self.state=state;self.select=select;self.started=time.monotonic();self.reduced=False;self.job=None;self.next_frame=time.monotonic();self.last_frame=self.next_frame;self.smooth={}
         self.window=tk.Toplevel(root);self.window.title('JARVIS - Five orbs');self.window.geometry('390x83+30+25');self.window.overrideredirect(True);self.window.attributes('-topmost',True);self.window.configure(bg='#ff00fe');self.window.attributes('-transparentcolor','#ff00fe');self.window.resizable(False,False)
         self.canvas=tk.Canvas(self.window,width=390,height=83,bg='#ff00fe',highlightthickness=0);self.canvas.pack();self.items={};self.faces={}
         for i,(name,color) in enumerate(ROSTER):
@@ -48,10 +52,12 @@ class OrbOverlay:
     def toggle_motion(self):self.reduced=not self.reduced
     def animate(self):
         if not self.window.winfo_exists():return
-        selected,state=self.state();elapsed=time.monotonic()-self.started
+        selected,state=self.state();now=time.monotonic();elapsed=now-self.started;dt=now-self.last_frame;self.last_frame=now
         for name,(x,orb,label) in self.items.items():
-            r=radius(name,selected,state,elapsed,self.reduced);self.canvas.coords(orb,x-r,35-r,x+r,35+r);self.canvas.itemconfigure(orb,outline='#eeeeF1' if name==selected else '',width=2)
-            pose=face_pose(name,selected,state,elapsed,self.reduced);f=self.faces[name];y=35
+            target=radius(name,selected,state,elapsed,self.reduced);previous=self.smooth.get(name,{'radius':21,'eye':.025,'mouth':.025});r=ease(previous['radius'],target,dt,self.reduced);self.canvas.coords(orb,x-r,35-r,x+r,35+r);self.canvas.itemconfigure(orb,outline='#eeeeF1' if name==selected else '',width=2)
+            pose=face_pose(name,selected,state,elapsed,self.reduced)
+            pose['eye']=ease(previous['eye'],pose['eye'],dt,self.reduced);pose['mouth']=ease(previous['mouth'],pose['mouth'],dt,self.reduced)
+            self.smooth[name]={'radius':r,'eye':pose['eye'],'mouth':pose['mouth']};f=self.faces[name];y=35
             for side,dx in [('left',-.32),('right',.32)]:
                 ey=pose['eye']*r;ex=x+dx*r+(.035*r if pose['mode']=='thinking' else 0);self.canvas.coords(f[side],ex-.07*r,y-.12*r-ey,ex+.07*r,y-.12*r+ey)
             for side,dx in [('L',-.32),('R',.32)]:
