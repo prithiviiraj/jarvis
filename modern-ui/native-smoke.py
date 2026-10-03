@@ -29,7 +29,12 @@ try:
  ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
  if (pathlib.Path('public/faces/manifest.json')).is_file():
-  face_text=' '.join(x.window_text() for x in faces.descendants())
+  deadline=time.monotonic()+15
+  while True:
+   face_text=' '.join(x.window_text() for x in faces.descendants())
+   if all(persona+' idle face' in face_text for persona in ['JARVIS','NOVA','KAI','LYRA','DEX']):break
+   if time.monotonic()>deadline:break
+   time.sleep(.2)
   for persona in ['JARVIS','NOVA','KAI','LYRA','DEX']:
    if persona+' idle face' not in face_text:raise RuntimeError('Original3D image did not load: '+persona+' / '+face_text)
   checks.append('allfive original3D image alt names present in actualWindows overlay')
