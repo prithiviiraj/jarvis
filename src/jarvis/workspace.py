@@ -38,7 +38,10 @@ class Workspace:
   self.button(self.rail,'Session timer',self.session_timer).pack(fill='x',pady=1)
   self.button(self.rail,'Settings',self.settings).pack(side='bottom',fill='x',pady=1)
   self.button(self.rail,'Mini orb',self.open_mini).pack(side='bottom',fill='x',pady=1)
- def select(self,i):self.voice.select(ROSTER[i][0]);self.voice_status='off';self.selected=i;self.caption='No conversation yet. Nothing is listening.';self.response='';self.build_rail();self.render()
+ def select(self,i):
+  if hasattr(self,'banter_window') and self.banter_window.winfo_exists():
+   self.banter_status.configure(text='OFF. Profile switch discarded partial session.');self.banter_preview.configure(state='normal');self.banter_preview.delete('1.0','end');self.banter_preview.configure(state='disabled')
+  self.voice.select(ROSTER[i][0]);self.voice_status='off';self.selected=i;self.caption='No conversation yet. Nothing is listening.';self.response='';self.build_rail();self.render()
  def set_view(self,view):self.view=view;self.render()
  def render(self):
   for child in self.center.winfo_children():child.destroy()
@@ -97,7 +100,7 @@ class Workspace:
   for name,role,color in ROSTER:
    var=tk.BooleanVar(value=name in ('NOVA','JARVIS'));self.round_agents[name]=var
    tk.Checkbutton(choices,text=name,variable=var,bg=BG,fg=color,selectcolor=LINE,activebackground=BG,font=('Segoe UI',8),padx=0,pady=0).pack(side='left')
-  self.round_status_label=self.label(self.body,'Choose2-5profiles. Order: JARVIS, NOVA, KAI, LYRA, DEX. Text only.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
+  self.round_status_label=self.label(self.body,'Choose 2-5 profiles. Order: JARVIS, NOVA, KAI, LYRA, DEX. Text only.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
   self.label(self.body,'SHARED SESSION CONVERSATION',8,MUTED).pack(anchor='w',pady=(10,4))
   transcript_frame=tk.Frame(self.body,bg=PANEL);transcript_frame.pack(fill='both',expand=True)
   transcript_scroll=tk.Scrollbar(transcript_frame);transcript_scroll.pack(side='right',fill='y')
@@ -120,11 +123,11 @@ class Workspace:
    v=tk.BooleanVar(value=name in ('NOVA','JARVIS'));names[name]=v
    tk.Checkbutton(row,text=name,variable=v,bg=PANEL,fg=color,selectcolor=LINE,activebackground=PANEL,font=('Segoe UI',9)).pack(side='left')
   row=tk.Frame(f,bg=PANEL);row.pack(fill='x',pady=6)
-  self.label(row,'Turns2-12',9,MUTED).pack(side='left');turns=tk.Spinbox(row,from_=2,to=12,width=3,bg=LINE,fg=TEXT);turns.delete(0,'end');turns.insert(0,'6');turns.pack(side='left',padx=8)
-  self.label(row,'Gap2-30sec',9,MUTED).pack(side='left');gap=tk.Spinbox(row,from_=2,to=30,width=3,bg=LINE,fg=TEXT);gap.delete(0,'end');gap.insert(0,'5');gap.pack(side='left',padx=8)
+  self.label(row,'Turns 2-12',9,MUTED).pack(side='left');turns=tk.Spinbox(row,from_=2,to=12,width=3,bg=LINE,fg=TEXT);turns.delete(0,'end');turns.insert(0,'6');turns.pack(side='left',padx=8)
+  self.label(row,'Gap 2-30 sec',9,MUTED).pack(side='left');gap=tk.Spinbox(row,from_=2,to=30,width=3,bg=LINE,fg=TEXT);gap.delete(0,'end');gap.insert(0,'5');gap.pack(side='left',padx=8)
   consent=tk.BooleanVar(value=False)
   tk.Checkbutton(f,text='Allow this bounded local text session',variable=consent,bg=PANEL,fg=TEXT,selectcolor=LINE,activebackground=PANEL,font=('Segoe UI',10)).pack(anchor='w')
-  self.banter_status=self.label(f,'OFF. Maximum120seconds. Stop/close discards partial session.',9,MUTED,wraplength=505);self.banter_status.pack(anchor='w',pady=6)
+  self.banter_status=self.label(f,'OFF. Maximum 120 seconds. Stop/close discards partial session.',9,MUTED,wraplength=505);self.banter_status.pack(anchor='w',pady=6)
   self.banter_preview=tk.Text(f,bg=BG,fg=TEXT,font=('Segoe UI',10),wrap='word',height=10,relief='flat',padx=8,pady=8,state='disabled');self.banter_preview.pack(fill='both',expand=True)
   def start():
    try:
