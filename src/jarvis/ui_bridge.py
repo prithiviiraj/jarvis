@@ -61,7 +61,12 @@ class Bridge:
     if self.voice.runtime is not None and self.messages and self.messages[-1]['name']==row['name']:self.messages[-1]=row
     else:self.messages.append(row)
   self.messages=self.messages[-50:]
-  return {'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
+  # Runtime activity, not decorative preview. Reserved visemes can be added by an audio clock.
+  voice_state=self.status.lower();actor='JARVIS' if self.judge.busy else self.voice.name
+  active=self.voice.busy or (self.voice.runtime is not None and self.voice.runtime.busy) or self.judge.busy
+  speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
+  state='speaking' if speaking else 'thinking' if active else 'idle'
+  return {'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
  def close(self):self.setup.stop();self.stop();self.judge.close();self.voice.close()
 def main():
  bridge=Bridge()
