@@ -9,6 +9,11 @@ def face_pose(name,selected,state,elapsed,reduced=False):
     blink=(not reduced and (elapsed+next(i for i,(n,_) in enumerate(ROSTER) if n==name)*.65)%4.5<.12)
     mode=state if name==selected else 'off'
     return {'mode':mode,'eye':.025 if blink or mode=='off' else .11,'mouth':(.07 if reduced else .07+.055*(1+math.sin(elapsed*14))) if speaking else .025}
+def next_frame_delay(deadline,now):
+    """A missed frame is skipped, not replayed in a catch-up burst."""
+    deadline+=1/60
+    if deadline<=now:deadline=now+1/60
+    return deadline,max(1,int((deadline-now)*1000))
 class OrbOverlay:
     def __init__(self,root,state,select,pause):
         import tkinter as tk
@@ -63,9 +68,8 @@ class OrbOverlay:
             else:self.canvas.coords(f['detail'],x-.12*r,y-.9*r,x+.12*r,y-.75*r)
         self.status.configure(text=(selected+' / '+state.upper())[:27])
         # Deadline pacing avoids adding each draw duration to every16ms delay.
-        now=time.monotonic();self.next_frame+=1/60
-        if self.next_frame<=now:self.next_frame=now+1/60
-        self.job=self.window.after(max(1,int((self.next_frame-now)*1000)),self.animate)
+        self.next_frame,delay=next_frame_delay(self.next_frame,time.monotonic())
+        self.job=self.window.after(delay,self.animate)
     def close(self):
         if self.job:
             try:self.window.after_cancel(self.job)
