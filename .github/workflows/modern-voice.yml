@@ -1,4 +1,4 @@
-name: JARVIS modern local voice preview
+name: JARVIS separate history phase acceptance
 on:
   workflow_dispatch:
     inputs:
@@ -72,18 +72,23 @@ jobs:
           $env:PYTHONPATH = ''
           python native-smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Packaged Tauri launch failed' }
+          & ./windows-portable/backend/jarvis-local-core.exe --history-self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen history restart failed' }
+          $env:PYTHONPATH='../src'
+          python history-native-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Native history restart failed' }
           & ./windows-portable/backend/jarvis-local-core.exe --voice-self-test
           if ($LASTEXITCODE -ne 0) { throw 'Frozen speech software chain failed' }
       - uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-Windows-Voice-Preview
+          name: JARVIS-History-Phase-Windows-Preview
           path: modern-ui/windows-portable/
           retention-days: 7
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: JARVIS-modern-Voice-CI-acceptance
+          name: JARVIS-History-Phase-CI-acceptance
           path: |
             modern-ui/ui-evidence
             modern-ui/dist
