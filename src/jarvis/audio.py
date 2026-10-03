@@ -6,13 +6,18 @@ import time
 
 class AudioError(RuntimeError):pass
 
+_VAD_SESSIONS={};_VAD_LOCK=threading.RLock()
+
 class SileroVad:
     def __init__(self,path):
         import numpy as np
         import onnxruntime as ort
         self.np=np
         opts=ort.SessionOptions();opts.intra_op_num_threads=1;opts.inter_op_num_threads=1
-        self.session=ort.InferenceSession(str(path),sess_options=opts,providers=['CPUExecutionProvider'])
+        with _VAD_LOCK:
+            key=str(path)
+            if key not in _VAD_SESSIONS:_VAD_SESSIONS[key]=ort.InferenceSession(key,sess_options=opts,providers=['CPUExecutionProvider'])
+            self.session=_VAD_SESSIONS[key]
         self.reset()
     def reset(self):
         self.state=self.np.zeros((2,1,128),dtype=self.np.float32)
