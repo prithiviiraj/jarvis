@@ -54,3 +54,8 @@ class GroqModelFallbackTests(unittest.TestCase):
   t.stream.side_effect=broken
   with self.assertRaises(RouterError):list(BrainRouter([p],key_store=keys).stream([{}],True,stream_transport=t))
   self.assertEqual(t.stream.call_count,1)
+
+class StreamErrorDetailTests(unittest.TestCase):
+ def test_http_failure_code_survives(self):
+  t=Mock();t.stream.side_effect=ProviderFailure('http-503')
+  with self.assertRaisesRegex(RouterError,'http-503'):list(BrainRouter([Provider('local','http://127.0.0.1:1234/v1','test')]).stream([{}],stream_transport=t))
