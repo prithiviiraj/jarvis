@@ -5,7 +5,10 @@ from pywinauto import Desktop
 p=subprocess.Popen([str(pathlib.Path('src-tauri/target/release/jarvis-modern-ui.exe').resolve())])
 checks=[];window=None
 try:
- window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30);window.set_focus()
+ faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=30);faces.set_focus();time.sleep(1)
+ faces.click_input(button='right');time.sleep(.5)
+ faces.child_window(title='Open workspace',control_type='Button').wait('exists',timeout=10).wrapper_object().invoke();checks.append('faces-only launch + right-click workspace')
+ window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=20);window.set_focus()
  def button(name,root=None):
   item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
@@ -38,6 +41,9 @@ except Exception:
   except Exception:pass
  raise
 finally:
+ if 'faces' in locals():
+  try:ctypes.windll.user32.PostMessageW(faces.handle,0x0010,0,0)
+  except Exception:pass
  if window is not None:
   try:ctypes.windll.user32.PostMessageW(window.handle,0x0010,0,0)
   except Exception:pass
