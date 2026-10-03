@@ -7,18 +7,21 @@ checks=[];window=None
 try:
  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30);window.set_focus()
  def button(name,root=None):
-  item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('visible',timeout=20);return item
- def click(name,root=None):button(name,root).click_input();checks.append(name)
+  item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
+ def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
  click('Connect local core');time.sleep(2)
  click('DEX Coder')
- click('Local awareness');click('Allow app names');time.sleep(1)
- click('Allow local context judgment');time.sleep(1)
+ click('Local awareness');click('Allow app names');time.sleep(2)
+ click('Allow local context judgment');time.sleep(2)
  click('Stop and clear local context');time.sleep(1)
  click('Floating faces')
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=15);faces.set_focus()
  click('LINK',faces);time.sleep(1);click('STOP',faces)
  faces.capture_as_image().save('ui-evidence/tauri-floating-actual.png')
- window.set_focus();window.capture_as_image().save('ui-evidence/tauri-shell-actual.png')
+ window.set_focus();
+ from pywinauto import mouse
+ mouse.scroll(coords=(550,450),wheel_dist=-6);time.sleep(1)
+ window.capture_as_image().save('ui-evidence/tauri-shell-actual.png')
  image=window.capture_as_image();dark=sum(max(x)<90 for x in image.resize((100,75)).convert('RGB').getdata())
  if dark<800:raise RuntimeError('Native content blank')
  # Inspect actual accessibility text to verify Stop status, not merely click success.
