@@ -40,3 +40,9 @@ class UiBridgeTests(unittest.TestCase):
  def test_no_destinations(self):
   for k in ['cloud','cloud_consent','provider','api_key','model','path','url']:
    with self.assertRaises(ValueError):self.b.execute({'command':'status',k:'x'})
+
+ def test_error_survives_idle_poll(self):
+  self.b.voice.notify('error','LM Studio timeout');self.b.voice.notify('state','off')
+  self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
+  self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
+  self.assertEqual(self.b.execute({'command':'pause'})['error'],'')
