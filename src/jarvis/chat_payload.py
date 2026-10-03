@@ -15,3 +15,11 @@ def reply_metadata(data):
         for label,value in [('completion_tokens',usage.get('completion_tokens')),('reasoning_tokens',details.get('reasoning_tokens') if isinstance(details,dict) else None)]:
             if type(value) is int and 0<=value<=1000000:meta[label]=value
     return meta
+
+
+def answer_text(value):
+    """Only final assistant text; reasoning/tool content is never a reply."""
+    if isinstance(value,str):return value
+    if isinstance(value,list):
+        return ''.join(part['text'] for part in value if isinstance(part,dict) and part.get('type')=='text' and isinstance(part.get('text'),str))
+    return ''
