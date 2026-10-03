@@ -141,7 +141,7 @@ def voices():
  while time.monotonic()<until:root.update();time.sleep(.01)
  app.mini.lift();capture('floating-first-speaking');app.orb_overlay.toggle_motion();capture('floating-first-reduced');app.orb_overlay.close();backdrop.destroy()
  backdrop=tk.Toplevel(root);backdrop.geometry('1024x768+0+0');backdrop.overrideredirect(True);backdrop.configure(bg='#758997');backdrop.lower(root)
- root.deiconify();root.lift();root.attributes('-alpha',.97);app.set_view('Chat');capture('glass-dark-workspace');backdrop.destroy()
+ root.deiconify();root.lift();root.attributes('-alpha',.97);controller.notify('state','off');app.poll_voice();app.set_view('Chat');capture('glass-dark-workspace');backdrop.destroy()
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
  (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
 def guarded():
