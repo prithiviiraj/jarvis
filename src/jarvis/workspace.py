@@ -12,7 +12,7 @@ class Workspace:
   self.root=root;self.voice=controller or WorkspaceVoice();self.voice_status='off';self.caption='No conversation yet. Nothing is listening.';self.response='';self.setup_busy=False;self.download_cancel=threading.Event();root.title('JARVIS - Voice workspace / experimental');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG);glass(root)
   from .experimental.session_awareness import SessionAwareness
   from .awareness_ui import AwarenessPanel
-  self.local_awareness=AwarenessPanel(root)
+  self.local_awareness=AwarenessPanel(root,self.voice)
   self.awareness=SessionAwareness(time.monotonic);self.timer_window=None;self.timer_quiet=False
   self.session_setup={'mic':False,'cloud':False,'free':False,'model':''};self.selected=0;self.view='Voice';self.mini=None;self.settings_window=None
   root.grid_columnconfigure(1,weight=1);root.grid_rowconfigure(0,weight=1)
@@ -187,6 +187,9 @@ class Workspace:
      ticket,name,text,n,total=value
      if ticket!=self.voice.generation:continue
      self.banter_preview.configure(state='normal');self.banter_preview.insert('end',str(n)+'/'+str(total)+' '+name+': '+text+'\n\n');self.banter_preview.see('end');self.banter_preview.configure(state='disabled')
+   elif kind=='proactive-status':self.local_awareness.judgment_status=str(value)
+   elif kind=='proactive-answer':
+    self.local_awareness.comment=value['text'];self.local_awareness.judgment_status='JARVIS local judgment';self.response='JARVIS: '+value['text']
    elif kind=='team-updated':self.update_team_transcript()
    elif kind=='reply-route':
     if hasattr(self,'reply_route') and self.reply_route.winfo_exists():self.reply_route.configure(text=str(value))
