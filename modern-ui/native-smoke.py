@@ -30,6 +30,9 @@ try:
  pathlib.Path('ui-evidence/native-checks.json').write_text(json.dumps({'host':'actual Windows Tauri/WebView2','checks':checks,'stop_state_confirmed':True,'unrun':['physical webcam/mic/audio','real model response','resources/24h','transparent desktop pixels']},indent=2))
 except Exception:
  ImageGrab.grab().save('ui-evidence/native-failure.png')
+ if 'faces' in locals():
+  try:pathlib.Path('ui-evidence/faces-tree.txt').write_text('\n'.join(f'{x.element_info.control_type}: {x.window_text()}' for x in faces.descendants()),encoding='utf-8')
+  except Exception:pass
  if window is not None:
   try:pathlib.Path('ui-evidence/native-tree.txt').write_text('\n'.join(f'{x.element_info.control_type}: {x.window_text()}' for x in window.descendants()),encoding='utf-8')
   except Exception:pass
