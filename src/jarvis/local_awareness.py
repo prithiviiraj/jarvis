@@ -51,7 +51,9 @@ class LocalContext:
             if value!=self.app:self.app=value;self.emit('foreground-app',value or {'state':'unknown'})
     def set_apps(self,enabled):
         with self.lock:
-            self.apps=bool(enabled);self.app=None;self.emit('app-monitor',{'enabled':self.apps})
+            self.apps=bool(enabled);self.app=None
+            if not self.apps:self.events.clear()
+            self.emit('app-monitor',{'enabled':self.apps})
     def clear(self):
         with self.lock:
             self.events.clear();self.camera='off';self.apps=False;self.presence='unknown';self.app=None
@@ -110,11 +112,8 @@ class CameraWorker:
             if self.stop_event.is_set():self.context.camera_state('off')
     def stop(self):
         self.stop_event.set();self.context.camera_state('stopping' if self.thread and self.thread.is_alive() else 'off')
-        # Release immediately; a pending read may take time to unwind. Restart is blocked.
-        cap=self.capture
-        if cap is not None:
-            try:cap.release()
-            except Exception:pass
+        # Release in the capture thread's finally, never concurrently with native read.
+        # STOPPING remains visible and restart is blocked until device release completes.
     def stopped(self):return not self.thread or not self.thread.is_alive()
 
 
