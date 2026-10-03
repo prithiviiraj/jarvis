@@ -38,3 +38,15 @@ class TextChatTests(unittest.TestCase):
  def test_local_model_ambiguity(self):
   with patch('jarvis.providers.local_models',return_value=['one','two']):
    with self.assertRaises(RuntimeError):build_text_router()
+
+class SinglePersonaRoutingTests(unittest.TestCase):
+ def test_one_local_call_and_correct_memory(self):
+  from unittest.mock import Mock
+  from jarvis.workspace_voice import WorkspaceVoice
+  r=Mock();r.ask.return_value={'text':'one answer','provider':'local'};c=WorkspaceVoice(Mock(),Mock(return_value=r));c.send_text('debug this Python code',auto_pick=True).join(2)
+  self.assertEqual(r.ask.call_count,1);self.assertIn('You are DEX',r.ask.call_args.args[0][0]['content']);self.assertEqual(c.memory.snapshot()[0][0],'DEX');self.assertEqual(c.name,'JARVIS');self.assertFalse(r.ask.call_args.kwargs['cloud_consent'])
+ def test_manual_keeps_selected(self):
+  from unittest.mock import Mock
+  from jarvis.workspace_voice import WorkspaceVoice
+  r=Mock();r.ask.return_value={'text':'one answer'};c=WorkspaceVoice(Mock(),Mock(return_value=r));c.select('NOVA');c.send_text('debug code',auto_pick=False).join(2)
+  self.assertIn('You are NOVA',r.ask.call_args.args[0][0]['content']);self.assertEqual(r.ask.call_count,1)
