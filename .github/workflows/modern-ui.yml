@@ -29,12 +29,15 @@ jobs:
       - name: Build Tauri Windows shell (no installer or backend)
         shell: pwsh
         run: |
+          python -m pip install Pillow==11.3.0
+          python make-icon.py
           npm run tauri build -- --no-bundle
           if ($LASTEXITCODE -ne 0) { throw 'Tauri shell failed' }
           python -m pip install Pillow==11.3.0
           python shell-smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Tauri shell launch failed' }
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: JARVIS-modern-UI-preview
           path: |
