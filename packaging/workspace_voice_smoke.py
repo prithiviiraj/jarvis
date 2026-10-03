@@ -110,6 +110,20 @@ def voices():
  app.session_timer();assert not app.awareness.enabled;capture('session-timer-off')
  app.timer_consent.set(True);app.timer_activity.set('gaming');app.timer_interval.set('15');app.timer_start();assert app.awareness.enabled;capture('session-timer-on')
  root.deiconify();root.update();assert not controller.busy and controller.runtime is None;app.awareness.clock=lambda:app.awareness.started+901;app.poll_timer();assert 'cannot see' in app.timer_status.cget('text'),(root.state(),controller.busy,controller.runtime,app.awareness.enabled,app.awareness.started,app.awareness.last,app.timer_status.cget('text'));app.timer_window.lift();capture('session-timer-reminder');app.timer_stop();assert not app.awareness.enabled;app.timer_window.lift();capture('session-timer-stopped');app.timer_window.destroy();capture('workspace-rail-final')
+ app.banter_panel();assert not controller.banter_active;assert not app.banter_controls['consent'].get();app.banter_window.lift();capture('banter-off')
+ controls=app.banter_controls;controls['topic'].insert(0,'Kind playful replies based only on this conversation.');controls['consent'].set(True)
+ controls['turns'].delete(0,'end');controls['turns'].insert(0,'2');controls['gap'].delete(0,'end');controls['gap'].insert(0,'2')
+ local_router.ask.side_effect=[{'text':'Synthetic JARVIS: we can keep this conversation kind and short.','provider':'local'},{'text':'Synthetic NOVA: I heard JARVIS. Just supplied context, no screen observations.','provider':'local'}]
+ controls['start']();root.update();app.poll_voice();assert controller.banter_active;app.banter_window.lift();capture('banter-running')
+ until=time.monotonic()+5
+ while controller.busy and time.monotonic()<until:root.update();time.sleep(.02)
+ app.poll_voice();assert len(controller.memory.snapshot())==2;assert 'Completed2' in app.banter_status.cget('text');app.banter_window.lift();capture('banter-completed')
+ app.pause();local_router.ask.side_effect=None;local_router.ask.return_value={'text':'Synthetic staged reply, must be discarded on Stop.','provider':'local'}
+ controls['turns'].delete(0,'end');controls['turns'].insert(0,'6');controls['start']()
+ for _ in range(10):root.update();time.sleep(.01)
+ app.poll_voice();controls['stop']()
+ for _ in range(10):root.update();time.sleep(.01)
+ app.poll_voice();assert not controller.memory.snapshot();assert not controller.banter_active;app.banter_window.lift();capture('banter-stopped');app.banter_window.destroy();capture('workspace-banter-button')
  result={'profiles':rows,'sensors_on_launch':False,'test':'Synthetic controller to actual Tk UI; not real mic, model, or playback','unrun':['physical audio','AEC','barge-in','owner accent','1s end-to-first-audible','installer']}
  (out/'bridge-check.json').write_text(json.dumps(result,indent=2));app.close()
 def guarded():
