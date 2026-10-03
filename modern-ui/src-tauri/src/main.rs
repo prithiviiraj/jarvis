@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use std::{io::{BufRead,BufReader,Write},process::{Child,ChildStdin,Command,Stdio},sync::{Mutex,Arc,mpsc},path::PathBuf};
+use std::{io::{BufRead,BufReader,Write},process::{Child,ChildStdin,Command,Stdio},sync::{Mutex,Arc,mpsc}};
 use tauri::{Manager,State,WebviewUrl,WebviewWindowBuilder};
 use serde_json::{Value,json};
 struct Backend{child:Child,input:ChildStdin,output:mpsc::Receiver<String>}
@@ -7,14 +7,12 @@ struct Shared(Arc<Mutex<Option<Backend>>>);
 fn backend()->Result<Backend,String>{
  let exe=std::env::current_exe().map_err(|e|e.to_string())?;
  let base=exe.parent().ok_or("Missing app directory")?;
- let source=base.join("backend/src");
- if !source.join("jarvis/ui_bridge.py").exists(){return Err("Local backend files missing. Use the prepared source preview folder.".into())}
- // Fixed Python executable, no renderer-supplied command/path/env arguments.
- let python=base.join("backend/.venv/Scripts/python.exe");
- let launcher=if python.exists(){python}else{PathBuf::from("python")};
- let mut cmd=Command::new(launcher);cmd.args(["-u","-m","jarvis.ui_bridge"]).env("PYTHONPATH",source).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+ let frozen=base.join("backend/jarvis-local-core.exe");
+ if !frozen.exists(){return Err("Bundled local core missing. Extract the entire JARVIS Windows folder, not just its EXE.".into())}
+ // Fixed packaged executable only. Never falls back to system Python or a renderer path.
+ let mut cmd=Command::new(frozen);cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
  #[cfg(windows)]{use std::os::windows::process::CommandExt;cmd.creation_flags(0x08000000);}
- let mut child=cmd.spawn().map_err(|_|"Python backend unavailable. This preview still requires Python/setup.".to_string())?;
+ let mut child=cmd.spawn().map_err(|_|"Bundled local core could not start. Extract the full ZIP and check Windows security notices.".to_string())?;
  let input=child.stdin.take().ok_or("Missing input")?;let stdout=child.stdout.take().ok_or("Missing output")?;let(tx,output)=mpsc::channel();std::thread::spawn(move||{for line in BufReader::new(stdout).lines(){match line {Ok(s)=>{if tx.send(s).is_err(){break}},Err(_)=>break}}});Ok(Backend{child,input,output})
 }
 #[tauri::command]
