@@ -59,3 +59,8 @@ Session timer panel: OFF on launch. Session timer opens a separate local panel; 
 
 
 Bounded local banter: Team Room > Banter session. OFF until you enter a topic, select2-5personas, allow session consent and Start. Default2short turns with3-second gaps; typical use2-4turns. Bounds2-12turns and2-30seconds. Keep it short. Session checks a120second limit; a local in-flight request may take its timeout to return, then is discarded if stopped/expired. One local model, text only, shared supplied context, no mic/cloud/tools/screen/game/camera. Stop/panel-close/Pause/profile-switch/app-close discard all staged session turns. Success saves the full session. No autonomous24/7activity or audible speech is claimed.
+
+
+Glass-dark polish: lightweight dark-blue surfaces, window-wide97percent opacity and eased button hover transitions. No live backdrop blur, GPU compositor or new graphics dependencies are added. Native window shadows depend on Windows; no shadow/render-performance guarantee. Reduced motion applies to floating face expressions.
+
+Typed Chat moderator: default Pick one relevant persona. Direct address at the start selects a name; otherwise bounded keyword rules choose one specialist, with mixed/general topics going to JARVIS. One local request only. Uncheck to keep the selected persona. This is deterministic text routing, not human-level intent understanding or voice auto-switching.
