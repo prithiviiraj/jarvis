@@ -32,7 +32,7 @@ fn exchange(request:Value,state:Arc<Mutex<Option<Backend>>>)->Result<Value,Strin
  serde_json::from_str(&reply).map_err(|_|"Invalid backend response".into())
 }
 #[tauri::command]
-fn overlay(app:tauri::AppHandle)->Result<(),String>{
+async fn overlay(app:tauri::AppHandle)->Result<(),String>{
  if let Some(w)=app.get_webview_window("faces"){w.show().map_err(|e|e.to_string())?;return Ok(())}
  WebviewWindowBuilder::new(&app,"faces",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_OVERLAY__ = true;").title("JARVIS / Floating faces").inner_size(520.,140.).decorations(false).transparent(true).always_on_top(true).build().map_err(|e|e.to_string())?;Ok(())
 }
