@@ -43,3 +43,9 @@ class ProactiveTests(unittest.TestCase):
   c,j,calls,n=self.make('not json');j.enable(True);self.event(c);j.poll().join(2);self.assertEqual(len(calls),1);self.assertFalse(any(x[0]=='proactive-answer' for x in n))
  def test_rate_cap(self):
   c,j,calls,n=self.make();j.requests.extend([199]*12);j.enable(True);self.event(c);self.assertIsNone(j.poll());self.assertFalse(calls)
+ def test_non_observation_event_no_request(self):
+  c,j,calls,n=self.make();j.enable(True);self.event(c);j.poll().join(2);j.clock=lambda:400;c.emit('camera',{'state':'off'});self.assertIsNone(j.poll());self.assertEqual(len(calls),1)
+ def test_stop_during_speaker_load(self):
+  gate=threading.Event();entered=threading.Event();played=[];c,j,calls,n=self.make();speaker=N(generation=0,stop=lambda:None,speak=lambda *a,**k:played.append(a))
+  def factory():entered.set();gate.wait(2);return speaker
+  j.speaker_factory=factory;j.enable(True,True);self.event(c);w=j.poll();self.assertTrue(entered.wait(1));j.stop();gate.set();w.join(2);self.assertFalse(played)
