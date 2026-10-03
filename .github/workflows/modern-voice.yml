@@ -1,0 +1,78 @@
+name: JARVIS modern local voice preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    defaults:
+      run:
+        working-directory: modern-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Backend tests
+        shell: pwsh
+        run: |
+          python -m pip install numpy==2.2.6
+          if ($LASTEXITCODE -ne 0) { throw "Test dependencies failed" }
+          $env:PYTHONPATH="../src"
+          python -m unittest discover -s ../tests
+          if ($LASTEXITCODE -ne 0) { throw "Backend tests failed" }
+      - name: Pinned frontend and real browser interactions
+        shell: pwsh
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'Install failed' }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed' }
+          npm install --no-save playwright@1.51.1
+          npx playwright install chromium
+          $server = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','dist' -PassThru
+          try { node ui-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI smoke failed' } } finally { Stop-Process -Id $server.Id }
+      - name: Build Tauri Windows executable
+        shell: pwsh
+        run: |
+          python -m pip install Pillow==11.3.0 pywinauto==0.6.9
+          python make-icon.py
+          npm run tauri build -- --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri shell failed' }
+          python -m pip install Pillow==11.3.0 pywinauto==0.6.9
+      - name: CPU-only speech and native persona frontend
+        shell: pwsh
+        run: ./build-speech-native.ps1
+      - name: Package bundled local core and test the portable EXE
+        shell: pwsh
+        env:
+          JARVIS_PACKAGE_VOICE: '1'
+        run: |
+          python -m pip install pyinstaller==6.16.0 opencv-python==4.12.0.88
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging dependencies failed' }
+          python package-windows.py
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen core acceptance failed' }
+          $env:JARVIS_UI_EXE = (Resolve-Path 'windows-portable/JARVIS.exe').Path
+          $env:PYTHONPATH = ''
+          python native-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged Tauri launch failed' }
+          & ./windows-portable/backend/jarvis-local-core.exe --voice-self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen speech software chain failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Windows-Voice-Preview
+          path: modern-ui/windows-portable/
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JARVIS-modern-Voice-CI-acceptance
+          path: |
+            modern-ui/ui-evidence
+            modern-ui/dist
+
+          retention-days: 7
+          if-no-files-found: error
