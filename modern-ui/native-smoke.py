@@ -7,7 +7,7 @@ checks=[];window=None
 try:
  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30);window.set_focus()
  def button(name,root=None):
-  item=(root or window).child_window(title_re=('(?s)DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('visible',timeout=20);return item
+  item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('visible',timeout=20);return item
  def click(name,root=None):button(name,root).click_input();checks.append(name)
  click('Connect local core');time.sleep(2)
  click('DEX Coder')
@@ -23,7 +23,7 @@ try:
  if dark<800:raise RuntimeError('Native content blank')
  # Inspect actual accessibility text to verify Stop status, not merely click success.
  text=' '.join(x.window_text() for x in window.descendants())
- if 'Apps: off' not in text or 'Judgment off' not in text:raise RuntimeError('Stop state not confirmed: '+text[-1200:])
+ if 'Apps: off' not in ' '.join(text.split()) or 'Judgment off' not in ' '.join(text.split()):raise RuntimeError('Stop state not confirmed: '+text[-1200:])
  pathlib.Path('ui-evidence/native-checks.json').write_text(json.dumps({'host':'actual Windows Tauri/WebView2','checks':checks,'stop_state_confirmed':True,'unrun':['physical webcam/mic/audio','real model response','resources/24h','transparent desktop pixels']},indent=2))
 except Exception:
  ImageGrab.grab().save('ui-evidence/native-failure.png')
