@@ -5,4 +5,8 @@ if __name__ == '__main__':
     if len(sys.argv)==2 and sys.argv[1]=='--voice-self-test':
         from jarvis.voice_acceptance import run
         run()
+        # Test resources are already closed/report flushed. Native model caches stay
+        # process-scoped; avoid interpreter-finalization disposal stalls on Windows.
+        import os
+        sys.stdout.flush();sys.stderr.flush();os._exit(0)
     else:main()
