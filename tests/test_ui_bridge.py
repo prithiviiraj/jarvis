@@ -46,3 +46,8 @@ class UiBridgeTests(unittest.TestCase):
   self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
   self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
   self.assertEqual(self.b.execute({'command':'pause'})['error'],'')
+
+ def test_setup_does_not_enable_audio(self):
+  self.b.setup.start=Mock();state=self.b.execute({'command':'voice-setup','consent':True});self.b.setup.start.assert_called_once_with(consent=True);self.assertFalse(state['voice_active'])
+ def test_voice_failure_visible(self):
+  self.b.voice.notify('error','Speech assets missing');self.b.voice.notify('state','off');self.assertEqual(self.b.execute({'command':'status'})['error'],'Speech assets missing')
