@@ -51,3 +51,10 @@ class UiBridgeTests(unittest.TestCase):
   self.b.setup.start=Mock();state=self.b.execute({'command':'voice-setup','consent':True});self.b.setup.start.assert_called_once_with(consent=True);self.assertFalse(state['voice_active'])
  def test_voice_failure_visible(self):
   self.b.voice.notify('error','Speech assets missing');self.b.voice.notify('state','off');self.assertEqual(self.b.execute({'command':'status'})['error'],'Speech assets missing')
+
+ def test_live_expression_busy_and_idle(self):
+  self.assertEqual(self.b.execute({'command':'status'})['expression']['state'],'idle')
+  self.b.voice.busy=True;self.b.voice.notify('state','thinking')
+  self.assertEqual(self.b.execute({'command':'status'})['expression']['state'],'thinking')
+  self.b.voice.busy=False
+  self.assertEqual(self.b.execute({'command':'status'})['expression']['state'],'idle')
