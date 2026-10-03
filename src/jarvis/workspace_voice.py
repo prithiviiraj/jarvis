@@ -74,9 +74,9 @@ class WorkspaceVoice:
                     if self.closed or ticket!=self.generation:return
                     self.memory.append(name,text.strip(),answer['text'])
                     self.notify('answer',{**answer,'profile':name});self.notify('team-updated',name)
-            except Exception:
+            except Exception as exc:
                 with self.lock:
-                    if not self.closed and ticket==self.generation:self.notify('error','Local text chat failed. Load exactly one model in LM Studio and start its local server. Nothing was saved.')
+                    if not self.closed and ticket==self.generation:self.notify('error','Local chat failed: '+str(exc)[:180]+'. LM Studio: one loaded model, server port1234. Retry your message.')
             finally:
                 with self.lock:
                     self.busy=False
@@ -232,7 +232,8 @@ def build_text_router():
     from .router import BrainRouter
     ids=local_models()
     if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
-    return BrainRouter([configured('local',ids[0])])
+    from dataclasses import replace
+    return BrainRouter([replace(configured('local',ids[0]),timeout=30)])
 
 def build_proactive_speaker():
     """JARVIS output only: no microphone/STT/cloud/model download."""
