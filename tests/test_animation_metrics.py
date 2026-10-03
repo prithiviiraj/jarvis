@@ -38,6 +38,8 @@ class AnimationMetricsTests(unittest.TestCase):
   from jarvis.orbs import ease
   self.assertEqual(ease(21,28,.016,True),28);self.assertEqual(ease(21,28,-1),21)
  def test_floating_first_launch(self):
+  import importlib.util
+  if importlib.util.find_spec('tkinter') is None:self.skipTest('Tk unavailable locally; Windows UI job owns launch check')
   from unittest.mock import Mock,patch
   from jarvis.workspace import main
   root=Mock();app=Mock()
