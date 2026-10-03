@@ -222,9 +222,8 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         speaker=KokoroSpeaker(synth)
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. KAI researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
-        original_close=runtime.close
-        def close():original_close();g2p.close()
-        runtime.close=close
+        # No closure over runtime.close: that cycle delays native engine disposal.
+        runtime.close_hook=g2p.close
         return runtime
     except Exception:g2p.close();raise
 
