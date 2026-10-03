@@ -31,3 +31,7 @@ Candidate card licenses alone never clear the full dependency stack. See docs/sp
 ## Experimental workspace bridge, not binary redistribution clearance
 
 The connected source path selects the isolated Phonemis native frontend (pinned MIT source/resources with retained JSON MIT, xsimd BSD/Boost/Sun notices) and direct Kokoro ONNX. GPL eSpeak/phonemizer are not used by this path. Five raw style matrices and model/config files are pinned to the same immutable Kokoro KMP revision and SHA256-verified. Source: https://huggingface.co/Shusek00/kokoro-kmp-models . Exact Windows DLLs, native resources, voice provenance and all distribution notices still need a complete installer manifest/audit before packaging. Source test success does not clear that gate.
+
+## Optional local camera experimental source
+
+OpenCV headless 4.14.0.94 is an optional source-runner dependency, not a redistributed binary or installer clearance. Verified package source: https://pypi.org/project/opencv-python-headless/4.14.0.94/ . Wrapper MIT, OpenCV Apache-2.0, wheel includes third-party libraries/notices including FFmpeg LGPLv2.1. Haar detector ships with the package. Exact Windows wheel and all transitive notices remain subject to installer redistribution review. Camera UI imports cv2 only after Enable, reports missing/unavailable device as ERROR, and never downloads a detector at camera activation. Optional ENABLE-CAMERA-DEPS.cmd installs the dependency with the owner's deliberate action; no camera starts from installation.
