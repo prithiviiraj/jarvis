@@ -12,7 +12,7 @@ class WorkspaceVoice:
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
         self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
-        self.generation=0;self.lock=threading.RLock()
+        self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS'
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
     def notify(self,kind,value):self.events.put((kind,value))
@@ -65,16 +65,23 @@ class WorkspaceVoice:
                 from .moderator import pick
                 name,reason=pick(text,self.name)
                 self.notify('reply-route',name+' / '+reason+' / one reply')
+        self.text_cancel=threading.Event();cancel=self.text_cancel;self.reply_actor=name
         self.notify('transcript',text.strip());self.notify('state','thinking')
         def run():
             try:
                 from .personas import prompt
                 router=self.text_factory()
-                answer=router.ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}],cloud_consent=False)
+                pieces=[];answer={}
+                for delta in router.stream([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}],cloud_consent=False,cancel=cancel):
+                    with self.lock:
+                        if self.closed or ticket!=self.generation:return
+                        pieces.append(delta['text']);answer={**delta,'text':''.join(pieces)}
+                        self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
+                if not pieces:raise RuntimeError('Empty local stream')
                 with self.lock:
                     if self.closed or ticket!=self.generation:return
                     self.memory.append(name,text.strip(),answer['text'])
-                    self.notify('answer',{**answer,'profile':name});self.notify('team-updated',name)
+                    self.notify('team-updated',name)
             except Exception as exc:
                 with self.lock:
                     if not self.closed and ticket==self.generation:self.notify('error','Local chat failed: '+str(exc)[:180]+'. LM Studio: one loaded model, server port1234. Retry your message.')
@@ -168,7 +175,7 @@ class WorkspaceVoice:
             self.banter_stop.set();self.generation+=1;self.banter_active=False
         self.notify('banter-status','OFF. Current session discarded. In-flight local request may finish, but its reply will not be saved.')
     def pause(self):
-        with self.lock:self.banter_stop.set();self.banter_active=False;self.generation+=1;runtime=self.runtime;self.runtime=None
+        with self.lock:self.text_cancel.set();self.banter_stop.set();self.banter_active=False;self.generation+=1;runtime=self.runtime;self.runtime=None
         if runtime:runtime.close()
         self.notify('state','off')
     def close(self):
