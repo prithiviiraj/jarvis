@@ -19,9 +19,9 @@ class SpeechQueue:
         thread=threading.Thread(target=self.run,args=(ticket,),daemon=True);thread.start()
         try:
             for part in sentences(chunks):
-                if self.cancel.is_set():return
+                if self.cancel.is_set():break
                 on_clause(part)
-                if not self.put(part):return
+                if not self.put(part):break
         finally:
             self.put(None);thread.join(timeout=3 if self.cancel.is_set() else 120)
             if thread.is_alive():self.cancel.set();self.speaker.stop()
