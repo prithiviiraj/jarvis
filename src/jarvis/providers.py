@@ -12,13 +12,25 @@ def configured(name,model):
  if name not in ENDPOINTS:raise ValueError('Unknown provider.')
  return Provider(name,ENDPOINTS[name],model,name!='local',requires_free_plan=name=='groq')
 def local_models(timeout=2):
- http=local_http()
+ """Prefer loaded LLM instances; downloaded embeddings are not chat choices."""
+ http=local_http();base=ENDPOINTS['local'].removesuffix('/v1')
+ def read(url):
+  with http.open(url,timeout=timeout) as response:
+   raw=response.read(262145)
+   if len(raw)>262144:raise ValueError('Model list too large')
+   return json.loads(raw)
+ def valid(value):return isinstance(value,str) and 0<len(value)<200
  try:
-  with http.open(ENDPOINTS['local']+'/models',timeout=timeout) as response:
-   raw=response.read(65537)
-   if len(raw)>65536:raise ValueError()
-   data=json.loads(raw)['data']
-   ids=[x['id'] for x in data if isinstance(x.get('id'),str) and 0<len(x['id'])<200]
-   if not ids:raise ValueError()
-   return ids[:20]
- except Exception:raise RouterError('LM Studio is not answering. Open LM Studio, load a model, then start its local server.') from None
+  metadata=read(base+'/api/v1/models')
+  if isinstance(metadata.get('models'),list):
+   llms=[x for x in metadata['models'] if isinstance(x,dict) and x.get('type')=='llm' and valid(x.get('key'))]
+   loaded=list(dict.fromkeys(i['id'] for x in llms for i in x.get('loaded_instances',[]) if isinstance(i,dict) and valid(i.get('id'))))
+   if loaded:return loaded
+   return list(dict.fromkeys(x['key'] for x in llms))
+ except Exception:pass # Older LM Studio exposes only the OpenAI-compatible list.
+ try:
+  data=read(ENDPOINTS['local']+'/models')['data']
+  ids=list(dict.fromkeys(x['id'] for x in data if isinstance(x,dict) and valid(x.get('id')) and x.get('type') not in ('embedding','embeddings') and not x['id'].lower().startswith(('text-embedding-','nomic-embed-','embedding-'))))
+  if not ids:raise ValueError('No chat model')
+  return ids[:20]
+ except Exception:raise RouterError('LM Studio is not answering with a chat model. Open LM Studio, load a model, then start its local server.') from None
