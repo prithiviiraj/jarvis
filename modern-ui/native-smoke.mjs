@@ -23,4 +23,4 @@ await faces.screenshot({path:'ui-evidence/tauri-floating-renderer.png'});
 await page.screenshot({path:'ui-evidence/tauri-connected-renderer.png'});
 if(errors.length)throw Error(errors.join('\n'));
 fs.writeFileSync('ui-evidence/native-checks.json',JSON.stringify({host:'actual Tauri2/WebView2',checks:['native frontend loaded','explicit backend connect','persona select','font select','pause all','native floating window','overlay link','overlay stop'],models:0,sensors:0,unrun:['physical laptop resources','microphone/audio','real model answer','pixel transparency on user desktop']},null,2));
-await browser.close();
+process.exit(0); // Leave host alive for the physical window screenshot/WM_CLOSE.
