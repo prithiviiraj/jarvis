@@ -49,3 +49,15 @@ class BanterTests(unittest.TestCase):
   c,r=self.make()
   with patch('time.monotonic',side_effect=[0,121]):c.start_banter('x',('NOVA','JARVIS'),True).join(1)
   r.ask.assert_not_called();self.assertEqual(c.memory.snapshot(),[])
+ def test_twelve_turns_context_bound(self):
+  c,r=self.make();r.ask.return_value={'text':'a'*1000}
+  with patch('jarvis.workspace_voice.banter_wait',return_value=False):c.start_banter('x'*1000,('JARVIS','NOVA','KAI','LYRA','DEX'),True,12,2).join(2)
+  self.assertEqual(r.ask.call_count,12);self.assertEqual(len(c.memory.snapshot()),6)
+  # Supplied prior context is bounded before each request, plus system/current instruction.
+  for call in r.ask.call_args_list:self.assertLessEqual(sum(len(m['content']) for m in call.args[0][1:-1]),12000)
+ def test_no_restart_while_request_inflight(self):
+  c,r=self.make();entered=threading.Event();release=threading.Event()
+  def answer(*args,**kw):entered.set();release.wait(1);return {'text':'late'}
+  r.ask.side_effect=answer;w=c.start_banter('x',('NOVA','JARVIS'),True,2,2);self.assertTrue(entered.wait(1));c.stop_banter()
+  with self.assertRaises(RuntimeError):c.start_banter('x',('NOVA','JARVIS'),True,2,2)
+  release.set();w.join(2);self.assertFalse(c.busy);self.assertEqual(c.memory.snapshot(),[])
