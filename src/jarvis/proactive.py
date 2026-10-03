@@ -40,8 +40,8 @@ class ProactiveJudge:
             if now-self.last<120:self.seen=seq;return None
             while self.requests and now-self.requests[0]>=3600:self.requests.popleft()
             if len(self.requests)>=12:self.seen=seq;return None
-            snapshot=self.context.snapshot();self.seen=seq
-            relevant=[e for e in snapshot['events'] if e['kind'] in ('presence','foreground-app')]
+            previous=self.seen;snapshot=self.context.snapshot();self.seen=seq
+            relevant=[e for e in snapshot['events'] if e['seq']>previous and e['kind'] in ('presence','foreground-app')]
             if not relevant or (snapshot['camera']=='off' and not snapshot['app_monitor']):return None
             if snapshot['camera'] in ('error','stopping','starting'):return None
             self.busy=True;self.last=now;self.requests.append(now);ticket=self.generation;audio=self.audio
