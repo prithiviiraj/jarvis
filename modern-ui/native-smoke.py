@@ -8,12 +8,12 @@ requests=[]
 class LocalFixture(http.server.BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def do_GET(self):
-  requests.append({'path':self.path});self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'data':[{'id':'fixture-local-model'}]}).encode())
+  requests.append({'path':self.path});self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'models':[{'type':'llm','key':'qwen2.5-vl-3b-instruct','capabilities':{'vision':True},'loaded_instances':[]},{'type':'embedding','key':'text-embedding-nomic-embed-text-v1.5','loaded_instances':[]}]} if self.path=='/api/v1/models' else {'data':[{'id':'qwen2.5-vl-3b-instruct'},{'id':'text-embedding-nomic-embed-text-v1.5'}]}).encode())
  def do_POST(self):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
   text=body['messages'][-1]['content']
   if 'failure-probe' in text:self.send_response(503);self.end_headers();return
-  assert body['stream']
+  assert body['stream'];assert body['model']=='qwen2.5-vl-3b-instruct'
   self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
   for part in ['Packaged local ','chat round-trip ','confirmed.']:
    self.wfile.write(('data: '+json.dumps({'choices':[{'delta':{'content':part}}]})+'\n\n').encode());self.wfile.flush();time.sleep(1)
