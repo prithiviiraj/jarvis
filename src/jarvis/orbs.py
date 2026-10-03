@@ -13,7 +13,7 @@ class OrbOverlay:
     def __init__(self,root,state,select,pause):
         import tkinter as tk
         self.tk=tk
-        self.root=root;self.state=state;self.select=select;self.started=time.monotonic();self.reduced=False;self.job=None
+        self.root=root;self.state=state;self.select=select;self.started=time.monotonic();self.reduced=False;self.job=None;self.next_frame=time.monotonic()
         self.window=tk.Toplevel(root);self.window.title('JARVIS - Five orbs');self.window.geometry('390x83+30+25');self.window.overrideredirect(True);self.window.attributes('-topmost',True);self.window.configure(bg='#ff00fe');self.window.attributes('-transparentcolor','#ff00fe');self.window.resizable(False,False)
         self.canvas=tk.Canvas(self.window,width=390,height=83,bg='#ff00fe',highlightthickness=0);self.canvas.pack();self.items={};self.faces={}
         for i,(name,color) in enumerate(ROSTER):
@@ -61,7 +61,11 @@ class OrbOverlay:
             if name=='DEX':self.canvas.coords(f['detail'],x-.5*r,y-.12*r,x+.5*r,y-.12*r)
             elif name=='JARVIS':self.canvas.coords(f['detail'],x-.25*r,y+.6*r,x+.25*r,y+.6*r)
             else:self.canvas.coords(f['detail'],x-.12*r,y-.9*r,x+.12*r,y-.75*r)
-        self.status.configure(text=(selected+' / '+state.upper())[:27]);self.job=self.window.after(16,self.animate)
+        self.status.configure(text=(selected+' / '+state.upper())[:27])
+        # Deadline pacing avoids adding each draw duration to every16ms delay.
+        now=time.monotonic();self.next_frame+=1/60
+        if self.next_frame<=now:self.next_frame=now+1/60
+        self.job=self.window.after(max(1,int((self.next_frame-now)*1000)),self.animate)
     def close(self):
         if self.job:
             try:self.window.after_cancel(self.job)
