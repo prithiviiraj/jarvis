@@ -57,7 +57,7 @@ class AwarenessPanel:
   if self.judge_consent.get():self.judge.enable(True,self.audio_consent.get())
  def show_badge(self):
   if self.badge and self.badge.winfo_exists():return
-  self.badge=tk.Toplevel(self.root);self.badge.title('JARVIS sensing indicator');self.badge.geometry('375x67+30+115');self.badge.attributes('-topmost',True);self.badge.configure(bg=PANEL);self.badge.resizable(False,False)
+  self.badge=tk.Toplevel(self.root);self.badge.title('JARVIS sensing indicator');self.badge.geometry('280x67+30+115');self.badge.attributes('-topmost',True);self.badge.configure(bg=PANEL);self.badge.resizable(False,False)
   self.badge_label=tk.Label(self.badge,text='LOCAL SENSING / STARTING',bg=PANEL,fg=TEXT);self.badge_label.pack(side='left',padx=8)
   tk.Button(self.badge,text='OFF',command=self.stop_all,bg=LINE,fg=TEXT).pack(side='right',padx=8)
   self.badge.protocol('WM_DELETE_WINDOW',self.stop_all)
@@ -83,7 +83,7 @@ class AwarenessPanel:
   self.judge_label.configure(text=self.judgment_status+' / '+self.comment[:160]+'\nLocal only; quiet 00:00-07:00; 120s cooldown; max12 requests/hour')
   self.preview.configure(state='normal');self.preview.delete('1.0','end');self.preview.insert('end',json.dumps(self.context.snapshot(),indent=2));self.preview.configure(state='disabled')
  def stop_all(self):
-  self.judge.stop();self.camera.stop();self.context.clear();self.title_allowed=False
+  self.judge.stop();self.comment='';self.judgment_status='OFF';self.camera.stop();self.context.clear();self.title_allowed=False
   if self.window and self.window.winfo_exists():self.apps.set(False);self.titles.set(False);self.judge_consent.set(False);self.audio_consent.set(False)
   # Keep badge while the device thread unwinds, so OFF is not falsely promised.
   if not self.camera.stopped():self.context.camera_state('stopping')
