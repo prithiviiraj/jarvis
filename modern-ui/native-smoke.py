@@ -28,6 +28,11 @@ try:
  assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
  ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
+ if (pathlib.Path('public/faces/manifest.json')).is_file():
+  face_text=' '.join(x.window_text() for x in faces.descendants())
+  for persona in ['JARVIS','NOVA','KAI','LYRA','DEX']:
+   if persona+' idle face' not in face_text:raise RuntimeError('Original3D image did not load: '+persona+' / '+face_text)
+  checks.append('allfive original3D image alt names present in actualWindows overlay')
  bg.destroy();checks.append('compact 340x110 logical pixels, top-centred, shadow disabled')
  faces.click_input(button='right');time.sleep(.5)
  entry=faces.child_window(title='Open workspace',control_type='Button');entry.wait('exists',timeout=10);entry.wrapper_object().invoke();checks.append('faces-only launch + right-click workspace')
