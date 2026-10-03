@@ -54,6 +54,9 @@ try:
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=15);faces.set_focus()
  click('LINK',faces);time.sleep(1);click('STOP',faces)
  faces.capture_as_image().save('ui-evidence/tauri-floating-actual.png')
+ image=faces.capture_as_image().convert('RGB');corner=image.crop((image.width-18,image.height-18,image.width,image.height))
+ white=sum(min(pixel)>230 for pixel in corner.getdata())
+ assert white<20, f'White native corner still visible: {white} pixels' 
  window.set_focus();
  from pywinauto import mouse
  mouse.scroll(coords=(550,450),wheel_dist=-6);time.sleep(1)
