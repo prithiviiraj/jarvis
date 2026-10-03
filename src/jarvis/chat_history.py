@@ -4,7 +4,10 @@ from pathlib import Path
 class ChatHistory:
  def __init__(self,path,max_chats=50,max_messages=200):
   self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True);self.max_chats=max_chats;self.max_messages=max_messages;self.lock=threading.RLock()
-  self.db=sqlite3.connect(self.path,check_same_thread=False);self.db.execute('PRAGMA journal_mode=WAL');self.db.execute('PRAGMA secure_delete=ON');self.db.execute('CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY,title TEXT NOT NULL,updated REAL NOT NULL,messages TEXT NOT NULL)');self.db.commit()
+  self.db=sqlite3.connect(self.path,check_same_thread=False)
+  try:
+   self.db.execute('PRAGMA journal_mode=WAL');self.db.execute('PRAGMA secure_delete=ON');self.db.execute('CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY,title TEXT NOT NULL,updated REAL NOT NULL,messages TEXT NOT NULL)');self.db.commit()
+  except Exception:self.db.close();raise
  def new(self):return uuid.uuid4().hex
  def save(self,chat_id,messages):
   if not isinstance(chat_id,str)or len(chat_id)!=32 or any(c not in '0123456789abcdef' for c in chat_id):raise ValueError('Invalid conversation')
