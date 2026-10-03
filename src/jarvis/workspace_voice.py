@@ -84,7 +84,7 @@ class WorkspaceVoice:
                     self.notify('team-updated',name)
             except Exception as exc:
                 with self.lock:
-                    if not self.closed and ticket==self.generation:self.notify('error','Local chat failed: '+str(exc)[:180]+'. LM Studio: one loaded model, server port1234. Retry your message.')
+                    if not self.closed and ticket==self.generation:self.notify('error',('LM Studio returned no final text in streaming or normal chat. Check its server log and try hi in LM Studio chat to verify the model/template. ' if 'local-empty-after-retry' in str(exc) else 'Local chat failed: '+str(exc)[:180]+'. ')+ 'LM Studio server port1234. Retry your message.')
             finally:
                 with self.lock:
                     self.busy=False
