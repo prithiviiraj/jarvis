@@ -469,4 +469,4 @@ class Workspace:
   self.root.withdraw()
  def close(self):self.awareness.stop();self.download_cancel.set();self.voice.close();self.root.destroy()
 def main():
- root=tk.Tk();app=Workspace(root);root.after(150,app.open_mini);root.mainloop()
+ root=tk.Tk();root.withdraw();app=Workspace(root);root.after(150,app.open_mini);root.mainloop()
