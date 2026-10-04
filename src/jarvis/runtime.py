@@ -5,7 +5,7 @@ from .personas import prompt
 class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
-        self.cancel=threading.Event();self.streaming=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
+        self.cancel=threading.Event();self.streaming=False;self.reasoning_off=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
         self.shared_context=None;self.record_turn=None;self.close_hook=None
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
     def enable(self,consent=False,cloud_consent=False):
@@ -33,6 +33,14 @@ class VoiceRuntime:
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
+            # Direct spoken address selects one actual persona and installed voice.
+            import re
+            match=re.match(r'^\s*(?:hey\s+|hi\s+|hello\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
+            actor=match.group(1).upper()if match else self.persona
+            if actor!=self.persona:
+                select=getattr(self.speaker,'select_profile',None)
+                if callable(select):select(actor);self.persona=actor
+            self.notify('voice-actor',self.persona)
             stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
             messages=[{'role':'system','content':prompt(self.persona)}]+context+[{'role':'user','content':text}]
@@ -40,12 +48,17 @@ class VoiceRuntime:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
                 def chunks():
-                    for delta in self.router.stream(messages,cloud_consent=cloud,cancel=self.cancel):
+                    options={}
+                    providers=getattr(self.router,'providers',None)
+                    if self.reasoning_off and isinstance(providers,list)and len(providers)==1 and not providers[0].cloud and 'spark-x2.5' in providers[0].model.lower():
+                        from .lmstudio_rest import NativeSparkTransport
+                        options['stream_transport']=NativeSparkTransport()
+                    for delta in self.router.stream(messages,cloud_consent=cloud,cancel=self.cancel,**options):
                         with self.lock:
                             if not self.valid(generation):return
                             if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
                             pieces.append(delta['text']);provider[:]=[delta]
-                            self.notify('answer',{'text':''.join(pieces),'provider':delta['provider']})
+                            self.notify('answer',{'text':''.join(pieces),'provider':delta['provider'],'profile':self.persona})
                             if delta.get('model'):self.notify('status',delta['provider']+' model '+delta['model'])
                         yield delta['text']
                 def clause(part):
