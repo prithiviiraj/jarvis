@@ -1,7 +1,7 @@
 """Local opt-in Markdown vault. Nothing leaves the machine through this connector."""
 from pathlib import Path
 from urllib.parse import urlencode
-import os
+import os,time
 class Vault:
  def __init__(self,root):
   self.root=Path(root).resolve(strict=True)
@@ -23,13 +23,13 @@ class Vault:
   return p.read_text(encoding='utf-8')
  def search(self,query):
   if not isinstance(query,str)or not query.strip()or len(query)>100:raise ValueError('Enter a short search')
-  out=[];scanned=0
+  out=[];scanned=0;deadline=time.monotonic()+.75
   for base,dirs,files in os.walk(self.root,followlinks=False):
    dirs[:]=[d for d in dirs if not d.startswith('.') and not (Path(base)/d).is_symlink()]
    for f in files:
     if not f.endswith('.md'):continue
     scanned+=1
-    if scanned>500:return out
+    if scanned>500 or time.monotonic()>deadline:return out
     name=(Path(base)/f).relative_to(self.root).as_posix()
     try:text=self.read(name)
     except (ValueError,OSError,UnicodeError):continue
