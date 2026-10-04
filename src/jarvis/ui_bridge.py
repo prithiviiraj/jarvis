@@ -34,7 +34,9 @@ class Bridge:
   elif cmd=='voice-cancel':self.setup.stop()
   elif cmd=='voice-on':
    if request.get('consent') is not True:raise ValueError('Microphone consent required')
-   self.judge.stop();self.voice.start(consent=True,cloud=False)
+   self.judge.stop()
+   if request.get('reasoning_off')is True:self.voice.start(consent=True,cloud=False,reasoning_off=True)
+   else:self.voice.start(consent=True,cloud=False)
   elif cmd=='voice-off':self.voice.pause()
   elif cmd=='camera-on':
    if request.get('consent') is not True:raise ValueError('Camera consent required')
@@ -55,6 +57,7 @@ class Bridge:
    except queue.Empty:break
    if kind=='response-diagnostics':self.response_diagnostics=value[-2:]
    elif kind=='error':self.error=str(value)[:300]
+   elif kind=='voice-actor':self.voice.reply_actor=str(value)
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
    elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]})
    elif kind in ('answer','proactive-answer'):
@@ -64,11 +67,11 @@ class Bridge:
     else:self.messages.append(row)
   self.messages=self.messages[-50:]
   # Runtime activity, not decorative preview. Reserved visemes can be added by an audio clock.
-  voice_state=self.status.lower();actor='JARVIS' if self.judge.busy else self.voice.reply_actor if self.voice.busy else self.voice.name
+  voice_state=self.status.lower();actor='JARVIS' if self.judge.busy else self.voice.reply_actor if self.voice.busy else self.voice.runtime.persona if self.voice.runtime is not None else self.voice.name
   active=self.voice.busy or (self.voice.runtime is not None and self.voice.runtime.busy) or self.judge.busy
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
-  return {'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
+  return {'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def close(self):self.setup.stop();self.stop();self.judge.close();self.voice.close()
 def main():
  bridge=Bridge()
