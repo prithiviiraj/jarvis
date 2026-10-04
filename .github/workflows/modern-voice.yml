@@ -2,6 +2,11 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      run_xtts:
+        description: Run optional XTTS CPU runtime import only, no model download
+        required: false
+        type: boolean
+        default: false
       run_laya:
         description: Run optional actual Laya CPU diagnostic only, not Windows build
         required: false
@@ -16,7 +21,7 @@ permissions:
   actions: read
 jobs:
   windows:
-    if: ${{ !inputs.run_laya }}
+    if: ${{ !inputs.run_laya && !inputs.run_xtts }}
     runs-on: windows-latest
     timeout-minutes: 50
     defaults:
@@ -122,6 +127,32 @@ jobs:
         if: always()
         with:
           name: JARVIS-optional-Laya-CPU-evidence
+          path: optional-engine-evidence
+          if-no-files-found: error
+          retention-days: 7
+  xtts-runtime:
+    if: ${{ inputs.run_xtts }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      USE_TF: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Explicit CPU runtime only
+        run: |
+          python -m pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r diagnostics/optional-xtts-requirements.txt
+          python -m pip check
+      - name: XTTS native runtime imports only, no model download
+        run: python diagnostics/xtts-runtime-check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JARVIS-optional-XTTS-runtime-evidence
           path: optional-engine-evidence
           if-no-files-found: error
           retention-days: 7
