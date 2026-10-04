@@ -57,8 +57,9 @@ try:
  assert abs((rect.left+rect.right)/2-screen_w/2)<4, f'Not top-centred: {rect}'
  assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
  ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
+ face_handle=faces.handle;caption_handle=captions.handle
  main.set_focus();main.child_window(title='Floating OFF',control_type='Button').click_input();time.sleep(.3)
- assert not faces.is_visible() and not captions.is_visible(),'OFF must hide faces and captions'
+ assert not ctypes.windll.user32.IsWindowVisible(face_handle) and not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must hide faces and captions'
  main.child_window(title='Floating ON',control_type='Button').click_input();faces.wait('visible',timeout=10);faces.set_focus();time.sleep(.3)
  checks.append('explicit OFF hides facesandcaptions; ON restoresexistingwindows')
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
