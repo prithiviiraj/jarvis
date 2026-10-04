@@ -2,6 +2,11 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      run_laya:
+        description: Run optional actual Laya CPU diagnostic only, not Windows build
+        required: false
+        type: boolean
+        default: false
       face_art_run:
         description: 'Passing original 3D face-art run ID (optional)'
         required: false
@@ -11,6 +16,7 @@ permissions:
   actions: read
 jobs:
   windows:
+    if: ${{ !inputs.run_laya }}
     runs-on: windows-latest
     timeout-minutes: 50
     defaults:
@@ -93,3 +99,29 @@ jobs:
 
           retention-days: 7
           if-no-files-found: error
+  actual-laya:
+    if: ${{ inputs.run_laya }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      USE_TF: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Explicit CPU runtime only
+        run: |
+          python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r diagnostics/optional-laya-requirements.txt
+          python -m pip check
+      - name: Actual pinned checkpoint, synthetic questions, no browser effects
+        run: python diagnostics/laya-engine-acceptance.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JARVIS-optional-Laya-CPU-evidence
+          path: optional-engine-evidence
+          if-no-files-found: error
+          retention-days: 7
