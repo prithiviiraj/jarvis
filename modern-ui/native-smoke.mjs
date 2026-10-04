@@ -7,7 +7,7 @@ for(let i=0;i<40;i++){page=context.pages().find(p=>!p.url().includes('overlay=1'
 if(!page)throw Error('No actual Tauri webview');let errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.getByRole('heading',{name:'A calm place to think.'}).waitFor({timeout:15000});
 if(!await page.evaluate(()=>!!window.__TAURI_INTERNALS__))throw Error('Not native Tauri');
-await page.getByRole('button',{name:'Connect local core'}).click();
+await page.getByRole('button',{name:'Connect core / check brains'}).click();
 await page.waitForFunction(()=>document.querySelector('.toolbar>span')?.textContent==='off');
 await page.getByRole('button',{name:'DEX Coder'}).click();
 await page.getByRole('heading',{name:'DEX',exact:true}).waitFor();
