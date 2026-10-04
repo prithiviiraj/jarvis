@@ -35,3 +35,9 @@ class RuntimeTests(unittest.TestCase):
  def test_close_hook_once_and_callbacks_released(self):
   hook=Mock();self.v.close_hook=hook;self.v.shared_context=Mock();self.v.record_turn=Mock()
   self.v.close();self.v.close();hook.assert_called_once();self.assertIsNone(self.v.shared_context);self.assertIsNone(self.v.record_turn)
+
+ def test_unclear_speech_repeat_and_no_stale_model_diagnostics(self):
+  from jarvis.speech import UnclearSpeech
+  events=[];self.v.notify=lambda *a:events.append(a);self.v.stt.transcribe.side_effect=UnclearSpeech('Speech was unclear. Please repeat.')
+  self.v.router.last_diagnostics=[{'response_category':'final_text'}];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertIn(('response-diagnostics',[]),events);self.assertFalse(any(e[0]=='response-diagnostics' and e[1] for e in events));self.assertTrue(any(e[0]=='error' and 'Nothing was sent to a model' in e[1] for e in events));self.v.router.ask.assert_not_called();self.v.mic.resume.assert_called_once()
