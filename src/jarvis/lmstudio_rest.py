@@ -76,3 +76,28 @@ class NativeSparkTransport:
    d.data['recognized_text_chars']=count
    if count:d.data['response_category']='final_text'
    self.last_diagnostics=[d.snapshot()]
+
+class SparkRecoveryTransport:
+ """Retry one reasoning-only Spark failure locally, before any visible text.
+ Native transport checks advertised OFF capability and never falls back to ON.
+ """
+ def __init__(self,regular=None,native=None,notify=None):
+  from .streaming import StreamTransport
+  self.regular=regular or StreamTransport();self.native=native or NativeSparkTransport();self.notify=notify;self.last_diagnostics=[]
+ def stream(self,provider,messages,key=None,cancel=None):
+  emitted=False;self.last_diagnostics=[]
+  try:
+   for text in self.regular.stream(provider,messages,key,cancel):
+    if text:emitted=True
+    yield text
+  except ProviderFailure as exc:
+   self.last_diagnostics=list(getattr(self.regular,'last_diagnostics',[]))
+   if provider.cloud or 'spark-x2.5'not in provider.model.lower()or emitted or exc.code!='reasoning-token-limit' or cancel is not None and cancel.is_set():raise
+   if callable(self.notify):self.notify('status','Spark used the reply budget on thinking. Retrying once locally with verified reasoning OFF.')
+   try:
+    yield from self.native.stream(provider,messages,key,cancel)
+   finally:
+    self.last_diagnostics+=list(getattr(self.native,'last_diagnostics',[]))
+   return
+  finally:
+   if not self.last_diagnostics:self.last_diagnostics=list(getattr(self.regular,'last_diagnostics',[]))
