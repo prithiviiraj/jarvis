@@ -110,6 +110,11 @@ def sentences(chunks,max_chars=220):
         pending+=chunk
         while pending:
             boundary=next((i+1 for i,c in enumerate(pending) if c in '.!?\n' and (i==len(pending)-1 or pending[i+1].isspace())),None)
+            # Flush a first spoken clause at a meaningful comma after enough words.
+            # Never emit filler greetings just to look fast.
+            if boundary is None and len(pending)>=40:
+                comma=pending.find(', ')
+                if comma>=35 and len(pending[:comma].split())>=6:boundary=comma+1
             if boundary is None and len(pending)>=max_chars:
                 boundary=pending.rfind(' ',0,max_chars)
                 if boundary<1:boundary=max_chars
