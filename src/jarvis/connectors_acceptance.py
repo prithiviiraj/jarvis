@@ -34,10 +34,21 @@ def run(core):
     time.sleep(.2)
    assert state['state']=='ready',state
    assert state['url'].startswith('https://example.com')and'Example Domain'in state['title'],state
+   assert call('browser-links')['ok']
+   deadline=time.monotonic()+20
+   while time.monotonic()<deadline:
+    state=call('status')['data']['browser']['status']
+    if state['state']in ('ready','error'):break
+    time.sleep(.2)
+   assert state['state']=='ready'and state['links'],state
+   row=state['links'][0];assert row['url'].startswith('https://')
+   assert call('browser-select',link_id=row['id'])['ok']
+   review=call('status')['data']['browser']['pending']
+   assert review['value']==row['url'],review
    pending=call('browser-preview',text='browser scroll down')['data']['browser']['pending']
    assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
    call('close');p.wait(10)
-   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'physical_microphone':False}
+   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'physical_microphone':False}
   finally:
    if p.poll()is None:p.kill()
