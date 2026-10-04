@@ -7,7 +7,7 @@ class Vault:
   self.root=Path(root).resolve(strict=True)
   if not self.root.is_dir()or not (self.root/'.obsidian').is_dir():raise ValueError('Choose an Obsidian vault folder')
  def note(self,name,must_exist=True):
-  if not isinstance(name,str)or len(name)>240 or '\\'in name or ':'in name or any(x in name.split('/')for x in ('..','.obsidian','.git')):raise ValueError('Invalid note path')
+  if not isinstance(name,str)or len(name)>240 or '\\'in name or ':'in name or any(x.startswith('.')for x in name.split('/')):raise ValueError('Invalid note path')
   rel=Path(name)
   if rel.is_absolute()or rel.suffix!='.md':raise ValueError('Choose a Markdown note')
   p=self.root/rel
