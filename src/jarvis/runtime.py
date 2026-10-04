@@ -42,6 +42,9 @@ class VoiceRuntime:
                 select=getattr(self.speaker,'select_profile',None)
                 if callable(select):select(actor);self.persona=actor
             self.notify('voice-actor',self.persona)
+            choose=getattr(self.router,'select_persona',None)
+            if callable(choose):choose(self.persona)
+            if hasattr(self.router,'reasoning_off'):self.router.reasoning_off=self.reasoning_off
             stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
             messages=[{'role':'system','content':prompt(self.persona)}]+context+[{'role':'user','content':text}]
