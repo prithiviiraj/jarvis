@@ -1,0 +1,5 @@
+# Separate optional Windows CPU runtime, not included in default JARVIS.
+# Weights and CPML acceptance deliberately excluded.
+torch==2.6.0
+torchaudio==2.6.0
+coqui-tts==0.27.5
