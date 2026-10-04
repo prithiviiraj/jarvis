@@ -19,3 +19,10 @@ class TeamMemory:
         with self.lock:return list(self.turns)
     def clear(self):
         with self.lock:self.turns.clear()
+
+    def restore(self,rows):
+        """Restore all actual team speakers after each user, within normal bounds."""
+        self.clear();pending=None
+        for row in rows:
+            if row['name']=='You':pending=row['text']
+            elif pending is not None:self.append(row['name'],pending,row['text'])
