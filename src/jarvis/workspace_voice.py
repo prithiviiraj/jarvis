@@ -128,13 +128,8 @@ class WorkspaceVoice:
                 if cancel.is_set():return
                 if not results:raise RuntimeError('All team routes failed. Test account connections.')
                 if audio:
-                    speaker=build_proactive_speaker();self.round_speaker=speaker
+                    speaker=build_proactive_speaker(self.tts_engine);self.round_speaker=speaker
                     if cancel.is_set():return
-                    # Reuse one model/session; styles change only between ordered playback.
-                    from .experimental.kokoro import KokoroSynth
-                    from .paths import data_root
-                    assets=data_root()/'models'/'voices';synth=speaker.synth
-                    speaker.profiles={n:KokoroSynth(assets/'model.onnx',assets/(v+'.bin'),assets/'config.json',synth.g2p)for n,v in VOICES.items()}
                     speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
                 ordered=[]
                 for name in ('NOVA','KAI','LYRA','DEX','JARVIS'):
@@ -322,19 +317,23 @@ def build_text_router():
     from dataclasses import replace
     return BrainRouter([replace(configured('local',ids[0]),timeout=30)])
 
-def build_proactive_speaker():
+def build_proactive_speaker(tts_engine='kokoro'):
     """JARVIS output only: no microphone/STT/cloud/model download."""
     from .paths import ensure_layout
     from .voice_assets import ready
     from .experimental.kokoro import NativeG2P,KokoroSynth
     from .experimental.kokoro_speaker import KokoroSpeaker
     from .native_frontend import verified_frontend
-    assets=ensure_layout()/'models'/'voices'
-    if not ready(assets):raise RuntimeError('Verified voice assets missing')
+    cache=ensure_layout()/'models';assets=cache/'voices'
+    from . import kitten_assets
+    if not (ready(assets)if tts_engine=='kokoro'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified voice assets missing')
     exe,data=verified_frontend();g2p=NativeG2P(exe,data)
     try:
-        speaker=KokoroSpeaker(KokoroSynth(assets/'model.onnx',assets/(VOICES['JARVIS']+'.bin'),assets/'config.json',g2p))
-        speaker.profile='JARVIS'
+        if tts_engine=='kitten':
+            from .experimental.kitten_onnx import KittenONNX
+            profiles={n:KittenONNX(cache/'kitten',g2p,v)for n,v in zip(VOICES,('Jasper','Luna','Bruno','Rosie','Hugo'))}
+        else:profiles={n:KokoroSynth(assets/'model.onnx',assets/(v+'.bin'),assets/'config.json',g2p)for n,v in VOICES.items()}
+        speaker=KokoroSpeaker(profiles['JARVIS']);speaker.profiles=profiles;speaker.select_profile('JARVIS')
         speaker.close=lambda:(speaker.stop(),g2p.close())
         return speaker
     except Exception:g2p.close();raise
