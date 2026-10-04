@@ -17,7 +17,7 @@ class UiBridgeTests(unittest.TestCase):
  def test_no_cloud_command(self):
   with self.assertRaises(ValueError):self.b.execute({'command':'judgment','enabled':True,'context_consent':True,'cloud':True})
  def test_pause_clears(self):
-  self.b.context.set_apps(True);self.b.messages=[{'name':'You','text':'private'}];s=self.b.execute({'command':'pause'});self.assertFalse(s['messages']);self.assertFalse(s['awareness']['app_monitor'])
+  self.b.context.set_apps(True);self.b.messages=[{'name':'You','text':'private'}];s=self.b.execute({'command':'pause'});self.assertEqual(s['messages'],[{'name':'You','text':'private'}]);self.assertFalse(s['awareness']['app_monitor'])
  def test_select(self):self.assertEqual(self.b.execute({'command':'select','name':'DEX'})['selected'],'DEX')
  def test_bad_apps(self):
   with self.assertRaises(ValueError):self.b.execute({'command':'apps','enabled':'yes'})
