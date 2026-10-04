@@ -5,7 +5,7 @@ from .local_awareness import LocalContext,CameraWorker,foreground_app
 from .proactive import ProactiveJudge
 from .voice_setup import VoiceSetup
 class Bridge:
- def __init__(self,voice=None,brains=None):
+ def __init__(self,voice=None,brains=None,history=None):
   from .brain_settings import BrainSettings,SettingsPool
   from .paths import data_root
   self.brains=brains or BrainSettings(path=data_root()/'brain-routes.json')
@@ -15,6 +15,17 @@ class Bridge:
    self.voice.pool_config=(SettingsPool(self.brains),(),())
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,build_proactive_speaker)
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
+  self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
+  if self.history is None and voice is None:
+   try:
+    from .chat_history import ChatHistory
+    self.history=ChatHistory(data_root()/'chat-history.sqlite')
+   except Exception:self.history_error='Local chat storage unavailable. Existing archive preserved; this session is not saved.'
+  if self.history:
+   previous=self.history.list();self.chat_id=previous[0]['id']if previous else self.history.new()
+   if previous:
+    try:self.messages=self.history.load(self.chat_id);self.voice.memory.restore(self.messages)
+    except Exception:self.history_error='Saved conversation could not be restored. Original archive preserved.';self.chat_id=self.history.new()
  def poll(self):
   if self.context.apps and time.monotonic()-self.last_app>=1:
    self.last_app=time.monotonic()
@@ -24,14 +35,29 @@ class Bridge:
   if busy and self.judge.busy:self.judge.stop()
   self.judge.poll(busy)
  def stop(self):
-  self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.voice.memory.clear();self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''}
+  self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''}
   if not self.camera.stopped():self.context.camera_state('stopping')
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round'}
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round','history-list','history-open','history-new','history-delete','history-clear'}
   if cmd not in allowed:raise ValueError('Unknown command')
-  if cmd=='brain-save':
+  if cmd.startswith('history-'):
+   if not self.history:raise ValueError(self.history_error or 'History unavailable')
+   if cmd!='history-list' and (self.voice.busy or self.voice.runtime is not None):raise ValueError('Stop voice and wait for the current turn before changing chats')
+   self.save_history(force=True)
+   if cmd=='history-open':
+    rows=self.history.load(request.get('chat_id'));self.messages=rows;self.chat_id=request['chat_id'];self.voice.memory.restore(rows)
+   elif cmd=='history-new':self.messages=[];self.voice.memory.clear();self.chat_id=self.history.new()
+   elif cmd=='history-delete':
+    if request.get('confirm')is not True:raise ValueError('Confirm delete this chat')
+    self.history.delete(request.get('chat_id'))
+    if request.get('chat_id')==self.chat_id:self.messages=[];self.voice.memory.clear();self.chat_id=self.history.new()
+   elif cmd=='history-clear':
+    if request.get('confirm')is not True:raise ValueError('Confirm delete all chat history')
+    self.history.clear();self.messages=[];self.voice.memory.clear();self.chat_id=self.history.new()
+   self.archive_dirty=False;self.error=''
+  elif cmd=='brain-save':
    if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice and wait for the current reply before changing routes')
    self.brains.configure(request.get('slots'),request.get('assignments'));self.status='Account routes saved. Session consent is required after each launch.'
   elif cmd=='key-save':self.brains.set_key(request.get('slot'),request.get('kind'),request.get('secret'));self.status='Key saved in Windows Credential Manager; key is never returned.'
@@ -63,7 +89,7 @@ class Bridge:
    if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
    self.judge.stop();self.judge.gaming=request.get('gaming',False)
    if request['enabled']:self.judge.enable(True,request.get('audio',False))
-  elif cmd=='close':self.setup.stop();self.stop();self.judge.close();self.voice.close();self.closed=True
+  elif cmd=='close':self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.voice.close();self.closed=True
   self.poll()
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
@@ -77,21 +103,28 @@ class Bridge:
    elif kind=='error':self.error=str(value)[:300]
    elif kind=='voice-actor':self.voice.reply_actor=str(value)
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
-   elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]})
+   elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
    elif kind in ('answer','proactive-answer'):
+    self.archive_dirty=True
     row={'name':value.get('profile',self.voice.name),'text':value['text'][:4000],'provider':value.get('provider','local')}
     if 'stream_id' in value:row['stream_id']=value['stream_id']
     if self.messages and self.messages[-1]['name']==row['name'] and (self.voice.runtime is not None or ('stream_id' in row and self.messages[-1].get('stream_id')==row['stream_id'])):self.messages[-1]=row
     else:self.messages.append(row)
-  self.messages=self.messages[-50:]
+  self.messages=self.messages[-200:]
+  self.save_history()
   # Runtime activity, not decorative preview. Reserved visemes can be added by an audio clock.
   voice_state=self.status.lower();actor='JARVIS' if self.judge.busy else self.voice.reply_actor if self.voice.busy else self.voice.runtime.persona if self.voice.runtime is not None else self.voice.name
   active=self.voice.busy or (self.voice.runtime is not None and self.voice.runtime.busy) or self.judge.busy
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'brains':self.brains.snapshot(),'caption':self.caption,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
- def close(self):self.setup.stop();self.stop();self.judge.close();self.voice.close()
+  return {'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+ def save_history(self,force=False):
+  if not self.history or not self.archive_dirty:return
+  if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
+  try:self.history.save(self.chat_id,self.messages);self.archive_dirty=False;self.archive_saved_at=time.monotonic()
+  except Exception:self.history_error='Chat could not be saved. Current session remains available; original archive preserved.'
+ def close(self):self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.voice.close()
 def main():
  bridge=Bridge()
  try:
