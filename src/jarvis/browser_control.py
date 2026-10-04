@@ -63,7 +63,7 @@ class BrowserSession:
  """All Playwright operations occur on one worker. Owner's ordinary profile untouched."""
  def __init__(self,root):
   import threading,queue
-  self.root=str(root);self.jobs=queue.Queue(maxsize=3);self.lock=threading.RLock();self.state={'state':'off','url':'','title':'','error':'','links':[]};self.cancel=threading.Event()
+  self.root=str(root);self.jobs=queue.Queue(maxsize=3);self.lock=threading.RLock();self.state={'state':'off','url':'','requested_url':'','title':'','error':'','links':[]};self.cancel=threading.Event()
   self.thread=threading.Thread(target=self.run,daemon=False);self.thread.start()
  def snapshot(self):
   with self.lock:return dict(self.state)
@@ -101,6 +101,8 @@ class BrowserSession:
      else:
       result=BrowserControl(page).execute(command,value,confirmed=True)
       result['links']=[]
+      if command=='open':result['requested_url']=value
+      elif command=='search':result['requested_url']='https://www.google.com/search?'+urlencode({'q':value})
      with self.lock:self.state.update(state='ready',error='',**result)
     except Exception:
      with self.lock:self.state.update(state='error',error='Browser control failed. Microsoft Edge and bundled automation runtime are required. No task completion is claimed.')
