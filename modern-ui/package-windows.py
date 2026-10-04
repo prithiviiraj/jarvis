@@ -9,7 +9,7 @@ if os.environ.get('JARVIS_PACKAGE_VOICE')=='1':args[3:3]=['--collect-all','onnxr
 subprocess.run(args,check=True)
 shutil.copytree(root/'frozen-dist/jarvis-local-core',out/'backend')
 shutil.copy2(root/'src-tauri/target/release/jarvis-modern-ui.exe',out/'JARVIS.exe')
-(out/'START HERE.txt').write_text("JARVIS MODERN WINDOWS PREVIEW\n\n1. Extract the whole ZIP into a folder.\n2. Double-click JARVIS.exe. No Python, Node or build commands are needed.\n3. The main workspace opens first. Floating faces and captions start OFF. Minimizing the workspace automatically shows transparent floating faces and captions. Use Floating ON / Floating OFF in the workspace to show or hide them; restoring does not force them OFF. This never enables microphone or camera.\n4. Connect local core. Camera and microphone start OFF.\n\nKeep the backend folder beside JARVIS.exe. This is an unsigned preview; Windows may warn about the publisher. Do not disable your antivirus. Windows 10/11 x64 with Microsoft Edge WebView2 is required.\n\nFor chat/judgment, open LM Studio, load one model, and start its local server. No model is included. Cloud is disabled. Camera support is included and requires your explicit consent. Voice/audio assets and optional speech dependencies are NOT included in this preview. Keep your working JARVIS build; this preview does not replace it.\n",encoding='utf-8')
+(out/'START HERE.txt').write_text("JARVIS WINDOWS - SETUP AND SAFETY\n\n1. Extract the whole ZIP into a folder.\n2. Double-click JARVIS.exe. No Python, Node or build commands are needed.\n3. The main workspace opens first. Floating faces and captions start OFF. Minimizing the workspace automatically shows transparent floating faces and captions. Use Floating ON / Floating OFF in the workspace to show or hide them; restoring does not force them OFF. This never enables microphone or camera.\n4. Connect core / check brains. Check LM Studio status in Settings > Brain & APIs. Camera and microphone start OFF.\n5. For cloud-first: enable API slots, enter keys in the password fields, confirm share-context and free/no-billing access, Save routes, then Test each account. Empty model selects an available approved model when tested. Choose primary slot per persona.\n6. Team room generates five perspectives concurrently, shows/speaks them in order, then a real leader conclusion. Requires enabled working APIs for parallel cloud speed. LM Studio last fallback runs one inference at a time.\n7. Pause all stops sensors, speech and current work. Cloud consent resets each launch.\n\nKeep the backend folder beside JARVIS.exe. This is unsigned software; Windows may warn about the publisher. Do not disable your antivirus. Windows 10/11 x64 with Microsoft Edge WebView2 is required.\n\nFor local fallback/judgment, open LM Studio, load one model, and start its local server. No model is included. Enabled user-confirmed free APIs are primary for chat/voice; no paid fallback. Proactive judgment is local-only, needs allowed app/camera events and is suppressed during microphone sessions to avoid echo. Camera support is included and requires your explicit consent. Voice model weights must be downloaded inside the app. Keep your working JARVIS build until laptop acceptance. Account billing cannot be verified by these APIs; do not enable paid/billing accounts.\n",encoding='utf-8')
 licenses=out/'licenses';licenses.mkdir()
 # Preserve upstream distribution license files, including binary third-party notices.
 import importlib.metadata as md
@@ -23,9 +23,9 @@ for dist in md.distributions():
 (licenses/'README.txt').write_text('Third-party license texts retained from bundled distributions. JARVIS source is in the owner repository.\n',encoding='utf-8')
 if os.environ.get('JARVIS_PACKAGE_VOICE')=='1':
  shutil.copytree(root/'speech-notices',licenses/'speech',dirs_exist_ok=True)
- start=out/'START HERE.txt';start.write_text(start.read_text().replace('Voice/audio assets and optional speech dependencies are NOT included in this preview.','Local speech runtime is bundled. Click Download local voice models (roughly500MB), then Mic ON. Headphones required for this first half-duplex test. No AEC/barge-in yet. Microphone starts OFF.'))
+ start=out/'START HERE.txt';start.write_text(start.read_text().replace('Voice model weights must be downloaded inside the app.','Local speech runtime is bundled. Click Download local voice models (roughly500MB), then Mic ON. Headphones required for this first half-duplex test. No AEC/barge-in yet. Microphone starts OFF.'))
 core=out/'backend/jarvis-local-core.exe'
-env=dict(os.environ);env.pop('PYTHONPATH',None);env['PATH']=str(pathlib.Path(os.environ['WINDIR'])/'System32')
+env=dict(os.environ);env.pop('PYTHONPATH',None);env['PATH']=str(pathlib.Path(os.environ['WINDIR'])/'System32');env['JARVIS_DATA_DIR']=str(root/'ui-evidence'/'isolated-brain-test')
 log=open(root/'ui-evidence/frozen-core-stderr.txt','w')
 p=subprocess.Popen([str(core)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True,env=env,cwd=out)
 lines=queue.Queue()
@@ -35,6 +35,21 @@ def drain():
 threading.Thread(target=drain,daemon=True).start()
 checks=[]
 try:
+ # Actual OS secret store round-trip under isolated CI app data; never a real API key.
+ credential_test='groq/slot5'
+ try:
+  for req in [{'command':'key-save','slot':'slot5','kind':'groq','secret':'ci-fixture-not-a-real-api-key'}, {'command':'brain-save','slots':[{'id':'slot5','provider':'groq','model':'llama-3.1-8b-instant','enabled':True}],'assignments':{}}]:
+   p.stdin.write(json.dumps(req)+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply
+  assert reply['data']['brains']['slots'][0]['key_present'] is True
+  assert 'ci-fixture-not-a-real-api-key' not in json.dumps(reply)
+  p.stdin.write(json.dumps({'command':'key-delete','slot':'slot5','kind':'groq'})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok']
+  assert reply['data']['brains']['slots'][0]['key_present'] is False
+  p.stdin.write(json.dumps({'command':'brain-save','slots':[],'assignments':{}})+'\n');p.stdin.flush();assert json.loads(lines.get(timeout=30))['ok']
+ finally:
+  import sys
+  sys.path.insert(0,str(root.parent/'src'))
+  from jarvis.security import WindowsCredentials
+  WindowsCredentials().delete('groq/slot5')
  for req in [{'command':'status'},{'command':'select','name':'DEX'},{'command':'apps','enabled':True},{'command':'judgment','enabled':True,'context_consent':True},{'command':'pause'},{'command':'shell'},{'command':'close'}]:
   p.stdin.write(json.dumps(req)+'\n');p.stdin.flush();
   line=lines.get(timeout=30)
