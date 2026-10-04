@@ -83,7 +83,8 @@ def run():
     pcm=np.concatenate(samples)
     with wave.open(str(out/(name+'-local-voice.wav')),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes((pcm*32767).astype('<i2').tobytes())
     rows.append({'persona':name,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'clean_caption_playback_events':caption_events,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
-    progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and not off['messages']
+    progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and off['messages']==state['messages']
+    assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
     runtime=None;turn=None
 
   assert len({row['audio_sha256']for row in rows})==5,'Persona synth outputs unexpectedly identical'
