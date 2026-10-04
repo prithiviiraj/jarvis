@@ -59,6 +59,9 @@ jobs:
       - name: CPU-only speech and native persona frontend
         shell: pwsh
         run: ./build-speech-native.ps1
+      - name: Optional Kitten CPU synthesis acceptance
+        shell: pwsh
+        run: python kitten-acceptance.py
       - name: Package bundled local core and test the portable EXE
         shell: pwsh
         env:
