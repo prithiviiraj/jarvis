@@ -80,3 +80,14 @@ class BrainTests(unittest.TestCase):
    for t in threads:t.start()
    for t in threads:t.join(1)
   self.assertEqual(maximum,1)
+ def test_actual_bridge_new_commands_are_allowed(self):
+  from jarvis.ui_bridge import Bridge
+  v=WorkspaceVoice();b=Bridge(v,self.b)
+  with patch.object(self.b,'check')as check:
+   b.execute({'command':'brain-check','slot':'local'});check.assert_called_once()
+  b.execute({'command':'key-save','slot':'slot1','kind':'groq','secret':'fixture-only'})
+  self.keys.set.assert_called_once_with('groq/slot1','fixture-only')
+  b.execute({'command':'brain-save','slots':self.rows,'assignments':{'DEX':'slot2'}})
+  self.assertEqual(b.execute({'command':'status'})['brains']['assignments']['DEX'],'slot2')
+  with patch.object(v,'parallel_round')as round_call:b.execute({'command':'team-round','text':'topic','audio':False});round_call.assert_called_once()
+  b.execute({'command':'key-delete','slot':'slot1','kind':'groq'});self.keys.delete.assert_called_once_with('groq/slot1');b.close()
