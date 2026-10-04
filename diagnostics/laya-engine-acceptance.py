@@ -18,7 +18,7 @@ for f in fixtures:
  t=time.perf_counter();raw=agent.predict(state,q);elapsed=time.perf_counter()-t;a=raw['answers']['operation'];p=a.get('probabilities',{});c=a.get('choice');confidence=a.get('answer_confidence',p.get(c,0))
  valid=set(p)==set(operations)and all(type(v)in(int,float)and math.isfinite(v)and 0<=v<=1 for v in p.values())and abs(sum(p.values())-1)<.02 and c in operations and p[c]>=max(p.values())-1e-6
  accepted=valid and type(confidence)in(int,float)and confidence>=.7
- results.append({'goal':f['goal'],'expected':f['expected'],'elapsed_s':elapsed,'answers':raw['answers'],'accepted_review_only':accepted,'matches_expected':c==f['expected'],'executed':False})
+ results.append({'goal':f['goal'],'expected':f['expected'],'elapsed_s':elapsed,'answers':raw['answers'],'confidence_gate_only':accepted,'full_policy_validated':False,'matches_expected':c==f['expected'],'executed':False})
 del agent
 report={'scope':'actual pinned browser-tuned Laya CPU, synthetic page text, no effects/owner data/browser autonomy','revision':revision,'model_sha256':digest,'load_s':load_s,'maxrss_KiB':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,'results':results}
 pathlib.Path('optional-engine-evidence').mkdir(exist_ok=True);pathlib.Path('optional-engine-evidence/laya-browser-CPU.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
