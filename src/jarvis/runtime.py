@@ -51,9 +51,9 @@ class VoiceRuntime:
                 def chunks():
                     options={}
                     providers=getattr(self.router,'providers',None)
-                    if self.reasoning_off and isinstance(providers,list)and len(providers)==1 and not providers[0].cloud and 'spark-x2.5' in providers[0].model.lower():
-                        from .lmstudio_rest import NativeSparkTransport
-                        options['stream_transport']=NativeSparkTransport()
+                    if isinstance(providers,list)and len(providers)==1 and not providers[0].cloud and 'spark-x2.5' in providers[0].model.lower():
+                        from .lmstudio_rest import NativeSparkTransport,SparkRecoveryTransport
+                        options['stream_transport']=NativeSparkTransport() if self.reasoning_off else SparkRecoveryTransport(notify=self.notify)
                     for delta in self.router.stream(messages,cloud_consent=cloud,cancel=self.cancel,**options):
                         with self.lock:
                             if not self.valid(generation):return
@@ -93,6 +93,7 @@ class VoiceRuntime:
             if stage=='local model response' and isinstance(records,list):self.notify('response-diagnostics',records)
             from .router import RouterError
             detail=str(exc)[:200] if isinstance(exc,RouterError) else type(exc).__name__
+            if 'native-reasoning-off-' in detail:detail+=' Use a non-reasoning model in LM Studio or update LM Studio; no reasoning was spoken'
             with self.lock:
                 if self.valid(generation):self.notify('error','Voice turn failed at '+stage+': '+detail+'. Microphone can listen again; no action was taken.')
         finally:
