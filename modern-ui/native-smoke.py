@@ -60,11 +60,12 @@ try:
  # Native caption pixels: no opaque background or idle/stale text.
  # Capture compact top-centred faces against a controlled desktop-colored background.
  import tkinter as tk
- bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();faces.set_focus();time.sleep(.5)
+ bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();ctypes.windll.user32.ShowWindow(window.handle,0);bg.lift();bg.update();faces.set_focus();time.sleep(.5)
  cr=captions.rectangle();caption_pixels=ImageGrab.grab().crop((cr.left,cr.top,cr.right,cr.bottom));caption_pixels.save('ui-evidence/native-caption-empty-transparent.png')
  matched=sum(max(abs(a-b)for a,b in zip(pixel,(23,35,47)))<8 for pixel in caption_pixels.convert('RGB').getdata())
  assert matched>caption_pixels.width*caption_pixels.height*.95,'Native caption window is opaque, not desktop-transparent'
  checks.append('native caption pixels match controlled desktop background across95percent of empty overlay')
+ ctypes.windll.user32.ShowWindow(window.handle,5)
  rect=faces.rectangle();screen_w=bg.winfo_screenwidth();scale=ctypes.windll.user32.GetDpiForWindow(faces.handle)/96
  deadline=time.monotonic()+10
  while abs(rect.width()-450*scale)>=4 and time.monotonic()<deadline:time.sleep(.2);rect=faces.rectangle()
