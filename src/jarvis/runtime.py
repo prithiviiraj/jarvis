@@ -34,6 +34,9 @@ class VoiceRuntime:
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
+            # Browser mode uses only explicit commands, not model decisions or page text.
+            handler=getattr(self,'action_handler',None)
+            if callable(handler) and handler(text):return
             # Direct spoken address selects one actual persona and installed voice.
             import re
             match=re.match(r'^\s*(?:hey\s+|hi\s+|hello\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
