@@ -48,13 +48,13 @@ for persona,(color,kind)in specs.items():
  for state in ('idle','thinking','speaking'):
   frames=[];count=1 if '--preview'in sys.argv else 16
   for i in range(count):
-   phase=2*math.pi*i/16;blink=.12 if state=='idle'and i in (12,13)else 1.;root.location.z=.018*math.sin(phase);root.rotation_euler=(math.radians(2)*math.sin(phase),0,math.radians(2)*math.sin(phase))
-   if state=='thinking':root.rotation_euler.z=math.radians(-9)+math.radians(2)*math.sin(phase)
-   for o in eyes:o.scale.z=.135*blink;o.location.x=(-.25 if o==eyes[0]else .25)+(.02 if state=='thinking'else .012*math.sin(phase))
+   phase=2*math.pi*i/16;blink=.07 if i in (12,13)else 1.;root.location.z=.035*math.sin(phase);root.rotation_euler=(math.radians(2)*math.sin(phase),0,math.radians(2)*math.sin(phase))
+   if state=='thinking':root.rotation_euler.z=math.radians(-15)+math.radians(4)*math.sin(phase)
+   for o in eyes:o.scale.z=(.155 if state=='speaking'else .135)*blink;o.location.x=(-.25 if o==eyes[0]else .25)+(.055*math.sin(phase/2) if state=='thinking'else .016*math.sin(phase))
    for o in glints:o.hide_render=blink<.5
-   for n,o in enumerate(arms):o.rotation_euler.y=(.08 if n else-.08)*math.sin(phase)
-   smile.hide_render=state=='speaking';mouth.hide_render=state!='speaking';mouth.scale.z=.04+.05*(.5+.5*math.sin(phase*3))
-   for o in brows:o.location.z=.025 if state=='thinking'else 0
+   for n,o in enumerate(arms):o.rotation_euler.y=(.20 if n else-.20)*math.sin(phase)+( .38 if state=='thinking' and n==1 else 0)
+   smile.hide_render=state=='speaking';mouth.hide_render=state!='speaking';mouth.scale.z=.035+.105*(.5+.5*math.sin(phase*3));mouth.scale.x=.065+.025*(.5+.5*math.cos(phase*3))
+   for n,o in enumerate(brows):o.location.z=(.09 if n else-.025)if state=='thinking'else .025*math.sin(phase);o.rotation_euler.y=(.16 if n else-.16)if state=='thinking'else 0
    path=out/persona/state/f'{i:04d}.png';path.parent.mkdir(parents=True,exist_ok=True);scene.render.filepath=str(path);bpy.ops.render.render(write_still=True);frames.append(f'{persona}/{state}/{i:04d}.png')
   manifest['personas'][persona][state]={'fps':8,'frames':frames}
  for o in parts:bpy.data.objects.remove(o,do_unlink=True)
