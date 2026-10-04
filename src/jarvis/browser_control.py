@@ -41,6 +41,10 @@ def parse_voice(text):
  text=re.sub(r'^\s*(?:hey\s+)?(?:jarvis|nova|kai|lyra|dex)[, ]*','',text,flags=re.I).strip()
  for phrase,command in [('browser scroll down','scroll-down'),('browser scroll up','scroll-up')]:
   if text.lower().rstrip('.!')==phrase:return {'command':command,'value':''}
+ if text.lower().startswith('browser youtube search for '):
+  query=text[len('browser youtube search for '):].strip()
+  if not query or len(query)>200:raise ValueError('Enter a short YouTube search')
+  return {'command':'open','value':'https://www.youtube.com/results?'+urlencode({'search_query':query})}
  for prefix,command in [('browser search for ','search'),('browser open ','open')]:
   if text.lower().startswith(prefix):
    value=text[len(prefix):].strip()
@@ -56,14 +60,14 @@ class BrowserSession:
  """All Playwright operations occur on one worker. Owner's ordinary profile untouched."""
  def __init__(self,root):
   import threading,queue
-  self.root=str(root);self.jobs=queue.Queue(maxsize=3);self.lock=threading.RLock();self.state={'state':'off','url':'','title':'','error':''};self.cancel=threading.Event()
+  self.root=str(root);self.jobs=queue.Queue(maxsize=3);self.lock=threading.RLock();self.state={'state':'off','url':'','title':'','error':'','links':[]};self.cancel=threading.Event()
   self.thread=threading.Thread(target=self.run,daemon=False);self.thread.start()
  def snapshot(self):
   with self.lock:return dict(self.state)
- def submit(self,command,value='',confirmed=False):
-  if self.cancel.is_set():raise ValueError('Browser stopping; wait for closure')
+ def submit(self,command,value='',confirmed=False,expected_url=None):
+  if self.cancel.is_set():raise ValueError('Browser stopping; wait until closed before starting another session')
   if confirmed is not True:raise ValueError('Review browser command first')
-  self.jobs.put_nowait((command,value))
+  self.jobs.put_nowait((command,value,expected_url))
   with self.lock:self.state['state']='working';self.state['error']=''
  def close(self):
   self.cancel.set()
@@ -74,16 +78,26 @@ class BrowserSession:
   context=None;p=None
   try:
    while not self.cancel.is_set():
-    try:command,value=self.jobs.get(timeout=.2)
+    try:command,value,expected_url=self.jobs.get(timeout=.2)
     except queue.Empty:continue
     try:
      if context is None:
       from playwright.sync_api import sync_playwright
       p=sync_playwright().start()
-      context=p.chromium.launch_persistent_context(self.root,channel='msedge',headless=False,accept_downloads=False)
+      context=p.chromium.launch_persistent_context(self.root,channel='msedge',headless=False,accept_downloads=False,service_workers='block')
       context.route('**/*',self.route)
      page=context.pages[0]if context.pages else context.new_page()
-     result=BrowserControl(page).execute(command,value,confirmed=True)
+     if expected_url is not None:
+      if page.url!=expected_url:raise ValueError('Browser page changed; read links again')
+      from .browser_links import links
+      fresh=links(page)
+      if value not in {r['url']for r in fresh['links']}:raise ValueError('Selected link changed; read links again')
+     if command=='read-links':
+      from .browser_links import links
+      snapshot=links(page);result={'url':page.url,'title':page.title()[:160],'links':snapshot['links']}
+     else:
+      result=BrowserControl(page).execute(command,value,confirmed=True)
+      result['links']=[]
      with self.lock:self.state.update(state='ready',error='',**result)
     except Exception:
      with self.lock:self.state.update(state='error',error='Browser control failed. Microsoft Edge and bundled automation runtime are required. No task completion is claimed.')
