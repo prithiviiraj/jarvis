@@ -169,6 +169,15 @@ try:
  assert 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()),'Archived actual reply not restored'
  window.capture_as_image().save('ui-evidence/native-history-restored.png')
  checks.append('native new chat clears active context; saved conversation reopens actual reply')
+ click('Floating ON');overlay_text=Desktop(backend='uia').window(title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
+ deadline=time.monotonic()+8
+ while time.monotonic()<deadline:
+  if 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in overlay_text.descendants()):break
+  time.sleep(.2)
+ else:raise RuntimeError('Transparent right-side transcript missing saved actual reply')
+ rr=overlay_text.rectangle();ImageGrab.grab().crop((rr.left,rr.top,rr.right,rr.bottom)).save('ui-evidence/native-overlay-full-text.png')
+ checks.append('transparent overlay displays actual saved user and assistant conversation, not speech-time captions only')
+ click('Floating OFF')
  click('Local awareness');click('Allow app names');time.sleep(2)
  click('Allow local context judgment');time.sleep(2)
  click('Stop sensors and speech');time.sleep(1)
