@@ -8,7 +8,7 @@ class Bridge:
  def __init__(self,voice=None):
   self.voice=voice or WorkspaceVoice();self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context)
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,build_proactive_speaker)
-  self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.lock=threading.RLock()
+  self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.lock=threading.RLock()
  def poll(self):
   if self.context.apps and time.monotonic()-self.last_app>=1:
    self.last_app=time.monotonic()
@@ -18,7 +18,7 @@ class Bridge:
   if busy and self.judge.busy:self.judge.stop()
   self.judge.poll(busy)
  def stop(self):
-  self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.voice.memory.clear();self.messages=[];self.status='off';self.error=''
+  self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.voice.memory.clear();self.messages=[];self.status='off';self.error='';self.response_diagnostics=[]
   if not self.camera.stopped():self.context.camera_state('stopping')
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
@@ -26,7 +26,7 @@ class Bridge:
   cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd=='chat':
-   self.error='';text=request.get('text');self.voice.send_text(text,auto_pick=True)
+   self.error='';self.response_diagnostics=[];text=request.get('text');self.voice.send_text(text,auto_pick=True)
   elif cmd=='select':self.judge.stop();self.voice.select(request.get('name'))
   elif cmd=='pause':self.stop()
   elif cmd=='voice-setup':self.setup.start(consent=request.get('consent') is True)
@@ -53,7 +53,8 @@ class Bridge:
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
    except queue.Empty:break
-   if kind=='error':self.error=str(value)[:300]
+   if kind=='response-diagnostics':self.response_diagnostics=value[-2:]
+   elif kind=='error':self.error=str(value)[:300]
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
    elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]})
    elif kind in ('answer','proactive-answer'):
@@ -67,7 +68,7 @@ class Bridge:
   active=self.voice.busy or (self.voice.runtime is not None and self.voice.runtime.busy) or self.judge.busy
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
-  return {'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
+  return {'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming}}
  def close(self):self.setup.stop();self.stop();self.judge.close();self.voice.close()
 def main():
  bridge=Bridge()
