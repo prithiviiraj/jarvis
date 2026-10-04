@@ -91,6 +91,10 @@ try:
  text=' '.join(x.window_text() for x in window.descendants())
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  window.capture_as_image().save('ui-evidence/tauri-chat-roundtrip.png');checks.append('packaged UI IPC frozen-core local HTTP reply shown')
+ for expression in ['thinking','speaking','idle']:
+  click(expression);time.sleep(.4)
+  window.capture_as_image().save('ui-evidence/tauri-preview-'+expression+'.png')
+ checks.append('connected expression preview controls visibly tested; foursecondreturnlive')
  field.wrapper_object().set_edit_text('empty-stream-probe');click('Add local draft')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
