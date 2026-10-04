@@ -33,6 +33,16 @@ class ProactiveJudge:
         self.stop()
         if self.speaker and hasattr(self.speaker,'close'):self.speaker.close()
         self.speaker=None
+    def waiting_reason(self,conversation_busy=False):
+        if not self.enabled:return 'Off - allow local context judgment to start'
+        if conversation_busy:return 'Paused while a microphone session or conversation is active'
+        if self.gaming:return 'Paused for gaming'
+        if quiet_hour(self.hour()):return 'Quiet hours 00:00-07:00'
+        if self.context.snapshot()['camera']=='off'and not self.context.apps:return 'Waiting for an allowed camera or app-name source'
+        if self.busy:return 'Local model deciding whether to speak or stay silent'
+        if self.clock()-self.last<120:return 'Cooldown - at least 120 seconds between decisions'
+        if sum(self.clock()-t<3600 for t in self.requests)>=12:return 'Hourly limit - at most 12 decisions'
+        return 'Waiting for a new presence or foreground-app change; silence is a valid decision'
     def poll(self,conversation_busy=False):
         with self.lock:
             seq=self.context.seq
