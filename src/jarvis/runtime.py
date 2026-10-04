@@ -30,7 +30,7 @@ class VoiceRuntime:
     def turn(self,audio,generation,cloud,history):
         ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription'
         try:
-            self.notify('state','transcribing');text=self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
+            self.notify('response-diagnostics',[]);self.notify('error','');self.notify('state','transcribing');text=self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
@@ -95,10 +95,13 @@ class VoiceRuntime:
             records=getattr(self.router,'last_diagnostics',[])
             if stage=='local model response' and isinstance(records,list):self.notify('response-diagnostics',records)
             from .router import RouterError
+            from .speech import UnclearSpeech
             detail=str(exc)[:200] if isinstance(exc,RouterError) else type(exc).__name__
             if 'native-reasoning-off-' in detail:detail+=' Use a non-reasoning model in LM Studio or update LM Studio; no reasoning was spoken'
             with self.lock:
-                if self.valid(generation):self.notify('error','Voice turn failed at '+stage+': '+detail+'. Microphone can listen again; no action was taken.')
+                if self.valid(generation):
+                    if isinstance(exc,UnclearSpeech):self.notify('error','Speech was unclear. Please repeat closer to the microphone. Nothing was sent to a model for this turn.')
+                    else:self.notify('error','Voice turn failed at '+stage+': '+detail+'. Microphone can listen again; no action was taken.')
         finally:
             with self.lock:
                 self.busy=False
