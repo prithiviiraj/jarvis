@@ -60,6 +60,10 @@ def run():
     progress('runtime-ready',persona=name,load_s=time.monotonic()-loaded)
     runtime=bridge.voice.runtime;assert runtime is not None,bridge.execute({'command':'status'})
     runtime.speaker.output_factory=Sink
+    caption_events=[];original_playback=runtime.speaker.playback_event
+    def playback(event,text,actor,sr,n):
+     caption_events.append({'event':event,'text':text,'persona':actor,'at':time.monotonic()});original_playback(event,text,actor,sr,n)
+    runtime.speaker.playback_event=playback
     assert len(runtime.speaker.profiles)==5
     assert len({id(x.voice)for x in runtime.speaker.profiles.values()})==5
     assert runtime.speaker.profile==name
@@ -73,9 +77,12 @@ def run():
     assert any(x['name']==name and x['text']=='Hello. I am ready when you are.' for x in state['messages']),state
     assert len(samples)>0
     assert 'caption'in state and not state['caption']['active']
+    caption_starts=[e for e in caption_events if e['event']=='start'];assert caption_starts and all(e['persona']==name for e in caption_starts)
+    assert ' '.join(e['text']for e in caption_starts)=='Hello. I am ready when you are.'
+    assert caption_events[-1]['event']=='finish'
     pcm=np.concatenate(samples)
     with wave.open(str(out/(name+'-local-voice.wav')),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes((pcm*32767).astype('<i2').tobytes())
-    rows.append({'persona':name,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
+    rows.append({'persona':name,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'clean_caption_playback_events':caption_events,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
     progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and not off['messages']
     runtime=None;turn=None
 
