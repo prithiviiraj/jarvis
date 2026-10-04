@@ -8,6 +8,7 @@ class VoiceRuntime:
         self.cancel=threading.Event();self.streaming=False;self.reasoning_off=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
         self.shared_context=None;self.record_turn=None;self.close_hook=None
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
+        self.speaker.playback_event=lambda event,text,actor,sr,n:self.notify('speech-caption',{'active':event=='start','name':actor or self.persona,'text':text,'duration_s':n/sr if sr else 0,'at':time.monotonic()})
     def enable(self,consent=False,cloud_consent=False):
         if not consent:raise ValueError('Microphone needs session consent.')
         with self.lock:
