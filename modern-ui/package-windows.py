@@ -4,7 +4,7 @@ root=pathlib.Path(__file__).resolve().parent
 out=root/'windows-portable'
 if out.exists():shutil.rmtree(out)
 out.mkdir()
-args=['python','-m','PyInstaller','--noconfirm','--clean','--onedir','--console','--name','jarvis-local-core','--paths',str(root.parent/'src'),'--collect-submodules','jarvis','--collect-all','cv2','--distpath',str(root/'frozen-dist'),'--workpath',str(root/'frozen-work'),str(root/'frozen-entry.py')]
+args=['python','-m','PyInstaller','--noconfirm','--clean','--onedir','--console','--name','jarvis-local-core','--paths',str(root.parent/'src'),'--collect-submodules','jarvis','--collect-all','cv2','--collect-all','playwright','--distpath',str(root/'frozen-dist'),'--workpath',str(root/'frozen-work'),str(root/'frozen-entry.py')]
 if os.environ.get('JARVIS_PACKAGE_VOICE')=='1':args[3:3]=['--collect-all','onnxruntime','--collect-all','ctranslate2','--collect-all','faster_whisper','--collect-all','sounddevice','--collect-all','_sounddevice_data','--add-data',str(root/'native-voice')+';native-voice']
 subprocess.run(args,check=True)
 shutil.copytree(root/'frozen-dist/jarvis-local-core',out/'backend')
