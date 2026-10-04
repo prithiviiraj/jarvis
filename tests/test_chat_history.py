@@ -53,3 +53,16 @@ class HistoryTests(unittest.TestCase):
   b=Bridge(WorkspaceVoice(),history=self.h)
   with self.assertRaisesRegex(ValueError,'Confirm'):b.execute({'command':'history-clear'})
   b.close()
+ def test_team_multiple_personas_restored(self):
+  from jarvis.team_memory import TeamMemory
+  m=TeamMemory();m.restore([{'name':'You','text':'topic'},{'name':'NOVA','text':'one'},{'name':'DEX','text':'two'},{'name':'JARVIS','text':'conclusion'}]);self.assertEqual([x['content']for x in m.messages()if x['role']=='assistant'],['[NOVA] one','[DEX] two','[JARVIS] conclusion'])
+ def test_pause_preserves_archive_and_active_messages(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  b=Bridge(WorkspaceVoice(),history=self.h);b.voice.notify('transcript','keep this');b.voice.notify('answer',{'text':'actual reply'});state=b.execute({'command':'status'});i=state['chat_id'];paused=b.execute({'command':'pause'});self.assertEqual(paused['messages'],state['messages']);self.assertEqual(self.h.load(i),[{'name':x['name'],'text':x['text']}for x in state['messages']]);b.close()
+ def test_delete_requires_confirmation(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  b=Bridge(WorkspaceVoice(),history=self.h);i=self.h.new();self.h.save(i,[{'name':'You','text':'retain'}])
+  with self.assertRaisesRegex(ValueError,'Confirm'):b.execute({'command':'history-delete','chat_id':i})
+  self.assertEqual(self.h.load(i)[0]['text'],'retain');b.close()
