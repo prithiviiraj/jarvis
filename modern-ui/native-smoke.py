@@ -90,9 +90,11 @@ try:
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
  click('Connect local core');time.sleep(2)
  click('DEX Coder')
+ click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('voice model setup and explicit Mic ON controls visible')
+ click('Voice')
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
  click('Add local draft')
  deadline=time.monotonic()+8
