@@ -97,7 +97,19 @@ try:
  def button(name,root=None):
   item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
- click('Connect local core');time.sleep(2)
+ click('Connect core / check brains');time.sleep(2)
+ click('Settings');click('Brain & APIs')
+ button('Check LM Studio connection').wait('exists',timeout=10)
+ deadline=time.monotonic()+10
+ while time.monotonic()<deadline:
+  connection_text=' '.join(x.window_text()for x in window.descendants())
+  if 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text:break
+  time.sleep(.2)
+ assert 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text, 'Connection check must discover actual current loopback model'
+ window.child_window(title='slot1 API key',control_type='Edit').wait('exists',timeout=10)
+ checks.append('actual backend local model discovery ready; API key entry present; cloud remains off')
+ window.capture_as_image().save('ui-evidence/native-brain-settings.png')
+ click('Voice')
  click('DEX Coder')
  click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
