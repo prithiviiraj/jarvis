@@ -47,6 +47,13 @@ class Bridge:
    self.browser_pending=None
    self.voice.notify('error','Browser destination rejected. Use a public HTTPS site.');return True
   if not proposal:return False
+  if proposal['command']in ('read-links','select-link'):
+   try:
+    self.execute({'command':'browser-links'}if proposal['command']=='read-links'else {'command':'browser-select','link_id':proposal['value']})
+    self.voice.notify('status','Reading browser links locally.'if proposal['command']=='read-links'else'Link selected. Review its exact URL in Settings > Tools.')
+   except (ValueError,RuntimeError,queue.Full):
+    self.browser_pending=None;self.voice.notify('error','Open a reviewed site and read its available links first.')
+   return True
   with self.lock:self.browser_pending=proposal
   self.voice.notify('status','Browser command ready. Review the exact command in Settings > Tools. Nothing opened yet.')
   return True
@@ -73,10 +80,16 @@ class Bridge:
     self.browser_pending=None
     self.browser_pending=parse_voice(request.get('text'))
     if not self.browser_pending:raise ValueError('Use browser open example.com, browser search for something, or browser scroll down/up')
+    if self.browser_pending['command']in ('read-links','select-link'):
+     proposal=self.browser_pending;self.browser_pending=None
+     return self.execute({'command':'browser-links'}if proposal['command']=='read-links'else{'command':'browser-select','link_id':proposal['value']})
    elif cmd=='browser-links':
     if not self.browser_enabled or not self.browser:raise ValueError('Open a reviewed browser site first')
     self.browser.submit('read-links',confirmed=True)
    elif cmd=='browser-select':
+    self.browser_pending=None
+    if not self.browser_enabled or not self.browser or self.browser.cancel.is_set():raise ValueError('Browser control is off or stopping')
+    if self.browser.snapshot().get('state')!='ready':raise ValueError('Wait for the browser page to finish loading')
     if not self.browser:raise ValueError('No controlled browser page')
     from .browser_links import prepare_select
     state=self.browser.snapshot()
