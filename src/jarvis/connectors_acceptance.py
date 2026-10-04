@@ -1,5 +1,5 @@
 """Frozen local vault and voice-command preparation acceptance, not hardware proof."""
-import tempfile,pathlib,subprocess,json,os,queue,threading
+import tempfile,pathlib,subprocess,json,os,queue,threading,time
 
 def run(core):
  with tempfile.TemporaryDirectory()as t:
@@ -25,8 +25,19 @@ def run(core):
    pending=call('browser-preview',text='Jarvis browser open example.com')['data']['browser']['pending'];assert pending=={'command':'open','value':'https://example.com'}
    assert not call('browser-run',confirm=True,reviewed={'command':'search','value':'wrong'})['ok']
    assert not call('browser-preview',text='browser open localhost')['ok']
+   pending=call('browser-preview',text='browser open example.com')['data']['browser']['pending']
+   assert call('browser-run',confirm=True,reviewed=pending)['ok']
+   deadline=time.monotonic()+35
+   while time.monotonic()<deadline:
+    state=call('status')['data']['browser']['status']
+    if state['state']in ('ready','error'):break
+    time.sleep(.2)
+   assert state['state']=='ready',state
+   assert state['url'].startswith('https://example.com')and'Example Domain'in state['title'],state
+   pending=call('browser-preview',text='browser scroll down')['data']['browser']['pending']
+   assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
    call('close');p.wait(10)
-   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':False,'physical_microphone':False}
+   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'physical_microphone':False}
   finally:
    if p.poll()is None:p.kill()
