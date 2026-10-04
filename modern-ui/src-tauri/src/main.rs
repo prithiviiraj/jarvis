@@ -33,8 +33,8 @@ fn exchange(request:Value,state:Arc<Mutex<Option<Backend>>>)->Result<Value,Strin
 async fn overlay(app:tauri::AppHandle)->Result<(),String>{
  if let Some(w)=app.get_webview_window("faces"){w.show().map_err(|e|e.to_string())?;if let Some(c)=app.get_webview_window("captions"){c.show().map_err(|e|e.to_string())?}return Ok(())}
  if app.get_webview_window("captions").is_none(){
-  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;let scale=monitor.scale_factor();let screen=monitor.size();let origin=monitor.position();let width=560.;let height=130.;
-  let w=WebviewWindowBuilder::new(&app,"captions",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_CAPTION__ = true; document.documentElement.classList.add('caption-root');").title("JARVIS / Live captions").inner_size(width,height).position(origin.x as f64/scale+(screen.width as f64/scale-width)/2.,origin.y as f64/scale+screen.height as f64/scale-height-70.).decorations(false).shadow(false).no_redirection_bitmap(true).resizable(false).transparent(true).always_on_top(true).focused(false).build().map_err(|e|e.to_string())?;
+  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;let scale=monitor.scale_factor();let screen=monitor.size();let origin=monitor.position();let width=360.;let height=150.;
+  let w=WebviewWindowBuilder::new(&app,"captions",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_CAPTION__ = true; document.documentElement.classList.add('caption-root');").title("JARVIS / Live captions").inner_size(width,height).position(origin.x as f64/scale+screen.width as f64/scale-width-24.,origin.y as f64/scale+(screen.height as f64/scale-height)/2.).decorations(false).shadow(false).no_redirection_bitmap(true).resizable(false).transparent(true).always_on_top(true).focused(false).build().map_err(|e|e.to_string())?;
   w.set_ignore_cursor_events(true).map_err(|e|e.to_string())?;
  }
  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;
