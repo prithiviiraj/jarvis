@@ -35,10 +35,21 @@ server=http.server.ThreadingHTTPServer(('127.0.0.1',1234),LocalFixture);threadin
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
 try:
+ main=Desktop(backend='uia').window(title_re='JARVIS / Modern.*');main.wait('visible',timeout=30);main.set_focus()
+ assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists(), 'Floating must be OFF at launch'
+ main.capture_as_image().save('ui-evidence/workspace-first-launch.png')
+ main.child_window(title='Floating ON',control_type='Button').click_input();time.sleep(.5)
+ checks.append('workspace first; floating OFF at launch; explicit ON button')
+ captions=Desktop(backend='uia').window(title='JARVIS / Live captions');captions.wait('exists',timeout=10)
+ style=ctypes.windll.user32.GetWindowLongW(captions.handle,-20)
+ assert style&0x20,'Captions must be mouse clickthrough'
+ checks.append('captionwindow mouseclickthrough nativeWS_EX_TRANSPARENT')
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=30);faces.set_focus();time.sleep(1)
+ # Native caption pixels: no opaque background or idle/stale text.
  # Capture compact top-centred faces against a controlled desktop-colored background.
  import tkinter as tk
  bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();faces.set_focus();time.sleep(.5)
+ ImageGrab.grab().crop(tuple(captions.rectangle())).save('ui-evidence/native-caption-empty-transparent.png')
  rect=faces.rectangle();screen_w=bg.winfo_screenwidth();scale=ctypes.windll.user32.GetDpiForWindow(faces.handle)/96
  deadline=time.monotonic()+10
  while abs(rect.width()-450*scale)>=4 and time.monotonic()<deadline:time.sleep(.2);rect=faces.rectangle()
@@ -46,6 +57,10 @@ try:
  assert abs((rect.left+rect.right)/2-screen_w/2)<4, f'Not top-centred: {rect}'
  assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
  ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
+ main.set_focus();main.child_window(title='Floating OFF',control_type='Button').click_input();time.sleep(.3)
+ assert not faces.is_visible() and not captions.is_visible(),'OFF must hide faces and captions'
+ main.child_window(title='Floating ON',control_type='Button').click_input();faces.wait('visible',timeout=10);faces.set_focus();time.sleep(.3)
+ checks.append('explicit OFF hides facesandcaptions; ON restoresexistingwindows')
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
  # Frame captures prove the default idle loop changes actual packaged pixels.
  frames=[]
