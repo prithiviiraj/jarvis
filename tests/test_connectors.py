@@ -22,3 +22,10 @@ class Connectors(unittest.TestCase):
   for c in ['click','submit','type','delete','shell']:
    with self.assertRaises(ValueError):b.execute(c,confirmed=True)
   b.execute('scroll-down');page.mouse.wheel.assert_called_once_with(0,600)
+ def test_voice_parser(self):
+  from jarvis.browser_control import parse_voice
+  self.assertEqual(parse_voice('Jarvis browser open example.com')['value'],'https://example.com')
+  self.assertEqual(parse_voice('browser scroll down')['command'],'scroll-down')
+  self.assertEqual(parse_voice('browser search for weather')['value'],'weather')
+  self.assertIsNone(parse_voice('click pay now'))
+  with self.assertRaises(ValueError):parse_voice('browser open localhost')
