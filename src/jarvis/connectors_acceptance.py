@@ -18,8 +18,8 @@ def run(core):
    assert call('vault-read',note_name='seed.md')['data']['vault']['note']=='Tamil local fixture வணக்கம்'
    assert not call('vault-read',note_name='../outside.md')['ok']
    assert not call('vault-create',note_name='new.md',note_text='review')['ok']
-   assert call('vault-create',note_name='new.md',note_text='review',confirm=True)['ok'];assert(vault/'new.md').read_text()=='review'
-   assert not call('vault-create',note_name='new.md',note_text='overwrite',confirm=True)['ok']
+   assert call('vault-create',note_name='new.md',note_text='review',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'new.md','note_text':'review'})['ok'];assert(vault/'new.md').read_text()=='review'
+   assert not call('vault-create',note_name='new.md',note_text='overwrite',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'new.md','note_text':'overwrite'})['ok']
    assert call('vault-disconnect')['data']['vault']['connected']is False
    assert call('browser-mode',consent=True)['ok']
    pending=call('browser-preview',text='Jarvis browser open example.com')['data']['browser']['pending'];assert pending=={'command':'open','value':'https://example.com'}
