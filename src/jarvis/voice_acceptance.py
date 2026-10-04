@@ -60,6 +60,9 @@ def run():
     progress('runtime-ready',persona=name,load_s=time.monotonic()-loaded)
     runtime=bridge.voice.runtime;assert runtime is not None,bridge.execute({'command':'status'})
     runtime.speaker.output_factory=Sink
+    assert len(runtime.speaker.profiles)==5
+    assert len({id(x.voice)for x in runtime.speaker.profiles.values()})==5
+    assert runtime.speaker.profile==name
     # Threaded execution matches the real mic path and keeps the diagnostic clock responsive.
     progress('turn-start',persona=name);started=time.monotonic();runtime.busy=True
     turn=threading.Thread(target=runtime.turn,args=(audio,runtime.generation,False,[]),daemon=True);turn.start();turn.join(60)
@@ -71,10 +74,11 @@ def run():
     assert len(samples)>0
     pcm=np.concatenate(samples)
     with wave.open(str(out/(name+'-local-voice.wav')),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes((pcm*32767).astype('<i2').tobytes())
-    rows.append({'persona':name,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
+    rows.append({'persona':name,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
     progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and not off['messages']
     runtime=None;turn=None
 
+  assert len({row['audio_sha256']for row in rows})==5,'Persona synth outputs unexpectedly identical'
   report={'frozen_executable':True,'real_local_STT_and_five_Kokoro_syntheses':True,'source_audio':audio_url,'fixture_sha256':hashlib.sha256(raw).hexdigest(),'rows':rows,'brain_scope':'controlled local SSE fixture','mic_output_scope':'test adapters, no hardware','unrun':['physical microphone','audible output','real LM Studio model','owner accent','echo/barge-in','laptop load']}
   (out/'frozen-voice-chain.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
  finally:
