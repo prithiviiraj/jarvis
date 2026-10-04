@@ -10,4 +10,4 @@ class RepeatedVoice(unittest.TestCase):
    if n%4==0:v.router.stream.side_effect=RouterError('local:connection')
    else:v.router.stream.side_effect=lambda *a,**kw:iter([{'text':'Hi.','provider':'local'}]);successes+=1
    v.turn([0],v.generation,False,list(v.history));self.assertFalse(v.busy);self.assertTrue(v.enabled)
-  self.assertEqual(v.speaker.speak.call_count,successes);self.assertEqual(v.mic.resume.call_count,20);self.assertEqual(sum(k=='error'for k,x in events),5);self.assertLessEqual(len(v.history),6)
+  self.assertEqual(v.speaker.speak.call_count,successes);self.assertEqual(v.mic.resume.call_count,20);self.assertEqual(sum(k=='error' and bool(x) for k,x in events),5);self.assertLessEqual(len(v.history),6)
