@@ -11,7 +11,7 @@ class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
-        self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
+        self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS'
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
@@ -39,7 +39,7 @@ class WorkspaceVoice:
                     with self.lock:
                         if not self.closed and ticket==self.generation:self.notify(kind,value)
                 if self.pool_config is not None and self.factory is build_runtime:
-                    runtime=build_runtime(name,notify,cloud,model,verified_free,pool_config=self.pool_config)
+                    runtime=build_runtime(name,notify,cloud,model,verified_free,pool_config=self.pool_config,tts_engine=self.tts_engine)
                 else:runtime=self.factory(name,notify,cloud,model,verified_free)
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
@@ -258,7 +258,7 @@ class FreeSessionRouter:
     def ask(self,*args,**kw):return self.router.ask(*args,verified_free_providers=self.verified,**kw)
     def stream(self,*args,**kw):return self.router.stream(*args,verified_free_providers=self.verified,**kw)
 
-def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_config=None):
+def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_config=None,tts_engine='kokoro'):
     from .paths import ensure_layout
     from . import models
     from .voice_assets import ready
@@ -271,7 +271,8 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
     from .speech import WhisperSTT
     from .runtime import VoiceRuntime
     cache=ensure_layout()/'models';assets=cache/'voices'
-    if not models.ready(cache) or not ready(assets):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
+    from . import kitten_assets
+    if not models.ready(cache) or not (ready(assets)if tts_engine=='kokoro'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
     from .native_frontend import verified_frontend
     exe,data=verified_frontend()
     if pool_config is not None:
@@ -295,9 +296,15 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         router=BrainRouter([replace(configured('local',ids[0]),timeout=30)])
     g2p=NativeG2P(exe,data)
     try:
-        synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
-        speaker=KokoroSpeaker(synth)
-        speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
+        if tts_engine=='kitten':
+            from .experimental.kitten_onnx import KittenONNX
+            names=dict(zip(VOICES,('Jasper','Luna','Bruno','Rosie','Hugo')))
+            profiles={actor:KittenONNX(cache/'kitten',g2p,voice)for actor,voice in names.items()}
+            speaker=KokoroSpeaker(profiles[name]);speaker.profiles=profiles
+        else:
+            synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
+            speaker=KokoroSpeaker(synth)
+            speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
         speaker.select_profile(name)
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. KAI researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
