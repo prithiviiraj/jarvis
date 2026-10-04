@@ -15,7 +15,7 @@ class Bridge:
    self.voice.pool_config=(SettingsPool(self.brains),(),())
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,build_proactive_speaker)
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
-  self.vault=None;self.vault_results=[];self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
+  self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
   if self.history is None and voice is None:
    try:
     from .chat_history import ChatHistory
@@ -34,15 +34,49 @@ class Bridge:
   busy=self.voice.busy or self.voice.runtime is not None;self.judge.conversation_busy=busy
   if busy and self.judge.busy:self.judge.stop()
   self.judge.poll(busy)
+  if self.voice.runtime is not None:self.voice.runtime.action_handler=self.voice_action
+ def voice_action(self,text):
+  if not self.browser_enabled:return False
+  from .browser_control import parse_voice
+  try:proposal=parse_voice(text)
+  except ValueError:
+   self.voice.notify('error','Browser destination rejected. Use a public HTTPS site.');return True
+  if not proposal:return False
+  with self.lock:self.browser_pending=proposal
+  self.voice.notify('status','Browser command ready. Review the exact command in Settings > Tools. Nothing opened yet.')
+  return True
  def stop(self):
+  self.browser_enabled=False;self.browser_pending=None;
+  if self.browser:self.browser.close();self.browser=None
   self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''}
   if not self.camera.stopped():self.context.camera_state('stopping')
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create'}
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','browser-mode','browser-preview','browser-run','browser-stop'}
   if cmd not in allowed:raise ValueError('Unknown command')
-  if cmd.startswith('vault-'):
+  if cmd.startswith('browser-'):
+   if cmd=='browser-stop':
+    self.browser_enabled=False;self.browser_pending=None
+    if self.browser:self.browser.close();self.browser=None
+   elif cmd=='browser-mode':
+    if request.get('consent') is not True:raise ValueError('Allow isolated browser control first')
+    self.browser_enabled=True
+   elif cmd=='browser-preview':
+    if not self.browser_enabled:raise ValueError('Enable browser mode first')
+    from .browser_control import parse_voice
+    self.browser_pending=parse_voice(request.get('text'))
+    if not self.browser_pending:raise ValueError('Use browser open example.com, browser search for something, or browser scroll down/up')
+   elif cmd=='browser-run':
+    if not self.browser_enabled or not self.browser_pending:raise ValueError('No browser command to review')
+    if request.get('confirm') is not True:raise ValueError('Review the exact browser command first')
+    if not self.browser:
+     from .browser_control import BrowserSession
+     from .paths import data_root
+     self.browser=BrowserSession(data_root()/'browser-profile')
+    self.browser.submit(**self.browser_pending,confirmed=True);self.browser_pending=None
+   self.error=''
+  elif cmd.startswith('vault-'):
    if cmd=='vault-connect':
     if request.get('consent') is not True:raise ValueError('Allow local vault access first')
     from .obsidian import Vault
@@ -130,7 +164,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'vault':{'connected':self.vault is not None,'results':self.vault_results,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'results':self.vault_results,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
