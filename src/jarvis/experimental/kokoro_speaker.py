@@ -14,10 +14,22 @@ class KokoroSpeaker:
   with self.lock:
    ticket=self.generation if generation is None else generation
    if ticket!=self.generation:return
+  prepared=self.prepare(text,ticket)
+  if prepared is not None:self.play_prepared(prepared,ticket)
+ def prepare(self,text,generation=None):
+  with self.lock:
+   ticket=self.generation if generation is None else generation
+   if ticket!=self.generation:return None
   from ..speech_text import speech_text
   text=speech_text(text)
-  if not text:return
+  if not text:return None
   audio,sr=self.synth.synthesize(text)
+  with self.lock:
+   if ticket!=self.generation:return None
+  return text,audio,sr
+ def play_prepared(self,prepared,generation=None):
+  ticket=self.generation if generation is None else generation
+  text,audio,sr=prepared
   # Synthesis can finish after Pause. Do not acquire/play an output then.
   with self.lock:
    if ticket!=self.generation:return
