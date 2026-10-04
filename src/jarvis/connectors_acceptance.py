@@ -45,10 +45,18 @@ def run(core):
    assert call('browser-preview',text='browser choose link '+row['id'])['ok']
    review=call('status')['data']['browser']['pending']
    assert review['value']==row['url'],review
+   assert call('browser-run',confirm=True,reviewed=review)['ok']
+   deadline=time.monotonic()+30
+   while time.monotonic()<deadline:
+    state=call('status')['data']['browser']['status']
+    if state['state']in ('ready','error'):break
+    time.sleep(.2)
+   assert state['state']=='ready',state
+   assert state['url']=='https://www.iana.org/help/example-domains'and state['title']=='Example Domains',state
    pending=call('browser-preview',text='browser scroll down')['data']['browser']['pending']
    assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
    call('close');p.wait(10)
-   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'physical_microphone':False}
+   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
   finally:
    if p.poll()is None:p.kill()
