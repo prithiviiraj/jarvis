@@ -8,7 +8,9 @@ class SpeechQueue:
             try:part=self.queue.get(timeout=.1)
             except queue.Empty:continue
             if part is None:return
-            try:self.speaker.speak(part,generation=ticket)
+            try:
+                if isinstance(part,tuple)and len(part)==2 and part[0]=='prepared':self.speaker.play_prepared(part[1],generation=ticket)
+                else:self.speaker.speak(part,generation=ticket)
             except Exception:self.error=RuntimeError('Local voice failed.');self.cancel.set();return
     def put(self,part):
         while not self.cancel.is_set():
@@ -21,7 +23,13 @@ class SpeechQueue:
             for part in sentences(chunks):
                 if self.cancel.is_set():break
                 on_clause(part)
-                if not self.put(part):break
+                prepare=getattr(self.speaker,'prepare',None)
+                # Only real implementations, not arbitrary mocks/dynamic attributes.
+                if callable(getattr(type(self.speaker),'prepare',None)):
+                    prepared=prepare(part,ticket)
+                    if prepared is None:continue
+                    if not self.put(('prepared',prepared)):break
+                elif not self.put(part):break
         finally:
             self.put(None);thread.join(timeout=3 if self.cancel.is_set() else 120)
             if thread.is_alive():self.cancel.set();self.speaker.stop()
