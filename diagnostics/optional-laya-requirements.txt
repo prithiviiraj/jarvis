@@ -1,0 +1,5 @@
+laya[serve]==0.3.27
+transformers==4.57.6
+huggingface-hub==0.36.0
+safetensors==0.6.2
+numpy==2.2.6
