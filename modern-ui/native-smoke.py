@@ -49,7 +49,7 @@ try:
  # Capture compact top-centred faces against a controlled desktop-colored background.
  import tkinter as tk
  bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();faces.set_focus();time.sleep(.5)
- ImageGrab.grab().crop(tuple(captions.rectangle())).save('ui-evidence/native-caption-empty-transparent.png')
+ cr=captions.rectangle();ImageGrab.grab().crop((cr.left,cr.top,cr.right,cr.bottom)).save('ui-evidence/native-caption-empty-transparent.png')
  rect=faces.rectangle();screen_w=bg.winfo_screenwidth();scale=ctypes.windll.user32.GetDpiForWindow(faces.handle)/96
  deadline=time.monotonic()+10
  while abs(rect.width()-450*scale)>=4 and time.monotonic()<deadline:time.sleep(.2);rect=faces.rectangle()
