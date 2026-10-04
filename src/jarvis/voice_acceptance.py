@@ -72,6 +72,7 @@ def run():
     assert any('country' in x['text'].lower() for x in state['messages'])
     assert any(x['name']==name and x['text']=='Hello. I am ready when you are.' for x in state['messages']),state
     assert len(samples)>0
+    assert 'caption'in state and not state['caption']['active']
     pcm=np.concatenate(samples)
     with wave.open(str(out/(name+'-local-voice.wav')),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes((pcm*32767).astype('<i2').tobytes())
     rows.append({'persona':name,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
