@@ -64,7 +64,7 @@ jobs:
         env:
           JARVIS_PACKAGE_VOICE: '1'
         run: |
-          python -m pip install pyinstaller==6.16.0 opencv-python==4.12.0.88
+          python -m pip install pyinstaller==6.16.0 opencv-python==4.12.0.88 playwright==1.51.1
           if ($LASTEXITCODE -ne 0) { throw 'Packaging dependencies failed' }
           python package-windows.py
           if ($LASTEXITCODE -ne 0) { throw 'Frozen core acceptance failed' }
