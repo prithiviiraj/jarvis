@@ -78,11 +78,19 @@ class WorkspaceVoice:
                         pieces.append(delta['text']);answer={**delta,'text':''.join(pieces)}
                         self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
                 if not pieces:raise RuntimeError('Empty local stream')
+                warnings=getattr(router,'last_warnings',[])
+                if isinstance(warnings,list):
+                    for warning in warnings:self.notify('error',warning)
+                records=getattr(router,'last_diagnostics',[])
+                if isinstance(records,list):self.notify('response-diagnostics',records)
                 with self.lock:
                     if self.closed or ticket!=self.generation:return
                     self.memory.append(name,text.strip(),answer['text'])
                     self.notify('team-updated',name)
             except Exception as exc:
+                if 'router' in locals():
+                    records=getattr(router,'last_diagnostics',[])
+                    if isinstance(records,list):self.notify('response-diagnostics',records)
                 with self.lock:
                     if not self.closed and ticket==self.generation:self.notify('error',('LM Studio returned no final text in streaming or normal chat. Check its server log and try hi in LM Studio chat to verify the model/template. ' if 'local-empty-after-retry' in str(exc) else 'Local chat failed: '+str(exc)[:180]+'. ')+ 'LM Studio server port1234. Retry your message.')
             finally:
