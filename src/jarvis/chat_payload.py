@@ -3,7 +3,7 @@ def payload(model,messages,stream=False,max_tokens=300):
     data={'model':model,'messages':messages,'stream':stream}
     if model in ('openai/gpt-oss-20b','openai/gpt-oss-120b'):
         data.update(max_completion_tokens=1024,reasoning_effort='low',include_reasoning=False)
-    else:data['max_tokens']=max_tokens
+    else:data['max_tokens']=1024 if 'spark-x2.5' in model.lower() else max_tokens
     return data
 
 def reply_metadata(data):
@@ -19,7 +19,10 @@ def reply_metadata(data):
 
 def answer_text(value):
     """Only final assistant text; reasoning/tool content is never a reply."""
-    if isinstance(value,str):return value
+    if isinstance(value,str):
+        from .final_text import final_text
+        return final_text(value)
     if isinstance(value,list):
-        return ''.join(part['text'] for part in value if isinstance(part,dict) and part.get('type')=='text' and isinstance(part.get('text'),str))
+        from .final_text import final_text
+        return final_text(''.join(part['text'] for part in value if isinstance(part,dict) and part.get('type')=='text' and isinstance(part.get('text'),str)))
     return ''
