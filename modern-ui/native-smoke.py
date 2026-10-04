@@ -40,7 +40,7 @@ try:
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
  assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists(), 'Floating must be OFF at launch'
  main.capture_as_image().save('ui-evidence/workspace-first-launch.png')
- main.child_window(title='Floating ON',control_type='Button').click_input();time.sleep(.5)
+ main.child_window(title='Floating ON',control_type='Button').wrapper_object().invoke();time.sleep(.5)
  checks.append('workspace first; floating OFF at launch; explicit ON button')
  captions=Desktop(backend='uia').window(title='JARVIS / Live captions');captions.wait('exists',timeout=10)
  style=ctypes.windll.user32.GetWindowLongW(captions.handle,-20)
@@ -60,9 +60,9 @@ try:
  assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
  ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
  face_handle=faces.handle;caption_handle=captions.handle
- main.set_focus();main.child_window(title='Floating OFF',control_type='Button').click_input();time.sleep(.3)
+ main.set_focus();main.child_window(title='Floating OFF',control_type='Button').wrapper_object().invoke();time.sleep(.3)
  assert not ctypes.windll.user32.IsWindowVisible(face_handle) and not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must hide faces and captions'
- main.child_window(title='Floating ON',control_type='Button').click_input();faces.wait('visible',timeout=10);faces.set_focus();time.sleep(.3)
+ main.child_window(title='Floating ON',control_type='Button').wrapper_object().invoke();faces.wait('visible',timeout=10);faces.set_focus();time.sleep(.3)
  checks.append('explicit OFF hides facesandcaptions; ON restoresexistingwindows')
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
  # Frame captures prove the default idle loop changes actual packaged pixels.
