@@ -12,7 +12,7 @@ class ProposalTests(unittest.TestCase):
  def test_proposal_no_execution(self):
   p=self.run_proposal();self.assertEqual(p.target_id,'search');self.assertTrue(p.needs_review);self.assertFalse(p.executed)
  def test_model_state_minimized(self):
-  r=request(self.s,'search',self.hosts,101);self.assertEqual(r['state'],{'page':{'host':'www.youtube.com'}});self.assertNotIn('SECRET',str(r));self.assertNotIn('secret=query',str(r));self.assertEqual(set(r['questions']['target']['criteria']),{'0'})
+  r=request(self.s,'search',self.hosts,101);self.assertEqual(r['state']['page'],{'host':'www.youtube.com'});self.assertEqual(r['state']['user_goal'],'search');self.assertEqual(r['state']['observed_safe_targets'],[{'label':'Search','role':'button'}]);self.assertNotIn('SECRET',str(r));self.assertNotIn('secret=query',str(r));self.assertEqual(set(r['questions']['target']['criteria']),{'0'})
  def test_changed_page(self):
   with self.assertRaises(ProposalError):self.run_proposal(current='page2')
  def test_stale_future(self):
