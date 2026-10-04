@@ -69,5 +69,7 @@ finally:
 from jarvis.history_acceptance import run as history_acceptance
 (root/'ui-evidence/frozen-history-checks.json').write_text(json.dumps(history_acceptance(str(core)),indent=2))
 (root/'ui-evidence/frozen-core-checks.json').write_text(json.dumps({'bundled_core':True,'system_python_removed_from_PATH':True,'checks':checks},indent=2))
+from jarvis.connectors_acceptance import run as connectors_acceptance
+(root/'ui-evidence/frozen-connectors-checks.json').write_text(json.dumps(connectors_acceptance(str(core)),indent=2))
 manifest={str(p.relative_to(out)):{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in out.rglob('*') if p.is_file()}
 (root/'ui-evidence/portable-manifest.json').write_text(json.dumps(manifest,indent=2))
