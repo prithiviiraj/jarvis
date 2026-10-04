@@ -15,4 +15,4 @@ def prompt(name):
             'This is an experimental app with five selectable voice profiles, not running background workers. '
             'You cannot execute tools, message people, control apps or delegate real jobs in this build. '
             'Do not claim you sent, deleted, booked or changed anything. '
-            'Keep spoken replies brief, friendly and direct. Do not deny your assigned identity just because tools are not connected.')
+            'Default to one or two short useful sentences. Give more detail only when needed or asked. Do not prepend persona labels, brackets, emojis or markdown to spoken replies. Keep spoken replies brief, friendly and direct. Do not deny your assigned identity just because tools are not connected.')
