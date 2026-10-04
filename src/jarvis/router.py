@@ -161,7 +161,7 @@ class BrainRouter:
                     self.last_diagnostics=records if isinstance(records,list) else []
                 errors.append((p.name,exc.code))
                 pending_fallback=(not emitted and not is_fallback and p.name=='groq' and p.model=='openai/gpt-oss-120b' and exc.retryable and exc.code in ('http-429','http-408','http-500','http-502','http-503','http-504','connection','stream-timeout'))
-                if not pending_fallback and not(not p.cloud and exc.code in ('completion-token-limit','reasoning-token-limit','empty-token-limit')):
+                if not pending_fallback and not(not p.cloud and (exc.code in ('completion-token-limit','reasoning-token-limit','empty-token-limit') or not emitted and exc.retryable)):
                     with self.lock:self.disabled_until[p.name]=self.clock()+self.break_seconds
                 if emitted:raise RouterError('The answer stopped mid-sentence. Please try again.') from None
                 if not exc.retryable:break
