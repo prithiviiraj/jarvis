@@ -65,3 +65,18 @@ class BrainTests(unittest.TestCase):
   with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch.object(HttpTransport,'complete',return_value='Hello.'):
    t=self.b.check('slot1');t.join(1)
   self.assertEqual(self.b.checks['slot1']['state'],'ready');self.assertNotIn('not-a-real-key',json.dumps(self.b.snapshot()))
+ def test_local_fallback_is_serialized_across_personas(self):
+  active=0;maximum=0;lock=threading.Lock()
+  class Fake:
+   def __init__(me,*a,**kw):me.last_diagnostics=[];me.last_warnings=[]
+   def stream(me,*a,**kw):
+    nonlocal active,maximum
+    with lock:active+=1;maximum=max(maximum,active)
+    time.sleep(.04)
+    yield {'text':'local answer','provider':'local'}
+    with lock:active-=1
+  with patch('jarvis.brain_settings.local_models',return_value=['qwen']),patch('jarvis.brain_settings.BrainRouter',Fake):
+   threads=[threading.Thread(target=lambda n=n:self.b.router(n).ask([{'role':'user','content':'hi'}]))for n in ('DEX','NOVA','JARVIS')]
+   for t in threads:t.start()
+   for t in threads:t.join(1)
+  self.assertEqual(maximum,1)
