@@ -265,6 +265,7 @@ def build_proactive_speaker():
     exe,data=verified_frontend();g2p=NativeG2P(exe,data)
     try:
         speaker=KokoroSpeaker(KokoroSynth(assets/'model.onnx',assets/(VOICES['JARVIS']+'.bin'),assets/'config.json',g2p))
+        speaker.profile='JARVIS'
         speaker.close=lambda:(speaker.stop(),g2p.close())
         return speaker
     except Exception:g2p.close();raise
