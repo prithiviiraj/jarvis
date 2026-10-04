@@ -12,6 +12,11 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
  def do_POST(self):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
   text=body['messages'][-1]['content']
+  if 'length-probe' in text:
+   self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
+   for part in ['<th','ink>PRIVATE REASONING</thi','nk>Final visible truncated answer.']:
+    self.wfile.write(('data: '+json.dumps({'choices':[{'delta':{'content':part}}]})+'\n\n').encode());self.wfile.flush()
+   self.wfile.write(b'data: {"choices":[{"delta":{},"finish_reason":"length"}],"usage":{"completion_tokens":300}}\n\ndata: [DONE]\n\n');return
   if 'failure-probe' in text:self.send_response(503);self.end_headers();return
   assert body['model']=='qwen2.5-vl-3b-instruct'
   if 'empty-stream-probe' in text:
@@ -94,6 +99,14 @@ try:
   time.sleep(.1)
  else:raise RuntimeError('Empty stream nonstream retry failed: '+text)
  window.capture_as_image().save('ui-evidence/tauri-chat-empty-retry.png');checks.append('empty local SSE retried once without streaming and final text-array answer visible')
+ field.wrapper_object().set_edit_text('length-probe');click('Add local draft')
+ for i in range(80):
+  text=' '.join(x.window_text() for x in window.descendants())
+  if 'Final visible truncated answer.' in text and 'Reply reached the completion limit' in text:break
+  time.sleep(.2)
+ else:raise RuntimeError('Truncation handling failed: '+text)
+ if 'PRIVATE REASONING' in text:raise RuntimeError('Thinking leaked into UI')
+ window.capture_as_image().save('ui-evidence/tauri-final-truncated.png');checks.append('length retains final answer, marks incomplete, split thinking tags suppressed')
  field.wrapper_object().set_edit_text('failure-probe');click('Add local draft');time.sleep(4)
  text=' '.join(x.window_text() for x in window.descendants())
  assert 'http-503' in text, 'Failure not persistently visible: '+text
