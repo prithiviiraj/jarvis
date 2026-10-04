@@ -9,11 +9,15 @@ class Bridge:
   from .brain_settings import BrainSettings,SettingsPool
   from .paths import data_root
   self.brains=brains or BrainSettings(path=data_root()/'brain-routes.json')
-  self.voice=voice or WorkspaceVoice();self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context)
+  self.voice=voice or WorkspaceVoice();self.voice_preferences=None
+  if voice is None:
+   from .voice_preferences import VoicePreferences
+   self.voice_preferences=VoicePreferences(data_root()/'voice-preferences.json');self.voice.tts_engine=self.voice_preferences.load()
+  self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context)
   if voice is None:
    self.voice.text_factory=lambda:self.brains.router(self.voice.reply_actor)
    self.voice.pool_config=(SettingsPool(self.brains),(),())
-  self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,build_proactive_speaker)
+  self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
   self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
   if self.history is None and voice is None:
@@ -40,6 +44,7 @@ class Bridge:
   from .browser_control import parse_voice
   try:proposal=parse_voice(text)
   except ValueError:
+   self.browser_pending=None
    self.voice.notify('error','Browser destination rejected. Use a public HTTPS site.');return True
   if not proposal:return False
   with self.lock:self.browser_pending=proposal
@@ -53,7 +58,7 @@ class Bridge:
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','browser-mode','browser-preview','browser-run','browser-stop','voice-engine'}
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','browser-links','browser-select'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd.startswith('browser-'):
    if cmd=='browser-stop':
@@ -65,13 +70,24 @@ class Bridge:
    elif cmd=='browser-preview':
     if not self.browser_enabled:raise ValueError('Enable browser mode first')
     from .browser_control import parse_voice
+    self.browser_pending=None
     self.browser_pending=parse_voice(request.get('text'))
     if not self.browser_pending:raise ValueError('Use browser open example.com, browser search for something, or browser scroll down/up')
+   elif cmd=='browser-links':
+    if not self.browser_enabled or not self.browser:raise ValueError('Open a reviewed browser site first')
+    self.browser.submit('read-links',confirmed=True)
+   elif cmd=='browser-select':
+    if not self.browser:raise ValueError('No controlled browser page')
+    from .browser_links import prepare_select
+    state=self.browser.snapshot()
+    self.browser_pending=prepare_select({'page_url':state.get('url'),'links':state.get('links',[])},str(request.get('link_id')),state.get('url'))
+    self.browser_pending.pop('label',None)
+    self.browser_pending['expected_url']=state.get('url')
    elif cmd=='browser-run':
     if not self.browser_enabled or not self.browser_pending:raise ValueError('No browser command to review')
     if request.get('confirm') is not True or request.get('reviewed')!=self.browser_pending:raise ValueError('Browser command changed; review it again')
     if self.browser and self.browser.cancel.is_set():
-     if self.browser.thread.is_alive():raise ValueError('Browser stopping; wait before restarting')
+     if self.browser.thread.is_alive():raise ValueError('Browser is stopping; wait before restarting')
      self.browser=None
     if not self.browser:
      from .browser_control import BrowserSession
@@ -120,7 +136,8 @@ class Bridge:
   elif cmd=='voice-engine':
    if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice before changing speech engine')
    if request.get('engine')not in ('kokoro','kitten'):raise ValueError('Unknown speech engine')
-   self.voice.tts_engine=request['engine']
+   if self.voice_preferences:self.voice_preferences.save(request['engine'])
+   self.judge.close();self.voice.tts_engine=request['engine']
   elif cmd=='voice-setup':self.setup.start(consent=request.get('consent') is True,engine=getattr(self.voice,'tts_engine','kokoro'))
   elif cmd=='voice-check':self.setup.start(check=True,engine=getattr(self.voice,'tts_engine','kokoro'))
   elif cmd=='voice-cancel':self.setup.stop()
