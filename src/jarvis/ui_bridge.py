@@ -47,7 +47,7 @@ class Bridge:
   return True
  def stop(self):
   self.browser_enabled=False;self.browser_pending=None;
-  if self.browser:self.browser.close();self.browser=None
+  if self.browser:self.browser.close()
   self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''}
   if not self.camera.stopped():self.context.camera_state('stopping')
  def execute(self,request):
@@ -58,7 +58,7 @@ class Bridge:
   if cmd.startswith('browser-'):
    if cmd=='browser-stop':
     self.browser_enabled=False;self.browser_pending=None
-    if self.browser:self.browser.close();self.browser=None
+    if self.browser:self.browser.close()
    elif cmd=='browser-mode':
     if request.get('consent') is not True:raise ValueError('Allow isolated browser control first')
     self.browser_enabled=True
@@ -70,6 +70,9 @@ class Bridge:
    elif cmd=='browser-run':
     if not self.browser_enabled or not self.browser_pending:raise ValueError('No browser command to review')
     if request.get('confirm') is not True or request.get('reviewed')!=self.browser_pending:raise ValueError('Browser command changed; review it again')
+    if self.browser and self.browser.cancel.is_set():
+     if self.browser.thread.is_alive():raise ValueError('Browser stopping; wait before restarting')
+     self.browser=None
     if not self.browser:
      from .browser_control import BrowserSession
      from .paths import data_root
