@@ -24,7 +24,7 @@ class WorkspaceVoice:
             except queue.Empty:break
         with self.lock:self.name=name
         self.notify('state','off')
-    def start(self,consent=False,cloud=False,model='',verified_free=False):
+    def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False):
         if not consent:raise ValueError('Microphone session consent required.')
         if cloud and not verified_free:raise ValueError('Groq needs a confirmed Free-tier account.')
         with self.lock:
@@ -35,7 +35,7 @@ class WorkspaceVoice:
             runtime=None
             try:
                 def notify(kind,value):
-                    if kind=='answer' and isinstance(value,dict):value={**value,'profile':name}
+                    if kind=='answer' and isinstance(value,dict):value={**value,'profile':value.get('profile',name)}
                     with self.lock:
                         if not self.closed and ticket==self.generation:self.notify(kind,value)
                 if self.pool_config is not None and self.factory is build_runtime:
@@ -43,7 +43,7 @@ class WorkspaceVoice:
                 else:runtime=self.factory(name,notify,cloud,model,verified_free)
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
-                    self.runtime=runtime;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
+                    self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
             except Exception as exc:
                 if runtime:runtime.close()
@@ -235,6 +235,8 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
     try:
         synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
         speaker=KokoroSpeaker(synth)
+        speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
+        speaker.select_profile(name)
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. KAI researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
         # No closure over runtime.close: that cycle delays native engine disposal.
