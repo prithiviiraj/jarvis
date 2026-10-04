@@ -4,11 +4,19 @@ No monitoring, download, mic or playback on creation. Pause cancels queued/activ
 import threading
 class KokoroSpeaker:
  def __init__(self,synth,output_factory=None):
-  self.synth=synth;self.output_factory=output_factory;self.lock=threading.RLock();self.generation=0;self.output=None
+  self.synth=synth;self.output_factory=output_factory;self.lock=threading.RLock();self.generation=0;self.output=None;self.profiles=None;self.profile=None
+ def select_profile(self,name):
+  with self.lock:
+   if self.profiles is None or name not in self.profiles:raise ValueError('Voice profile unavailable')
+   if self.output is not None:raise RuntimeError('Cannot change voice during playback')
+   self.synth=self.profiles[name];self.profile=name
  def speak(self,text,generation=None):
   with self.lock:
    ticket=self.generation if generation is None else generation
    if ticket!=self.generation:return
+  from ..speech_text import speech_text
+  text=speech_text(text)
+  if not text:return
   audio,sr=self.synth.synthesize(text)
   # Synthesis can finish after Pause. Do not acquire/play an output then.
   with self.lock:
