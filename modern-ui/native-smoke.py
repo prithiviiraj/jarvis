@@ -64,10 +64,10 @@ try:
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
  # Frame captures prove the default idle loop changes actual packaged pixels.
  frames=[]
- for i in range(12):
+ for i in range(40):
   image=faces.capture_as_image();image.save('ui-evidence/idle-motion-'+str(i)+'.png');frames.append(image.tobytes());time.sleep(.085)
  assert len(set(frames))>=6,'Packaged idle art is static'
- checks.append('packaged idle loop pixel advancement across12frames')
+ checks.append('packaged idle loop pixel advancement across40frames coveringfull3.4secondcycle')
  if (pathlib.Path('public/faces/manifest.json')).is_file():
   deadline=time.monotonic()+15
   while True:
