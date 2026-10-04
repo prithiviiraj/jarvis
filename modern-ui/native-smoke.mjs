@@ -17,7 +17,7 @@ await page.getByRole('button',{name:'Allow app names',exact:true}).click();
 await page.waitForFunction(()=>document.body.textContent.includes('Apps: on'));
 await page.getByRole('button',{name:'Allow local context judgment',exact:true}).click();
 await page.waitForFunction(()=>document.body.textContent.includes('Judgment on'));
-await page.getByRole('button',{name:'Stop and clear local context',exact:true}).click();
+await page.getByRole('button',{name:'Stop sensors and speech',exact:true}).click();
 await page.waitForFunction(()=>document.body.textContent.includes('Apps: off')&&document.body.textContent.includes('Judgment off'));
 await page.getByRole('button',{name:'Pause all'}).click();
 await page.getByRole('button',{name:'Floating faces'}).click();
