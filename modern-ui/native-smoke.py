@@ -171,7 +171,7 @@ try:
  checks.append('native new chat clears active context; saved conversation reopens actual reply')
  click('Local awareness');click('Allow app names');time.sleep(2)
  click('Allow local context judgment');time.sleep(2)
- click('Stop and clear local context');time.sleep(1)
+ click('Stop sensors and speech');time.sleep(1)
  click('Floating ON')
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=15);faces.set_focus()
  click('LINK',faces);time.sleep(1);click('STOP',faces)
