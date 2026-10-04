@@ -5,8 +5,14 @@ from .local_awareness import LocalContext,CameraWorker,foreground_app
 from .proactive import ProactiveJudge
 from .voice_setup import VoiceSetup
 class Bridge:
- def __init__(self,voice=None):
+ def __init__(self,voice=None,brains=None):
+  from .brain_settings import BrainSettings,SettingsPool
+  from .paths import data_root
+  self.brains=brains or BrainSettings(path=data_root()/'brain-routes.json')
   self.voice=voice or WorkspaceVoice();self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context)
+  if voice is None:
+   self.voice.text_factory=lambda:self.brains.router(self.voice.reply_actor)
+   self.voice.pool_config=(SettingsPool(self.brains),(),())
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,build_proactive_speaker)
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
  def poll(self):
@@ -22,10 +28,17 @@ class Bridge:
   if not self.camera.stopped():self.context.camera_state('stopping')
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
-  if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Cloud and arbitrary destinations are unavailable')
+  if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
   cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel'}
   if cmd not in allowed:raise ValueError('Unknown command')
-  if cmd=='chat':
+  if cmd=='brain-save':
+   if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice and wait for the current reply before changing routes')
+   self.brains.configure(request.get('slots'),request.get('assignments'));self.status='Account routes saved. Session consent is required after each launch.'
+  elif cmd=='key-save':self.brains.set_key(request.get('slot'),request.get('kind'),request.get('secret'));self.status='Key saved in Windows Credential Manager; key is never returned.'
+  elif cmd=='key-delete':self.brains.delete_key(request.get('slot'),request.get('kind'));self.status='Stored key removed.'
+  elif cmd=='brain-check':self.brains.check(request.get('slot','local'),self.voice.notify)
+  elif cmd=='team-round':self.voice.parallel_round(request.get('text'),self.brains,request.get('audio') is True)
+  elif cmd=='chat':
    self.error='';self.response_diagnostics=[];text=request.get('text');self.voice.send_text(text,auto_pick=True)
   elif cmd=='select':self.judge.stop();self.voice.select(request.get('name'))
   elif cmd=='pause':self.stop()
@@ -77,7 +90,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'caption':self.caption,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'brains':self.brains.snapshot(),'caption':self.caption,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def close(self):self.setup.stop();self.stop();self.judge.close();self.voice.close()
 def main():
  bridge=Bridge()
