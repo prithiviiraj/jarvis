@@ -69,7 +69,7 @@ class Bridge:
     if not self.browser_pending:raise ValueError('Use browser open example.com, browser search for something, or browser scroll down/up')
    elif cmd=='browser-run':
     if not self.browser_enabled or not self.browser_pending:raise ValueError('No browser command to review')
-    if request.get('confirm') is not True:raise ValueError('Review the exact browser command first')
+    if request.get('confirm') is not True or request.get('reviewed')!=self.browser_pending:raise ValueError('Browser command changed; review it again')
     if not self.browser:
      from .browser_control import BrowserSession
      from .paths import data_root
