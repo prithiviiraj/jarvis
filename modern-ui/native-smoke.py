@@ -158,6 +158,17 @@ try:
  assert 'http-503' in text, 'Failure not persistently visible: '+text
  window.capture_as_image().save('ui-evidence/tauri-chat-error.png');checks.append('model error remains visible after idle polling')
  pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
+ # Native archive navigation and Pause preservation are visible, not metadata-only.
+ click('Voice');click('New chat')
+ assert 'Packaged local chat round-trip confirmed.' not in ' '.join(x.window_text()for x in window.descendants())
+ saved=window.child_window(title='packaged-chat-probe',control_type='Button');saved.wait('exists',timeout=10);saved.wrapper_object().invoke()
+ deadline=time.monotonic()+5
+ while time.monotonic()<deadline:
+  if 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()):break
+  time.sleep(.1)
+ assert 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()),'Archived actual reply not restored'
+ window.capture_as_image().save('ui-evidence/native-history-restored.png')
+ checks.append('native new chat clears active context; saved conversation reopens actual reply')
  click('Local awareness');click('Allow app names');time.sleep(2)
  click('Allow local context judgment');time.sleep(2)
  click('Stop and clear local context');time.sleep(1)
