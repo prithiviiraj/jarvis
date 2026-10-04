@@ -17,6 +17,10 @@ def run(core):
    r=call('vault-search',query='வணக்கம்');assert r['data']['vault']['results'][0]['name']=='seed.md'
    assert call('vault-read',note_name='seed.md')['data']['vault']['note']=='Tamil local fixture வணக்கம்'
    assert not call('vault-read',note_name='../outside.md')['ok']
+   (vault/'.private').mkdir();(vault/'.private/hidden.md').write_text('hidden fixture')
+   assert not call('vault-read',note_name='.private/hidden.md')['ok']
+   assert not call('vault-create',note_name='.private/new.md',note_text='hidden',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'.private/new.md','note_text':'hidden'})['ok']
+   assert not call('vault-create',note_name='new.md',note_text='review',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'new.md','note_text':'changed'})['ok']
    assert not call('vault-create',note_name='new.md',note_text='review')['ok']
    assert call('vault-create',note_name='new.md',note_text='review',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'new.md','note_text':'review'})['ok'];assert(vault/'new.md').read_text()=='review'
    assert not call('vault-create',note_name='new.md',note_text='overwrite',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'new.md','note_text':'overwrite'})['ok']
@@ -57,6 +61,6 @@ def run(core):
    assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
    call('close');p.wait(10)
-   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
+   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
   finally:
    if p.poll()is None:p.kill()
