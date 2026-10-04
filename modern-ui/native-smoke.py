@@ -36,6 +36,8 @@ p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/t
 checks=[];window=None
 try:
  main=Desktop(backend='uia').window(title_re='JARVIS / Modern.*');main.wait('visible',timeout=30);main.set_focus()
+ main.child_window(title='Floating ON',control_type='Button').wait('exists',timeout=30)
+ main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
  assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists(), 'Floating must be OFF at launch'
  main.capture_as_image().save('ui-evidence/workspace-first-launch.png')
  main.child_window(title='Floating ON',control_type='Button').click_input();time.sleep(.5)
