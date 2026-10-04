@@ -58,6 +58,11 @@ class VoiceRuntime:
                 SpeechQueue(self.speaker,self.cancel).play_stream(chunks(),ticket,clause)
                 answer={'text':''.join(pieces),'provider':provider[0]['provider'] if provider else 'local'}
                 if not answer['text']:raise RuntimeError('Empty reply')
+                warnings=getattr(self.router,'last_warnings',[])
+                if isinstance(warnings,list):
+                    for warning in warnings:self.notify('error',warning)
+                records=getattr(self.router,'last_diagnostics',[])
+                if isinstance(records,list):self.notify('response-diagnostics',records)
             else:
                 answer=self.router.ask(messages,cloud_consent=cloud)
                 with self.lock:
@@ -70,6 +75,8 @@ class VoiceRuntime:
                 if callable(self.record_turn):self.record_turn(text,answer['text'])
                 self.history=(history+[{'role':'user','content':text},{'role':'assistant','content':answer['text']}])[-6:]
         except Exception as exc:
+            records=getattr(self.router,'last_diagnostics',[])
+            if stage=='local model response' and isinstance(records,list):self.notify('response-diagnostics',records)
             from .router import RouterError
             detail=str(exc)[:200] if isinstance(exc,RouterError) else type(exc).__name__
             with self.lock:
