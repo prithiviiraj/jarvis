@@ -60,7 +60,9 @@ try:
  # Native caption pixels: no opaque background or idle/stale text.
  # Capture compact top-centred faces against a controlled desktop-colored background.
  import tkinter as tk
- bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();ctypes.windll.user32.ShowWindow(main.handle,0);bg.lift();bg.update();faces.set_focus();time.sleep(.5)
+ bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();ctypes.windll.user32.ShowWindow(main.handle,0);bg.attributes('-topmost',True);bg.lift();bg.update();
+ for overlay_window in (faces,captions):ctypes.windll.user32.SetWindowPos(overlay_window.handle,-1,0,0,0,0,0x0013)
+ time.sleep(.5)
  cr=captions.rectangle();caption_pixels=ImageGrab.grab().crop((cr.left,cr.top,cr.right,cr.bottom));caption_pixels.save('ui-evidence/native-caption-empty-transparent.png')
  matched=sum(max(abs(a-b)for a,b in zip(pixel,(23,35,47)))<8 for pixel in caption_pixels.convert('RGB').getdata())
  assert matched>caption_pixels.width*caption_pixels.height*.95,'Native caption window is opaque, not desktop-transparent'
