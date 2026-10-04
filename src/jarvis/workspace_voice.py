@@ -14,7 +14,7 @@ class WorkspaceVoice:
         self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS'
         from .team_memory import TeamMemory
-        self.memory=TeamMemory();self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
+        self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
     def notify(self,kind,value):self.events.put((kind,value))
     def select(self,name):
         if name not in VOICES:raise ValueError('Unknown voice profile.')
@@ -71,6 +71,8 @@ class WorkspaceVoice:
             try:
                 from .personas import prompt
                 router=self.text_factory()
+                choose=getattr(router,'select_persona',None)
+                if callable(choose):choose(name)
                 pieces=[];answer={}
                 for delta in router.stream([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}],cloud_consent=False,cancel=cancel):
                     with self.lock:
@@ -94,6 +96,65 @@ class WorkspaceVoice:
                 with self.lock:
                     if not self.closed and ticket==self.generation:self.notify('error',('LM Studio returned no final text in streaming or normal chat. Check its server log and try hi in LM Studio chat to verify the model/template. ' if 'local-empty-after-retry' in str(exc) else 'Local chat failed: '+str(exc)[:180]+'. ')+ 'LM Studio server port1234. Retry your message.')
             finally:
+                with self.lock:
+                    self.busy=False
+                    if not self.closed and ticket==self.generation:self.notify('state','off')
+        worker=threading.Thread(target=run,daemon=True);worker.start();return worker
+    def parallel_round(self,topic,brains,audio=False):
+        """Five bounded parallel perspectives, then ordered output and synthesis."""
+        if not isinstance(topic,str)or not topic.strip()or len(topic)>1000:raise ValueError('Enter a team topic up to 1000 characters')
+        with self.lock:
+            if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Stop voice and wait for the current reply first')
+            self.busy=True;self.generation+=1;ticket=self.generation;context=self.memory.messages();self.text_cancel=threading.Event();cancel=self.text_cancel
+        self.notify('transcript',topic);self.notify('state','five brains generating in parallel')
+        def run():
+            speaker=None;results={};failures=[]
+            try:
+                from concurrent.futures import ThreadPoolExecutor,as_completed
+                from .personas import prompt
+                def generate(name):
+                    instructions='Team topic: '+topic+'\nGive your '+name+' perspective in one short useful sentence. These perspectives are generated in parallel; do not claim you have heard another response.'
+                    return brains.router(name).ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':instructions}],cancel=cancel)
+                pool=ThreadPoolExecutor(max_workers=5)
+                futures={pool.submit(generate,name):name for name in VOICES}
+                try:
+                    for f in as_completed(futures):
+                        if cancel.is_set():return
+                        name=futures[f]
+                        try:results[name]=f.result()
+                        except Exception:failures.append(name)
+                        self.notify('status',str(len(results))+'/5 perspectives ready; '+str(len(failures))+' failed')
+                finally:pool.shutdown(wait=False,cancel_futures=True)
+                if cancel.is_set():return
+                if not results:raise RuntimeError('All team routes failed. Test account connections.')
+                if audio:
+                    speaker=build_proactive_speaker();self.round_speaker=speaker
+                    if cancel.is_set():return
+                    # Reuse one model/session; styles change only between ordered playback.
+                    from .experimental.kokoro import KokoroSynth
+                    from .paths import data_root
+                    assets=data_root()/'models'/'voices';synth=speaker.synth
+                    speaker.profiles={n:KokoroSynth(assets/'model.onnx',assets/(v+'.bin'),assets/'config.json',synth.g2p)for n,v in VOICES.items()}
+                    speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
+                ordered=[]
+                for name in ('NOVA','KAI','LYRA','DEX','JARVIS'):
+                    if cancel.is_set():return
+                    if name not in results:continue
+                    answer=results[name];ordered.append({'role':'assistant','content':'['+name+'] '+answer['text']})
+                    self.notify('answer',{**answer,'profile':name,'stream_id':str(ticket)+'-'+name});self.memory.append(name,topic,answer['text'])
+                    if speaker:
+                        self.notify('state','speaking');speaker.select_profile(name);speaker.speak(answer['text'])
+                if cancel.is_set():return
+                conclusion=brains.router('JARVIS').ask([{'role':'system','content':prompt('JARVIS')}]+ordered+[{'role':'user','content':'Give a one or two sentence conclusion on '+topic+'. Use only the actual supplied perspectives.'}],cancel=cancel)
+                if cancel.is_set():return
+                self.notify('answer',{**conclusion,'profile':'JARVIS','stream_id':str(ticket)+'-conclusion'});self.memory.append('JARVIS',topic,conclusion['text'])
+                if speaker:speaker.select_profile('JARVIS');speaker.speak(conclusion['text'])
+                if failures:self.notify('error','Missing team perspectives: '+', '.join(failures)+'. Successful replies and conclusion shown; no invented replies.')
+            except Exception as e:
+                if not cancel.is_set():self.notify('error','Team round failed: '+str(e)[:160])
+            finally:
+                if speaker:
+                    speaker.stop();speaker.synth.g2p.close();self.round_speaker=None
                 with self.lock:
                     self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
@@ -183,6 +244,7 @@ class WorkspaceVoice:
             self.banter_stop.set();self.generation+=1;self.banter_active=False
         self.notify('banter-status','OFF. Current session discarded. In-flight local request may finish, but its reply will not be saved.')
     def pause(self):
+        if self.round_speaker is not None:self.round_speaker.stop()
         with self.lock:self.text_cancel.set();self.banter_stop.set();self.banter_active=False;self.generation+=1;runtime=self.runtime;self.runtime=None
         if runtime:runtime.close()
         self.notify('state','off')
