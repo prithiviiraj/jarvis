@@ -3,6 +3,9 @@ import os
 import subprocess
 import threading
 
+class UnclearSpeech(ValueError):
+    """No reliable words in this microphone segment; safe to ask for repetition."""
+
 _STT_MODELS={};_STT_LOCK=threading.RLock()
 
 class WhisperSTT:
@@ -22,7 +25,7 @@ class WhisperSTT:
             for s in segments:
                 if s.no_speech_prob<.6 and s.avg_logprob> -1.0:parts.append(s.text)
         text=' '.join(parts).strip()
-        if not text:raise ValueError('Speech was unclear. Please repeat.')
+        if not text:raise UnclearSpeech('Speech was unclear. Please repeat.')
         return text
 
 class SapiSpeaker:
