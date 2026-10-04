@@ -34,7 +34,7 @@ def run(core):
     time.sleep(.2)
    assert state['state']=='ready',state
    assert state['url'].startswith('https://example.com')and'Example Domain'in state['title'],state
-   assert call('browser-links')['ok']
+   assert call('browser-preview',text='browser read links')['ok']
    deadline=time.monotonic()+20
    while time.monotonic()<deadline:
     state=call('status')['data']['browser']['status']
@@ -42,7 +42,7 @@ def run(core):
     time.sleep(.2)
    assert state['state']=='ready'and state['links'],state
    row=state['links'][0];assert row['url'].startswith('https://')
-   assert call('browser-select',link_id=row['id'])['ok']
+   assert call('browser-preview',text='browser choose link '+row['id'])['ok']
    review=call('status')['data']['browser']['pending']
    assert review['value']==row['url'],review
    pending=call('browser-preview',text='browser scroll down')['data']['browser']['pending']
