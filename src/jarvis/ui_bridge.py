@@ -119,7 +119,7 @@ class Bridge:
    if request.get('engine')not in ('kokoro','kitten'):raise ValueError('Unknown speech engine')
    self.voice.tts_engine=request['engine']
   elif cmd=='voice-setup':self.setup.start(consent=request.get('consent') is True,engine=getattr(self.voice,'tts_engine','kokoro'))
-  elif cmd=='voice-check':self.setup.start(check=True)
+  elif cmd=='voice-check':self.setup.start(check=True,engine=getattr(self.voice,'tts_engine','kokoro'))
   elif cmd=='voice-cancel':self.setup.stop()
   elif cmd=='voice-on':
    if request.get('consent') is not True:raise ValueError('Microphone consent required')
