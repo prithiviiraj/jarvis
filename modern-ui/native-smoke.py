@@ -44,10 +44,11 @@ try:
  main.minimize()
  auto_faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');auto_faces.wait('visible',timeout=15)
  auto_captions=Desktop(backend='uia').window(title='JARVIS / Live captions');auto_captions.wait('exists',timeout=15)
+ auto_face_handle=auto_faces.handle;auto_caption_handle=auto_captions.handle
  ImageGrab.grab().save('ui-evidence/native-minimize-auto-overlay.png')
  main.restore();main.set_focus()
  main.child_window(title='Floating OFF',control_type='Button').wrapper_object().invoke();time.sleep(.3)
- assert not ctypes.windll.user32.IsWindowVisible(auto_faces.handle) and not ctypes.windll.user32.IsWindowVisible(auto_captions.handle),'OFF after minimize must hide both windows'
+ assert not ctypes.windll.user32.IsWindowVisible(auto_face_handle) and not ctypes.windll.user32.IsWindowVisible(auto_caption_handle),'OFF after minimize must hide both windows'
  checks.append('native minimize auto activates floating faces/captions; restore and explicit OFF still work')
  main.child_window(title='Floating ON',control_type='Button').wrapper_object().invoke();time.sleep(.5)
  checks.append('workspace first; floating OFF at launch; explicit ON button')
