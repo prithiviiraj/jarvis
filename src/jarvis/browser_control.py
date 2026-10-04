@@ -57,14 +57,18 @@ class BrowserSession:
  def __init__(self,root):
   import threading,queue
   self.root=str(root);self.jobs=queue.Queue(maxsize=3);self.lock=threading.RLock();self.state={'state':'off','url':'','title':'','error':''};self.cancel=threading.Event()
-  self.thread=threading.Thread(target=self.run,daemon=True);self.thread.start()
+  self.thread=threading.Thread(target=self.run,daemon=False);self.thread.start()
  def snapshot(self):
   with self.lock:return dict(self.state)
  def submit(self,command,value='',confirmed=False):
+  if self.cancel.is_set():raise ValueError('Browser stopping; wait for closure')
   if confirmed is not True:raise ValueError('Review browser command first')
   self.jobs.put_nowait((command,value))
   with self.lock:self.state['state']='working';self.state['error']=''
- def close(self):self.cancel.set()
+ def close(self):
+  self.cancel.set()
+  with self.lock:self.state['state']='stopping'
+  return self.thread
  def run(self):
   import queue
   context=None;p=None
