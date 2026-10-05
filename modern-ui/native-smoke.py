@@ -84,6 +84,7 @@ try:
  rect=faces.rectangle();screen_w=bg.winfo_screenwidth();scale=ctypes.windll.user32.GetDpiForWindow(faces.handle)/96
  deadline=time.monotonic()+10
  while abs(rect.width()-450*scale)>=4 and time.monotonic()<deadline:time.sleep(.2);rect=faces.rectangle()
+ strip_bottom_before_off=rect.bottom
  assert abs(rect.width()-450*scale)<4, f'Unexpected strip width: {rect}'
  assert abs((rect.left+rect.right)/2-screen_w/2)<4, f'Not top-centred: {rect}'
  assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
@@ -91,7 +92,7 @@ try:
  face_handle=faces.handle;caption_handle=captions.handle
  main.set_focus();main.child_window(title='Floating OFF',control_type='Button').wrapper_object().invoke();time.sleep(.3)
  assert not ctypes.windll.user32.IsWindowVisible(face_handle) and not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must hide faces and captions'
- time.sleep(.7);assert header_rectangle().top<faces.rectangle().bottom,'Workspace dock not released after OFF'
+ time.sleep(.7);assert header_rectangle().top<strip_bottom_before_off,'Workspace dock not released after OFF'
  main.capture_as_image().save('ui-evidence/workspace-floating-off-dock.png')
  main.child_window(title='Floating ON',control_type='Button').wrapper_object().invoke();faces.wait('visible',timeout=10);faces.set_focus();time.sleep(.3)
  checks.append('explicit OFF hides facesandcaptions; ON restoresexistingwindows')
