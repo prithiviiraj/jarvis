@@ -29,13 +29,13 @@ class LayaBrowser(unittest.TestCase):
   self.assertEqual(b.browser_pending['command'],'scroll-down');b.browser.submit.assert_not_called();b.close()
  def test_stop_discards_late_reply(self):
   b=self.bridge();b.execute({'command':'laya-mode','consent':True});started=threading.Event();finish=threading.Event()
-  def slow(*a):started.set();finish.wait(2);return {'command':'scroll-down','value':'','expected_url':'https://example.com/'},'review'
+  def slow(*a,**kw):started.set();finish.wait(2);return {'command':'scroll-down','value':'','expected_url':'https://example.com/'},'review'
   with patch('jarvis.laya_browser.prepare',side_effect=slow):
    b.execute({'command':'laya-propose','goal':'Read docs'});self.assertTrue(started.wait(1));b.execute({'command':'laya-stop'});finish.set();time.sleep(.05)
   self.assertIsNone(b.browser_pending);self.assertFalse(b.laya_enabled);b.browser.submit.assert_not_called();b.close()
  def test_changed_links_discards_reply(self):
   b=self.bridge();b.execute({'command':'laya-mode','consent':True});state=self.state();b.browser.snapshot.side_effect=lambda:state
-  def change(*a):state['links']=[];return {'command':'open','value':'https://www.iana.org/help/example-domains','expected_url':'https://example.com/'},'review'
+  def change(*a,**kw):state['links']=[];return {'command':'open','value':'https://www.iana.org/help/example-domains','expected_url':'https://example.com/'},'review'
   with patch('jarvis.laya_browser.prepare',side_effect=change):b.execute({'command':'laya-propose','goal':'Open docs'});self.wait(b)
   self.assertIsNone(b.browser_pending);b.browser.submit.assert_not_called();b.close()
  def test_rust_allowlist(self):
