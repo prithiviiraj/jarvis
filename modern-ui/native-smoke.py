@@ -171,6 +171,7 @@ try:
  button('Check local voice models').wrapper_object().set_focus();window.type_keys('+{TAB}+{TAB}');time.sleep(.3)
  engine=window.child_window(title='Speech engine',control_type='ComboBox');engine.wrapper_object().set_focus();window.type_keys('{DOWN}{ENTER}');time.sleep(.7)
  assert engine.wrapper_object().selected_text().startswith('Kitten')
+ assert 'Kitten assets not checked'in' '.join(x.window_text()for x in window.descendants())
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
  assert 'About 28MB'in' '.join(x.window_text()for x in window.descendants())
  button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
