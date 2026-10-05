@@ -70,3 +70,6 @@ class OwnSpeakerTests(unittest.TestCase):
   for t in ('My answer. Nova argues humans are computers.','My answer.\nNOVA: invented'):
    with self.assertRaises(ValueError):own_reply(t,'JARVIS')
   self.assertEqual(own_reply('Nova, what do you think?','JARVIS'),'Nova, what do you think?')
+ def test_bracketed_teammate_address_rejected(self):
+  from jarvis.persona_text import own_reply
+  with self.assertRaises(ValueError):own_reply("[Dex, don't touch my diagnostic partition]",'NOVA')
