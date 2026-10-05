@@ -30,9 +30,15 @@ fn exchange(request:Value,state:Arc<Mutex<Option<Backend>>>)->Result<Value,Strin
  if reply.len()>8_000_000{return Err("Response too large".into())}
  serde_json::from_str(&reply).map_err(|_|"Invalid backend response".into())
 }
+fn sync_captions(app:&tauri::AppHandle)->Result<(),String>{
+ let workspace_open=if let Some(w)=app.get_webview_window("main"){w.is_visible().map_err(|e|e.to_string())?&&!w.is_minimized().map_err(|e|e.to_string())?}else{false};
+ let floating=if let Some(w)=app.get_webview_window("faces"){w.is_visible().map_err(|e|e.to_string())?}else{false};
+ if let Some(c)=app.get_webview_window("captions"){if floating&&!workspace_open{c.show().map_err(|e|e.to_string())?}else{c.hide().map_err(|e|e.to_string())?}}
+ Ok(())
+}
 #[tauri::command]
 async fn overlay(app:tauri::AppHandle)->Result<(),String>{
- if let Some(w)=app.get_webview_window("faces"){w.show().map_err(|e|e.to_string())?;if let Some(c)=app.get_webview_window("captions"){c.show().map_err(|e|e.to_string())?}return Ok(())}
+ if let Some(w)=app.get_webview_window("faces"){w.show().map_err(|e|e.to_string())?;sync_captions(&app)?;return Ok(())}
  if app.get_webview_window("captions").is_none(){
   let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;let scale=monitor.scale_factor();let screen=monitor.size();let origin=monitor.position();let width=380.;let height=(screen.height as f64/scale*0.58).min(580.);
   let w=WebviewWindowBuilder::new(&app,"captions",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_CAPTION__ = true; document.documentElement.classList.add('caption-root');").title("JARVIS / Live captions").inner_size(width,height).position(origin.x as f64/scale+screen.width as f64/scale-width-24.,origin.y as f64/scale+(screen.height as f64/scale-height)/2.).decorations(false).shadow(false).no_redirection_bitmap(true).resizable(false).transparent(true).always_on_top(true).focused(false).build().map_err(|e|e.to_string())?;
@@ -41,7 +47,7 @@ async fn overlay(app:tauri::AppHandle)->Result<(),String>{
  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;
  let scale=monitor.scale_factor();let size=monitor.size();let origin=monitor.position();
  let width=340.;let height=110.;let x=origin.x as f64/scale+(size.width as f64/scale-width)/2.;let y=origin.y as f64/scale+12.;
- WebviewWindowBuilder::new(&app,"faces",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_OVERLAY__ = true; document.documentElement.classList.add('overlay-root');").title("JARVIS / Floating faces").inner_size(width,height).position(x,y).decorations(false).shadow(false).no_redirection_bitmap(true).resizable(false).transparent(true).always_on_top(true).focused(false).build().map_err(|e|e.to_string())?;Ok(())
+ WebviewWindowBuilder::new(&app,"faces",WebviewUrl::App("index.html".into())).initialization_script("window.__JARVIS_OVERLAY__ = true; document.documentElement.classList.add('overlay-root');").title("JARVIS / Floating faces").inner_size(width,height).position(x,y).decorations(false).shadow(false).no_redirection_bitmap(true).resizable(false).transparent(true).always_on_top(true).focused(false).build().map_err(|e|e.to_string())?;sync_captions(&app)?;Ok(())
 }
 #[tauri::command]
 async fn resize_faces(app:tauri::AppHandle,size:String)->Result<(),String>{
@@ -54,6 +60,7 @@ async fn resize_faces(app:tauri::AppHandle,size:String)->Result<(),String>{
 }
 #[tauri::command]
 async fn floating_status(app:tauri::AppHandle)->Result<f64,String>{
+ sync_captions(&app)?;
  if let Some(w)=app.get_webview_window("faces"){
   if w.is_visible().map_err(|e|e.to_string())?{
    let scale=w.scale_factor().map_err(|e|e.to_string())?;
@@ -64,7 +71,7 @@ async fn floating_status(app:tauri::AppHandle)->Result<f64,String>{
 #[tauri::command]
 async fn floating_off(app:tauri::AppHandle)->Result<(),String>{for name in ["faces","captions"]{if let Some(w)=app.get_webview_window(name){w.hide().map_err(|e|e.to_string())?;}}Ok(())}
 #[tauri::command]
-async fn workspace(app:tauri::AppHandle)->Result<(),String>{let w=app.get_webview_window("main").ok_or("Workspace missing")?;w.unminimize().map_err(|e|e.to_string())?;w.show().map_err(|e|e.to_string())?;w.set_focus().map_err(|e|e.to_string())?;Ok(())}
+async fn workspace(app:tauri::AppHandle)->Result<(),String>{let w=app.get_webview_window("main").ok_or("Workspace missing")?;w.unminimize().map_err(|e|e.to_string())?;w.show().map_err(|e|e.to_string())?;w.set_focus().map_err(|e|e.to_string())?;sync_captions(&app)?;Ok(())}
 #[tauri::command]
 async fn drag_faces(app:tauri::AppHandle)->Result<(),String>{app.get_webview_window("faces").ok_or("Faces missing")?.start_dragging().map_err(|e|e.to_string())}
-fn main(){tauri::Builder::default().manage(Shared(Arc::new(Mutex::new(None)))).manage(Minimized(AtomicBool::new(false))).on_window_event(|window,event|{if window.label()=="main" {if let tauri::WindowEvent::CloseRequested{api,..}=event{api.prevent_close();let _=window.hide();}if let tauri::WindowEvent::Resized(_)=event{let minimized=window.is_minimized().unwrap_or(false);let was=window.state::<Minimized>().0.swap(minimized,Ordering::SeqCst);if minimized&&!was{let app=window.app_handle().clone();tauri::async_runtime::spawn(async move{if let Err(e)=overlay(app).await{eprintln!("Floating overlay unavailable: {}",e);}});}}}}).invoke_handler(tauri::generate_handler![bridge,overlay,floating_status,floating_off,workspace,drag_faces,resize_faces]).build(tauri::generate_context!()).expect("JARVIS UI failed").run(|app,event|{if let tauri::RunEvent::Exit=event {if let Ok(mut guard)=app.state::<Shared>().0.lock(){if let Some(b)=guard.as_mut(){let _=writeln!(b.input,"{}",json!({"command":"close"}));let _=b.input.flush();let _=b.output.recv_timeout(std::time::Duration::from_secs(2));let _=b.child.kill();}}}});}
+fn main(){tauri::Builder::default().manage(Shared(Arc::new(Mutex::new(None)))).manage(Minimized(AtomicBool::new(false))).on_window_event(|window,event|{if window.label()=="main" {if let tauri::WindowEvent::CloseRequested{api,..}=event{api.prevent_close();let _=window.hide();let _=sync_captions(window.app_handle());}if let tauri::WindowEvent::Resized(_)=event{let minimized=window.is_minimized().unwrap_or(false);let was=window.state::<Minimized>().0.swap(minimized,Ordering::SeqCst);if minimized&&!was{let app=window.app_handle().clone();tauri::async_runtime::spawn(async move{if let Err(e)=overlay(app).await{eprintln!("Floating overlay unavailable: {}",e);}});}}}}).invoke_handler(tauri::generate_handler![bridge,overlay,floating_status,floating_off,workspace,drag_faces,resize_faces]).build(tauri::generate_context!()).expect("JARVIS UI failed").run(|app,event|{if let tauri::RunEvent::Exit=event {if let Ok(mut guard)=app.state::<Shared>().0.lock(){if let Some(b)=guard.as_mut(){let _=writeln!(b.input,"{}",json!({"command":"close"}));let _=b.input.flush();let _=b.output.recv_timeout(std::time::Duration::from_secs(2));let _=b.child.kill();}}}});}
