@@ -92,7 +92,7 @@ try:
  assert abs((rect.left+rect.right)/2-screen_w/2)<4, f'Not top-centred: {rect}'
  assert 5<=rect.top<=40*scale, f'Not near screen top: {rect}'
  ImageGrab.grab().crop((0,0,screen_w,int(150*scale))).save('ui-evidence/tauri-top-centre-actual.png')
- face_handle=faces.handle;caption_handle=captions.handle
+ face_handle=faces.handle;caption_handle=auto_caption_handle
  main.set_focus();main.child_window(title='Floating OFF',control_type='Button').wrapper_object().invoke();time.sleep(.3)
  assert not ctypes.windll.user32.IsWindowVisible(face_handle) and not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must hide faces and captions'
  time.sleep(.7);assert header_rectangle().top<strip_bottom_before_off,'Workspace dock not released after OFF'
@@ -204,8 +204,9 @@ try:
  else:raise RuntimeError('Transparent right-side transcript missing saved actual reply')
  rr=overlay_text.rectangle();ImageGrab.grab().crop((rr.left,rr.top,rr.right,rr.bottom)).save('ui-evidence/native-overlay-full-text.png')
  checks.append('transparent overlay displays actual saved user and assistant conversation while workspace minimized')
+ transcript_handle=overlay_text.handle
  window.restore();window.set_focus();time.sleep(.8)
- assert not ctypes.windll.user32.IsWindowVisible(overlay_text.handle),'Caption transcript must hide on workspace restore'
+ assert not ctypes.windll.user32.IsWindowVisible(transcript_handle),'Caption transcript must hide on workspace restore'
  window.capture_as_image().save('ui-evidence/workspace-restored-no-duplicate-captions.png')
  click('Floating OFF')
  click('Local awareness');click('Allow app names');time.sleep(2)
