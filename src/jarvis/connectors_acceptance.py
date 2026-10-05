@@ -1,5 +1,5 @@
 """Frozen local vault and voice-command preparation acceptance, not hardware proof."""
-import tempfile,pathlib,subprocess,json,os,queue,threading,time
+import tempfile,pathlib,subprocess,json,os,queue,threading,time,http.server
 
 def run(core):
  with tempfile.TemporaryDirectory()as t:
@@ -54,6 +54,28 @@ def run(core):
     time.sleep(.2)
    assert state['state']=='ready'and state['links'],state
    row=state['links'][0];assert row['url'].startswith('https://')
+   captured=[]
+   class LayaFixture(http.server.BaseHTTPRequestHandler):
+    def log_message(self,*a):pass
+    def do_POST(self):
+     payload=json.loads(self.rfile.read(int(self.headers['Content-Length'])));captured.append(payload)
+     answers={k:{'choice':next(iter(q['criteria'])),'probabilities':{c:(1.0 if c==next(iter(q['criteria']))else 0.0)for c in q['criteria']}}for k,q in payload['questions'].items()}
+     self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'answers':answers}).encode())
+   server=http.server.ThreadingHTTPServer(('127.0.0.1',8000),LayaFixture);threading.Thread(target=server.serve_forever,daemon=True).start()
+   try:
+    assert not call('laya-mode')['ok'];assert call('laya-mode',consent=True)['data']['laya']['enabled']
+    assert call('laya-propose',goal='Read the observed documentation link')['ok']
+    deadline=time.monotonic()+8
+    while time.monotonic()<deadline:
+     result=call('status')['data']
+     if not result['laya']['busy']:break
+     time.sleep(.05)
+    assert captured and not result['laya']['busy']and not result['laya']['error'],result['laya']
+    assert result['browser']['pending']['value']==state['links'][0]['url'],result['browser']
+    assert result['browser']['status']['url']==state['url'],result['browser']
+    assert call('laya-stop')['data']['browser']['pending']is None
+   finally:server.shutdown();server.server_close()
+
    assert call('browser-preview',text='browser choose link '+row['id'])['ok']
    review=call('status')['data']['browser']['pending']
    assert review['value']==row['url'],review
@@ -70,6 +92,6 @@ def run(core):
    assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
    call('close');p.wait(10)
-   return {'frozen_vault':True,'bounded_search_completeness_and_result_limit':True,'explicit_local_vault_voice_parse_read_search':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'scroll_exact_page_bound':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
+   return {'frozen_loopback_laya_fixture_no_autonomous_action':True,'frozen_vault':True,'bounded_search_completeness_and_result_limit':True,'explicit_local_vault_voice_parse_read_search':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'scroll_exact_page_bound':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
   finally:
    if p.poll()is None:p.kill()
