@@ -25,3 +25,22 @@ class AudioTests(unittest.TestCase):
    self.assertIsNone(e.feed([1],1))
    for i in range(n-1):self.assertIsNone(e.feed([0],0))
    self.assertEqual(e.feed([0],0)[0],'utterance')
+
+class OnsetCallbackTests(unittest.TestCase):
+ def test_onset_fires_on_speech_start_only_when_set(self):
+  import threading,time
+  from jarvis.audio import ContinuousMic
+  vad=Mock();vad.score.return_value=.9
+  onset=Mock();mic=ContinuousMic(vad,Mock());mic.on_onset=onset;mic.accepting=True
+  thread=threading.Thread(target=mic.run,daemon=True);thread.start()
+  mic.frames.put((mic.generation,[0.0]*512));time.sleep(.4)
+  mic.stop_event.set();thread.join(timeout=2)
+  onset.assert_called()
+ def test_no_onset_without_hook(self):
+  import threading,time
+  from jarvis.audio import ContinuousMic
+  vad=Mock();vad.score.return_value=.9
+  mic=ContinuousMic(vad,Mock());mic.accepting=True
+  thread=threading.Thread(target=mic.run,daemon=True);thread.start()
+  mic.frames.put((mic.generation,[0.0]*512));time.sleep(.4)
+  mic.stop_event.set();thread.join(timeout=2)
