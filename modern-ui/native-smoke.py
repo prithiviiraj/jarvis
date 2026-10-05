@@ -11,7 +11,8 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
   requests.append({'path':self.path});self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'models':[{'type':'llm','key':'qwen2.5-vl-3b-instruct','capabilities':{'vision':True},'loaded_instances':[]},{'type':'embedding','key':'text-embedding-nomic-embed-text-v1.5','loaded_instances':[]}]} if self.path=='/api/v1/models' else {'data':[{'id':'qwen2.5-vl-3b-instruct'},{'id':'text-embedding-nomic-embed-text-v1.5'}]}).encode())
  def do_POST(self):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
-  text=body['messages'][-1]['content']
+  # Direct-final retries append a user instruction. Match the original probe too.
+  text='\n'.join(m['content'] for m in body['messages'] if m.get('role')=='user' and isinstance(m.get('content'),str))
   if text=='Say ready in one word.':
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers();self.wfile.write(b'data: {"choices":[{"delta":{"content":"Ready"}}]}\n\ndata: [DONE]\n\n');return
   if 'scaffold-probe' in text:
