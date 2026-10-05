@@ -91,3 +91,20 @@ class BrainTests(unittest.TestCase):
   self.assertEqual(b.execute({'command':'status'})['brains']['assignments']['DEX'],'slot2')
   with patch.object(v,'parallel_round')as round_call:b.execute({'command':'team-round','text':'topic','audio':False});round_call.assert_called_once()
   b.execute({'command':'key-delete','slot':'slot1','kind':'groq'});self.keys.delete.assert_called_once_with('groq/slot1');b.close()
+ def test_gemini_automatic_excludes_video_and_tts(self):
+  import io
+  self.b.configure([{'id':'slot1','provider':'gemini','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  ids=['models/gemini-omni-1.1-flash','models/gemini-2.5-flash','models/gemini-flash-tts'];http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':m}for m in ids]}).encode())
+  router=Mock();router.ask.return_value={'text':'Hello'}
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot1');t.join(1)
+  self.assertEqual(self.b.rows['slot1'].model,'models/gemini-2.5-flash');self.assertEqual(self.b.checks['slot1']['state'],'ready')
+ def test_manual_gemini_video_refused_before_greeting(self):
+  import io
+  self.b.configure([{'id':'slot1','provider':'gemini','model':'models/gemini-omni-1.1-flash','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture';http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':'models/gemini-omni-1.1-flash'}]}).encode())
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter')as router:t=self.b.check('slot1');t.join(1);router.assert_not_called()
+  self.assertIn('not supported text chat',self.b.checks['slot1']['error'])
+ def test_rate_limit_distinct_without_daily_reset_claim(self):
+  import io
+  self.b.configure(self.rows,{});self.keys.get.return_value='fixture';http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':'llama-3.1-8b-instant'}]}).encode());router=Mock();router.ask.side_effect=RouterError('No enabled brain answered (slot1:http-429)')
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot1');t.join(1)
+  self.assertIn('rate limit or quota',self.b.checks['slot1']['error']);self.assertIn('reset time is unknown',self.b.checks['slot1']['error'])
