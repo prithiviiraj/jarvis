@@ -71,9 +71,9 @@ class UiBridgeTests(unittest.TestCase):
   self.assertEqual(self.b.execute({'command':'voice-endpoint','mode':'fast'})['endpoint_mode'],'fast')
   with self.assertRaises(ValueError):self.b.execute({'command':'voice-endpoint','mode':'arbitrary'})
   self.b.voice.busy=True
-  with self.assertRaises(ValueError):self.b.execute({'command':'voice-endpoint','mode':'balanced'})
+  self.assertEqual(self.b.execute({'command':'voice-endpoint','mode':'balanced'})['endpoint_mode'],'balanced');self.assertFalse(self.b.voice.busy)
   self.b.voice.busy=False;self.b.voice.runtime=Mock()
-  with self.assertRaises(ValueError):self.b.execute({'command':'voice-endpoint','mode':'balanced'})
+  self.assertEqual(self.b.execute({'command':'voice-endpoint','mode':'balanced'})['endpoint_mode'],'balanced');self.assertFalse(self.b.voice.busy)
   self.b.voice.runtime=None
   from pathlib import Path
   s=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8');self.assertIn('"voice-endpoint"',s.split('.contains(&command)')[0])
@@ -92,3 +92,32 @@ class UiBridgeTests(unittest.TestCase):
  def test_engine_change_invalidates_ready_without_start(self):
   self.b.setup.ready=True;self.b.setup.checked=True;self.b.setup.start=Mock();self.b.voice.start=Mock()
   state=self.b.execute({'command':'voice-engine','engine':'kitten'});self.assertFalse(state['voice_setup']['ready']);self.assertFalse(state['voice_setup']['checked']);self.assertEqual(state['voice_setup']['engine'],'kitten');self.b.setup.start.assert_not_called();self.b.voice.start.assert_not_called()
+
+class ScopedInterruption(unittest.TestCase):
+ def test_change_keeps_sensor_and_tool_permissions(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   b.context.set_apps(True);b.browser_enabled=True;b.laya_enabled=True;b.voice.runtime=Mock();b.voice.busy=True
+   state=b.execute({'command':'voice-endpoint','mode':'fast'})
+   self.assertEqual(state['endpoint_mode'],'fast');self.assertFalse(state['voice_active']);self.assertTrue(state['awareness']['app_monitor']);self.assertTrue(state['browser']['enabled']);self.assertTrue(state['laya']['enabled'])
+  finally:b.close()
+ def test_typed_message_supersedes_mic_without_pause_all(self):
+  b=Bridge(WorkspaceVoice());b.context.set_apps(True);runtime=Mock();b.voice.runtime=runtime;b.voice.send_text=Mock()
+  try:
+   s=b.execute({'command':'chat','text':'hello'});runtime.close.assert_called_once();b.voice.send_text.assert_called_once_with('hello',auto_pick=True);self.assertTrue(s['awareness']['app_monitor'])
+  finally:b.close()
+
+class ResponseSource(unittest.TestCase):
+ def test_all_profiles_keep_true_route(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   for name in ('JARVIS','NOVA','KAI','LYRA','DEX'):
+    b.voice.notify('answer',{'text':'Cloud actual reply','profile':name,'provider':'nim','model':'actual-model','cloud':True})
+   s=b.execute({'command':'status'});self.assertTrue(all(r['provider']=='nim'and r['model']=='actual-model'and r['cloud']is True for r in s['messages']))
+  finally:b.close()
+
+class NativeCommandParity(unittest.TestCase):
+ def test_scoped_interrupt_passes_native_allowlist(self):
+  from pathlib import Path
+  source=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text()
+  self.assertIn('"conversation-interrupt"',source)
