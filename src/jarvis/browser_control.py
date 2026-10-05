@@ -38,7 +38,7 @@ class BrowserControl:
 def parse_voice(text):
  import re
  if not isinstance(text,str):return None
- text=re.sub(r'^\s*(?:hey\s+)?(?:jarvis|nova|kai|lyra|dex)[, ]*','',text,flags=re.I).strip()
+ text=re.sub(r'^\s*(?:(?:hey|hi|hello)\s+)?(?:jarvis|nova|kai|lyra|dex)[, ]*','',text,flags=re.I).strip()
  if text.lower().rstrip('.!')=='browser read links':return {'command':'read-links','value':''}
  match=re.fullmatch(r'browser (?:choose|select) link ([1-9]|1[0-9]|20)[.!]?',text,re.I)
  if match:return {'command':'select-link','value':match.group(1)}
