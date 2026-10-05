@@ -76,13 +76,15 @@ def run():
     assert any('country' in x['text'].lower() for x in state['messages'])
     assert any(x['name']==name and x['text']=='Hello. I am ready when you are.' for x in state['messages']),state
     assert len(samples)>0
+    metrics=state['voice_metrics'];assert 0<=metrics['stt_s']<=metrics['first_text_s']<=metrics['first_output_write_s']<=metrics['turn_s']
+    assert 'not sound heard'in metrics['scope']
     assert 'caption'in state and not state['caption']['active']
     caption_starts=[e for e in caption_events if e['event']=='start'];assert caption_starts and all(e['persona']==name for e in caption_starts)
     assert ' '.join(e['text']for e in caption_starts)=='Hello. I am ready when you are.'
     assert caption_events[-1]['event']=='finish'
     pcm=np.concatenate(samples)
     with wave.open(str(out/(name+'-local-voice.wav')),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes((pcm*32767).astype('<i2').tobytes())
-    rows.append({'persona':name,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'clean_caption_playback_events':caption_events,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
+    rows.append({'persona':name,'voice_metrics':metrics,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'clean_caption_playback_events':caption_events,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
     progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and off['messages']==state['messages']
     assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
     runtime=None;turn=None
