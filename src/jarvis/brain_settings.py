@@ -215,7 +215,7 @@ class RoutedBrain:
       if cancel is not None and cancel.is_set():return
     try:
      for d in router.stream(messages,cloud_consent=not local,verified_free_providers=()if local else(s.id,),cancel=cancel,**options):
-      emitted=True;yield d
+      emitted=True;yield {**d,'provider':s.provider,'slot':s.id}
     finally:
      if local:self.settings.local_gate.release()
     self.last_diagnostics=router.last_diagnostics;self.last_warnings=router.last_warnings
