@@ -6,7 +6,8 @@ def parse(text):
  if not isinstance(text,str):return None
  t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|reo)[,:!]?\s+)?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
- t=re.sub(r'\s+please[.!?]*$','',t,flags=re.I).strip().rstrip('?!')
+ t=re.sub(r'\s+please[.!?]*$','',t,flags=re.I).strip().rstrip('.!?')
+ if re.fullmatch(r'(?:open (?:this |the |a )?browser and )?open (?:the )?youtube',t,re.I):return {'command':'open','value':'https://www.youtube.com/'}
  if re.fullmatch(r'open (?:this |the |a )?browser',t,re.I):return {'command':'open-window','value':''}
  m=re.fullmatch(r'scroll\s+(?:(slightly|a little)\s*)?(up|down)?(?:\s+(slightly|a little))?',t,re.I)
  if m:
