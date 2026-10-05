@@ -22,20 +22,27 @@ class Vault:
   if p.stat().st_size>65536:raise ValueError('Note too large; open it in Obsidian')
   return p.read_text(encoding='utf-8')
  def search(self,query):
+  return self.search_details(query)['results']
+ def search_details(self,query):
   if not isinstance(query,str)or not query.strip()or len(query)>100:raise ValueError('Enter a short search')
-  out=[];scanned=0;deadline=time.monotonic()+.75
-  for base,dirs,files in os.walk(self.root,followlinks=False):
-   dirs[:]=[d for d in dirs if not d.startswith('.') and not (Path(base)/d).is_symlink()]
-   for f in files:
-    if not f.endswith('.md'):continue
-    scanned+=1
-    if scanned>500 or time.monotonic()>deadline:return out
-    name=(Path(base)/f).relative_to(self.root).as_posix()
+  out=[];scanned=0;skipped=0;reason='complete';deadline=time.monotonic()+.75
+  def report():
+   return {'results':out,'scanned':scanned,'skipped':skipped,'complete':reason=='complete'and skipped==0,'reason':reason if reason!='complete'or skipped==0 else 'unreadable-notes','scope':'visible non-linked Markdown notes only; local search, no model context'}
+  def failed(error):
+   nonlocal skipped
+   skipped+=1
+  for base,dirs,files in os.walk(self.root,followlinks=False,onerror=failed):
+   dirs[:]=sorted(d for d in dirs if not d.startswith('.') and not (Path(base)/d).is_symlink())
+   for f in sorted(files):
+    if f.startswith('.')or not f.endswith('.md')or(Path(base)/f).is_symlink():continue
+    if scanned>=500:reason='note-limit';return report()
+    if time.monotonic()>deadline:reason='time-limit';return report()
+    scanned+=1;name=(Path(base)/f).relative_to(self.root).as_posix()
     try:text=self.read(name)
-    except (ValueError,OSError,UnicodeError):continue
+    except (ValueError,OSError,UnicodeError):skipped+=1;continue
     if query.casefold()in (name+'\n'+text).casefold():out.append({'name':name,'preview':text[:160]})
-    if len(out)>=30:return out
-  return out
+    if len(out)>=30:reason='result-limit';return report()
+  return report()
  def create(self,name,text,confirmed=False):
   if confirmed is not True:raise ValueError('Review note name and text first')
   if not isinstance(text,str)or len(text.encode('utf-8'))>65536:raise ValueError('Note text too large')
