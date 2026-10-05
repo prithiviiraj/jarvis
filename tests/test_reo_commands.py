@@ -25,3 +25,10 @@ class Reo(unittest.TestCase):
   b=Bridge();b.browser=Mock();b.browser.snapshot.return_value={'state':'ready','url':'https://example.com'};b.reo_submitted=True;b.poll();self.assertFalse(b.reo_submitted);self.assertEqual(b.reo_log[-1]['state'],'completed');self.assertIn('not the whole user goal',b.reo_log[-1]['text']);b.close()
  def test_no_silent_browser_start(self):
   b=Bridge();b.laya_enabled=True;b.browser_enabled=True;b.reo_action('Reo open example.com');self.assertIsNone(b.browser);self.assertIsNotNone(b.browser_pending);b.close()
+ def test_bare_browser_prepares_blank_window_not_site(self):
+  b=Bridge();b.laya_enabled=True;b.browser_enabled=True;b.reo_action('Reo open browser');self.assertEqual(b.browser_pending,{'command':'open-window','value':''});self.assertIsNone(b.browser);b.close()
+ def test_blank_browser_execute_needs_review(self):
+  from jarvis.browser_control import BrowserControl
+  page=Mock();page.url='about:blank';page.title.return_value='';control=BrowserControl(page)
+  with self.assertRaises(ValueError):control.execute('open-window')
+  self.assertEqual(control.execute('open-window',confirmed=True)['url'],'about:blank');page.goto.assert_called_once_with('about:blank',wait_until='domcontentloaded',timeout=15000)
