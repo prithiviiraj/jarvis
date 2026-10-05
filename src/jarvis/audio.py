@@ -33,11 +33,12 @@ class SileroVad:
 
 class Endpointer:
     """Pure streaming state. 32ms frames, pre-roll, silence timeout, hard length cap."""
-    def __init__(self,threshold=.5,silence_frames=25,min_frames=6,max_frames=625):
+    def __init__(self,threshold=.5,silence_frames=25,min_frames=6,max_frames=625,turn_complete=None):
         if not 0<threshold<1 or silence_frames<1 or min_frames<1 or max_frames<min_frames:raise ValueError('Invalid endpoint settings.')
         self.threshold=threshold;self.silence_frames=silence_frames;self.min_frames=min_frames;self.max_frames=max_frames
-        self.reset()
+        self.turn_complete=turn_complete;self.reset()
     def reset(self):
+        self.next_check=self.silence_frames
         self.pre=deque(maxlen=5);self.frames=[];self.active=False;self.silence=0;self.voiced=0
     def feed(self,frame,score):
         voiced=score>=self.threshold
@@ -46,7 +47,11 @@ class Endpointer:
             if not voiced:return None
             self.active=True;self.frames=list(self.pre);self.voiced=1;return ('start',None)
         self.frames.append(frame);self.voiced+=int(voiced);self.silence=0 if voiced else self.silence+1
-        if self.silence>=self.silence_frames or len(self.frames)>=self.max_frames:
+        if voiced:self.next_check=self.silence_frames
+        if self.silence>=self.next_check or len(self.frames)>=self.max_frames:
+            if self.turn_complete and self.voiced>=self.min_frames and len(self.frames)<self.max_frames and self.silence<self.silence_frames+50:
+                if not self.turn_complete(self.frames):
+                    self.next_check=min(self.silence+15,self.silence_frames+50);return None
             frames=self.frames if self.voiced>=self.min_frames else None
             self.reset();return ('utterance',frames)
         return None
