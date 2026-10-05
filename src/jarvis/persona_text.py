@@ -5,9 +5,10 @@ _TAG=re.compile(r'^\s*\[('+'|'.join(ROLES)+r')\]\s*[:.\-]?\s*',re.I)
 def strip_speaker_tag(text):
     """Remove leading model-invented [PERSONA] labels; keep all other bracket text."""
     if not isinstance(text,str):return text
+    tag=re.compile(r'^\s*\[('+'|'.join(re.escape(n)for n in ROLES)+r')\]\s*[:.\-]?\s*',re.I)
     previous=None
     while previous!=text:
-        previous=text;text=_TAG.sub('',text,count=1)
+        previous=text;text=tag.sub('',text,count=1)
     return text
 class SpokenTextFilter:
     """Streaming-safe removal of [bracketed asides] from speech only. Display keeps them."""
@@ -60,3 +61,14 @@ def spoken_chunks(chunks):
         if text:yield text
     tail=r.feed(f.finish(),True)
     if tail:yield tail
+
+def own_reply(text,actor,context=()):
+    """Reject explicit invented teammate speech, not ordinary mentions/questions."""
+    if not isinstance(text,str):raise ValueError('Text required')
+    for name in ROLES:
+        if name==actor:continue
+        n=re.escape(name)
+        if re.search(r'(?:^|\n)\s*'+n+r'\s*:|\['+n+r'\]|\b'+n+r'\s+(?:says|said|replies|replied|argues|thinks|thought|feels)\b',text,re.I):
+            # Quoting an actual prior line is allowed only when the same text is present.
+            if text not in str(context):raise ValueError('Another profile reply must come from its own actual route')
+    return text
