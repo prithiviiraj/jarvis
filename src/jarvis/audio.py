@@ -5,6 +5,8 @@ import threading
 import time
 
 class AudioError(RuntimeError):pass
+ENDPOINT_FRAMES={'balanced':25,'fast':15,'deliberate':38}
+
 
 _VAD_SESSIONS={};_VAD_LOCK=threading.RLock()
 
