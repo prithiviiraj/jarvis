@@ -42,3 +42,9 @@ Build83 fixes stale speech readiness: changing engine invalidates previous
 Ready state without checking/downloading or starting mic. Explicit checks name
 the selected engine plus shared assets. Ready means checksum-verified assets,
 not physical playback or complete voice-runtime acceptance.
+
+Build84 binds reviewed scroll commands to an existing ready public HTTPS page.
+No page/no ready state refuses preparation. A page URL change before execution
+refuses scrolling; observed-link navigation still rechecks link membership.
+Exact current page is displayed in review. This is a URL binding, not a content
+freeze: a page can change its content at the same URL.
