@@ -24,3 +24,10 @@ Changing fields invalidates their review; disconnect clears it. The backend
 still checks the exact current vault/name/text and uses exclusive create, so
 existing notes cannot be overwritten. Native Windows acceptance operates only
 on a temporary test vault, never the owner's files.
+
+Build 79 replaces browser permission/command browser dialogs with visible
+in-app review and Confirm/Cancel. Every exact prepared destination/search/scroll
+is still reviewed; changed pending command or command text invalidates its
+review. Stop browser clears review. No typing/sending/payment/upload action.
+Native acceptance tests permission and command cancellation without navigation;
+frozen connector acceptance retains actual isolated Edge observed-link proof.
