@@ -12,7 +12,7 @@ class WorkspaceVoice:
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
         self.endpoint_mode='balanced';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
-        self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS'
+        self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
     def notify(self,kind,value):self.events.put((kind,value))
@@ -24,7 +24,7 @@ class WorkspaceVoice:
             except queue.Empty:break
         with self.lock:self.name=name
         self.notify('state','off')
-    def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False):
+    def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False,barge_in=False):
         if not consent:raise ValueError('Microphone session consent required.')
         if cloud and not verified_free:raise ValueError('Groq needs a confirmed Free-tier account.')
         with self.lock:
@@ -45,6 +45,7 @@ class WorkspaceVoice:
                     if self.closed or ticket!=self.generation:runtime.close();return
                     from .audio import Endpointer,ENDPOINT_FRAMES
                     runtime.mic.endpointer=Endpointer(silence_frames=ENDPOINT_FRAMES[self.endpoint_mode])
+                    runtime.vision=self.vision;runtime.barge_in=barge_in is True
                     self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
             except Exception as exc:
@@ -76,7 +77,11 @@ class WorkspaceVoice:
                 choose=getattr(router,'select_persona',None)
                 if callable(choose):choose(name)
                 pieces=[];answer={}
-                for delta in router.stream([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}],cloud_consent=False,cancel=cancel):
+                messages=[{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}]
+                if self.vision is not None:
+                    try:messages=self.vision.attach(messages)
+                    except Exception as vision_error:self.notify('error','Vision frame skipped: '+str(vision_error)[:140])
+                for delta in router.stream(messages,cloud_consent=False,cancel=cancel):
                     with self.lock:
                         if self.closed or ticket!=self.generation:return
                         pieces.append(delta['text']);answer={**delta,'text':''.join(pieces)}
