@@ -109,6 +109,43 @@ class BrainTests(unittest.TestCase):
   with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot1');t.join(1)
   self.assertIn('rate limit or quota',self.b.checks['slot1']['error']);self.assertIn('reset time is unknown',self.b.checks['slot1']['error'])
 
+class ModelListAndKeyTests(unittest.TestCase):
+ def setUp(self):
+  self.keys=Mock();self.keys.status.return_value={'present':True};self.b=BrainSettings(self.keys,Path(tempfile.mkdtemp())/'routes.json')
+ def test_key_save_strips_surrounding_whitespace(self):
+  self.b.set_key('slot1','gemini','  pasted-key \n');self.keys.set.assert_called_once_with('gemini/slot1','pasted-key')
+ def test_fetch_models_without_greeting(self):
+  import io
+  self.b.configure([{'id':'slot1','provider':'gemini','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':'models/gemini-2.5-flash'}]}).encode())
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter')as router:t=self.b.list_models('slot1');t.join(1)
+  router.assert_not_called();self.assertEqual(self.b.checks['slot1']['state'],'models-listed');self.assertIn('models/gemini-2.5-flash',self.b.checks['slot1']['models']);self.assertNotIn('fixture',json.dumps(self.b.snapshot()))
+ def test_fetch_models_preserves_ready_status(self):
+  import io
+  self.b.configure([{'id':'slot1','provider':'nim','model':'nvidia/nemotron-3.5-lightning-30b-a3b','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':'nvidia/nemotron-3.5-lightning-30b-a3b'}]}).encode())
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http):self.b.checks['slot1']={'state':'ready','model':'nvidia/nemotron-3.5-lightning-30b-a3b'};t=self.b.list_models('slot1');t.join(1)
+  self.assertEqual(self.b.checks['slot1']['state'],'ready');self.assertEqual(self.b.checks['slot1']['models'],['nvidia/nemotron-3.5-lightning-30b-a3b'])
+ def test_http400_names_invalid_key(self):
+  import urllib.error
+  self.b.configure([{'id':'slot1','provider':'gemini','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  http=Mock();http.open.side_effect=urllib.error.HTTPError('https://x',400,'Bad Request',{},None)
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http):t=self.b.check('slot1');t.join(1)
+  self.assertIn('invalid',self.b.checks['slot1']['error'].lower());self.assertNotIn('fixture',json.dumps(self.b.snapshot()))
+ def test_auto_failure_names_each_candidate(self):
+  import io
+  self.b.configure([{'id':'slot1','provider':'nim','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  ids=['nvidia/nemotron-3.5-lightning-30b-a3b','meta/llama-3.3-70b-instruct'];http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':m}for m in ids]}).encode())
+  router=Mock();router.ask.side_effect=RouterError('No enabled brain answered (slot1:http-500)')
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot1');t.join(1)
+  self.assertIn('nemotron-3.5-lightning-30b-a3b',self.b.checks['slot1']['error']);self.assertIn('http-500',self.b.checks['slot1']['error'])
+ def test_auto_429_names_candidate_and_keeps_list(self):
+  import io
+  self.b.configure([{'id':'slot1','provider':'nim','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  ids=['nvidia/nemotron-3.5-lightning-30b-a3b'];http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':m}for m in ids]}).encode())
+  router=Mock();router.ask.side_effect=RouterError('No enabled brain answered (slot1:http-429)')
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot1');t.join(1)
+  self.assertIn('Automatic selection stopped at nvidia/nemotron-3.5-lightning-30b-a3b',self.b.checks['slot1']['error']);self.assertIn('rate limit or quota',self.b.checks['slot1']['error']);self.assertIn('nvidia/nemotron-3.5-lightning-30b-a3b',self.b.checks['slot1']['models'])
 class NimAutomaticTests(unittest.TestCase):
  def setUp(self):
   from jarvis.brain_settings import BrainSettings
