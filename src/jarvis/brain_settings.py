@@ -186,12 +186,14 @@ class RoutedBrain:
     self.last_diagnostics=router.last_diagnostics;self.last_warnings=router.last_warnings
     if emitted:return
    except RouterError as e:
-    self.last_diagnostics=router.last_diagnostics;errors.append(p.name+':'+str(e))
+    self.last_diagnostics=router.last_diagnostics;errors.append(('local('+s.model+')' if local else p.name)+':'+str(e))
     if emitted:raise
     # Shared cooldown protects all personas using a rate-limited slot.
     if not local and any(c in str(e)for c in ('http-429','http-401','http-403')):
      with self.settings.lock:self.settings.cooldowns[s.id]=time.monotonic()+300
-  raise RouterError('No configured brain answered. '+('; '.join(errors)[-220:]if errors else'Save and test cloud slots or start LM Studio.'))
+  guidance=''
+  if any(e.startswith('local') and 'empty' in e for e in errors):guidance=' The loaded LM Studio model returned no usable final text; it may not fit this chat template. Load a proven chat-instruct model (for example spark-x2.5-4b) or test an enabled cloud account.'
+  raise RouterError('No configured brain answered. '+('; '.join(errors)[-220:]if errors else'Save and test cloud slots or start LM Studio.')+guidance)
  def ask(self,messages,**kw):
   parts=[];last={}
   for d in self.stream(messages,**kw):parts.append(d['text']);last=d
