@@ -50,3 +50,16 @@ class PersonaPromptTests(unittest.TestCase):
   self.assertIn('loyal',text.lower())
   self.assertIn('never admiration',text)
   self.assertIn('soft spot',text)
+class ReportSuppression(unittest.TestCase):
+ def test_report_retained_display_but_not_spoken(self):
+  text='Nova here.\nReport to master: Nova is online and ready to assist.'
+  self.assertEqual(spoken_text(text),'Nova here.\n');self.assertIn('Report to master',strip_speaker_tag(text))
+ def test_split_report_label_never_escapes(self):
+  from jarvis.persona_text import spoken_chunks
+  self.assertEqual(''.join(spoken_chunks(['Hello.\nRep','ort to mas','ter: online.\n','What next?'])),'Hello.\n\nWhat next?')
+ def test_normal_report_question_not_suppressed(self):
+  self.assertEqual(spoken_text('Master, your report is ready.'),'Master, your report is ready.')
+
+ def test_entire_multisentence_report_line(self):
+  from jarvis.persona_text import spoken_chunks
+  self.assertEqual(''.join(spoken_chunks(['Hello.\nReport to master: Ready. ', 'All systems checked.\nGood evening.'])),'Hello.\n\nGood evening.')
