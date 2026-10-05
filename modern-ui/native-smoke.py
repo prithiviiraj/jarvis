@@ -270,14 +270,20 @@ try:
  # Persist OFF across a full native application restart, not only in renderer state.
  click('Transcript OFF');ctypes.windll.user32.PostMessageW(window.handle,0x0010,0,0);p.wait(timeout=10)
  p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
- window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30);window.minimize();time.sleep(1)
+ window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30)
+ restarted_workspace_handle=window.handle
+ window.minimize();time.sleep(1)
  # UIA does not enumerate a hidden WebView window. Check native visibility by HWND.
  ctypes.windll.user32.FindWindowW.restype=ctypes.c_void_p
  persisted_handle=ctypes.windll.user32.FindWindowW(None,'JARVIS / Live captions')
  assert persisted_handle,'Caption window must exist for restart persistence check'
  assert not ctypes.windll.user32.IsWindowVisible(ctypes.c_void_p(persisted_handle)),'Transcript OFF was not persisted across restart'
  assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists()
- window.restore();window.set_focus();click('Connect core / check brains');time.sleep(2);click('Local awareness')
+ # A minimized WebView may disappear from UIA; restore its verified native HWND first.
+ assert ctypes.windll.user32.IsWindow(restarted_workspace_handle),'Restarted workspace HWND is invalid'
+ ctypes.windll.user32.ShowWindow(restarted_workspace_handle,9) # SW_RESTORE
+ window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
+ window.wait('visible',timeout=10);window.set_focus();click('Connect core / check brains');time.sleep(2);click('Local awareness')
  checks.append('native full restart preserves transcript OFF and never recreates avatar window')
  window.set_focus();
  from pywinauto import mouse
