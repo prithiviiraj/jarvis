@@ -1,9 +1,18 @@
 """Incremental tagged-thinking suppression. Unclosed thinking is never output."""
 class FinalTextFilter:
- def __init__(self):self.buffer='';self.hidden=False;self.suppressed=False;self.total=0
+ def __init__(self):self.buffer='';self.hidden=False;self.suppressed=False;self.total=0;self.start_buffer='';self.start_decided=False;self.scaffold=False
  def feed(self,text,final=False):
   self.total+=len(text)
   if self.total>1000000:raise ValueError('Response too large')
+  if self.scaffold:return ''
+  if not self.start_decided:
+   self.start_buffer+=text
+   value=self.start_buffer.lstrip().lower()
+   prefixes=("here's a thinking process:","here is a thinking process:","here's my thinking process:","thinking process:")
+   if any(value.startswith(p)for p in prefixes):
+    self.scaffold=True;self.suppressed=True;self.start_buffer='';return ''
+   if not final and (not value or any(p.startswith(value)for p in prefixes)):return ''
+   text=self.start_buffer;self.start_buffer='';self.start_decided=True
   self.buffer+=text;out=[]
   markers=('<think>','</think>','<analysis>','</analysis>')
   while self.buffer:
