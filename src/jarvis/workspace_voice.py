@@ -2,6 +2,7 @@
 import queue
 import threading
 from pathlib import Path
+from .persona_text import strip_speaker_tag,spoken_text
 
 def banter_wait(stop,interval):return stop.wait(interval)
 
@@ -84,7 +85,7 @@ class WorkspaceVoice:
                 for delta in router.stream(messages,cloud_consent=False,cancel=cancel):
                     with self.lock:
                         if self.closed or ticket!=self.generation:return
-                        pieces.append(delta['text']);answer={**delta,'text':''.join(pieces)}
+                        pieces.append(delta['text']);answer={**delta,'text':strip_speaker_tag(''.join(pieces))}
                         self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
                 if not pieces:raise RuntimeError('Empty local stream')
                 warnings=getattr(router,'last_warnings',[])
@@ -101,7 +102,12 @@ class WorkspaceVoice:
                     records=getattr(router,'last_diagnostics',[])
                     if isinstance(records,list):self.notify('response-diagnostics',records)
                 with self.lock:
-                    if not self.closed and ticket==self.generation:self.notify('error',('LM Studio returned no final text in streaming or normal chat. Check its server log and try hi in LM Studio chat to verify the model/template. ' if 'local-empty-after-retry' in str(exc) else 'Local chat failed: '+str(exc)[:180]+'. ')+ 'LM Studio server port1234. Retry your message.')
+                    if not self.closed and ticket==self.generation:
+                        if 'local-empty-after-retry' in str(exc):
+                            recs=locals().get('records',[]);model=recs[0].get('model','') if isinstance(recs,list) and recs else ''
+                            detail='LM Studio returned no final text in streaming or normal chat'+((' from model '+model) if model else '')+'. This model may not fit this chat template. Load a proven chat-instruct model in LM Studio (for example spark-x2.5-4b, which worked on this laptop) or test an enabled cloud account. Check its server log and try hi in LM Studio chat to verify the model/template. '
+                        else:detail='Local chat failed: '+str(exc)[:180]+'. '
+                        self.notify('error',detail+'LM Studio server port1234. Retry your message.')
             finally:
                 with self.lock:
                     self.busy=False
@@ -142,15 +148,19 @@ class WorkspaceVoice:
                 for name in ('NOVA','KAI','LYRA','DEX','JARVIS'):
                     if cancel.is_set():return
                     if name not in results:continue
-                    answer=results[name];ordered.append({'role':'assistant','content':'['+name+'] '+answer['text']})
+                    answer=results[name];answer['text']=strip_speaker_tag(answer['text']);ordered.append({'role':'assistant','content':'['+name+'] '+answer['text']})
                     self.notify('answer',{**answer,'profile':name,'stream_id':str(ticket)+'-'+name});self.memory.append(name,topic,answer['text'])
                     if speaker:
-                        self.notify('state','speaking');speaker.select_profile(name);speaker.speak(answer['text'])
+                        self.notify('state','speaking');speaker.select_profile(name);spoken=spoken_text(answer['text'])
+                        if spoken.strip():speaker.speak(spoken)
                 if cancel.is_set():return
                 conclusion=brains.router('JARVIS').ask([{'role':'system','content':prompt('JARVIS')}]+ordered+[{'role':'user','content':'Give a one or two sentence conclusion on '+topic+'. Use only the actual supplied perspectives.'}],cancel=cancel)
                 if cancel.is_set():return
+                conclusion['text']=strip_speaker_tag(conclusion['text'])
                 self.notify('answer',{**conclusion,'profile':'JARVIS','stream_id':str(ticket)+'-conclusion'});self.memory.append('JARVIS',topic,conclusion['text'])
-                if speaker:speaker.select_profile('JARVIS');speaker.speak(conclusion['text'])
+                if speaker:
+                    speaker.select_profile('JARVIS');spoken=spoken_text(conclusion['text'])
+                    if spoken.strip():speaker.speak(spoken)
                 if failures:self.notify('error','Missing team perspectives: '+', '.join(failures)+'. Successful replies and conclusion shown; no invented replies.')
             except Exception as e:
                 if not cancel.is_set():self.notify('error','Team round failed: '+str(e)[:160])
@@ -180,6 +190,7 @@ class WorkspaceVoice:
                     instruction='User-requested team conversation: '+topic.strip()+'\nReply as '+name+' in one or two short sentences. Refer only to actual supplied conversation. Playful banter only if invited in this topic. Other profiles are selectable characters, not autonomous workers. Do not invent sensing, actions, or independent work.'
                     answer=router.ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':instruction}],cloud_consent=False)
                     if not isinstance(answer.get('text'),str) or not answer['text'].strip() or len(answer['text'])>3000:raise ValueError('Invalid round answer.')
+                    answer['text']=strip_speaker_tag(answer['text'])
                     staged.append((name,topic.strip(),answer['text']))
                     context=context+[{'role':'user','content':instruction},{'role':'assistant','content':'['+name+'] '+answer['text']}]
                 with self.lock:
@@ -220,7 +231,7 @@ class WorkspaceVoice:
                     name=names[i%len(names)]
                     instruction='User-started bounded playful conversation: '+topic.strip()+'\nReply as '+name+' in one punchy sentence, at most20words, to the supplied prior conversation. You have no screen, camera, game, emotion or work observation. Never claim independent work, actions or sensing. Do not invent facts about the user. Other personas are characters sharing one local model. No tools. Keep banter kind, not personal or hostile.'
                     answer=router.ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':instruction}],cloud_consent=False)
-                    text=answer.get('text')
+                    text=strip_speaker_tag(answer.get('text'))
                     if not isinstance(text,str) or not text.strip() or len(text)>1000:raise ValueError('Invalid banter reply')
                     with self.lock:
                         if self.closed or ticket!=self.generation or stop.is_set():return
