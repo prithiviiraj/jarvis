@@ -68,7 +68,7 @@ def own_reply(text,actor,context=()):
     for name in ROLES:
         if name==actor:continue
         n=re.escape(name)
-        if re.search(r'(?:^|\n)\s*'+n+r'\s*:|\['+n+r'\]|\b'+n+r'\s+(?:says|said|replies|replied|argues|thinks|thought|feels)\b',text,re.I):
+        if re.search(r'(?:^|\n)\s*'+n+r'\s*:|\['+n+r'(?:\]|[,! :])|\b'+n+r'\s+(?:says|said|replies|replied|argues|thinks|thought|feels)\b',text,re.I):
             # Quoting an actual prior line is allowed only when the same text is present.
             if text not in str(context):raise ValueError('Another profile reply must come from its own actual route')
     return text
