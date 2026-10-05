@@ -19,3 +19,15 @@ queueing behind a reply. Pause all cancels it. The displayed seconds measure
 only that fixed local inference, not STT, TTS, or audible response latency.
 A warmed model may help avoid a later cold load, but no laptop speed improvement
 is claimed without the owner's real-model measurement. Restart loses the status.
+
+## Build 71: stage diagnostics, not an audible-latency promise
+Session-only last voice turn timings now survive the bridge and appear in
+Settings > Voices. STT, first model text, first queued clause, and whole software
+turn are measured from the end of an utterance delivered by the microphone.
+First PCM output write is recorded only after the output adapter's first write
+succeeds. It is not sound heard at the physical speaker and does not include the
+VAD endpoint wait. Paused/stale turns do not publish timing; missing output
+callbacks show Not measured. Pause all clears the session result. No conversation
+text/audio is added to these numeric diagnostics and they are not stored on disk.
+The frozen five-voice acceptance uses real STT/Kokoro synthesis with test input
+and output adapters; real hardware, owner accent and real-model speed stay open.
