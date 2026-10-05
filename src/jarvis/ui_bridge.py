@@ -4,6 +4,7 @@ from .workspace_voice import WorkspaceVoice,build_text_router,build_proactive_sp
 from .local_awareness import LocalContext,CameraWorker,foreground_app
 from .proactive import ProactiveJudge
 from .voice_setup import VoiceSetup
+from .vision import LocalVision
 class Bridge:
  def __init__(self,voice=None,brains=None,history=None):
   from .brain_settings import BrainSettings,SettingsPool
@@ -13,13 +14,13 @@ class Bridge:
   if voice is None:
    from .voice_preferences import VoicePreferences
    self.voice_preferences=VoicePreferences(data_root()/'voice-preferences.json');self.voice.tts_engine=self.voice_preferences.load()
-  self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context)
+  self.setup=VoiceSetup();self.context=LocalContext();self.camera=CameraWorker(self.context);self.vision=LocalVision(frame_source=self.camera.latest_jpeg);self.voice.vision=self.vision
   if voice is None:
    self.voice.text_factory=lambda:self.brains.router(self.voice.reply_actor)
    self.voice.pool_config=(SettingsPool(self.brains),(),())
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.voice_metrics={};self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
-  self.laya_enabled=False;self.laya_generation=0;self.laya_state={'busy':False,'status':'Off - model not installed by this app','error':''};self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
+  self.laya_enabled=False;self.laya_generation=0;self.barge_in=False;self.laya_state={'busy':False,'status':'Off - model not installed by this app','error':''};self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
   if self.history is None and voice is None:
    try:
     from .chat_history import ChatHistory
@@ -118,7 +119,7 @@ class Bridge:
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-warmup','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-mode','laya-propose','laya-stop'}
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-warmup','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd=='laya-mode':
    if request.get('consent')is not True:raise ValueError('Review local Laya disclosure first')
@@ -239,13 +240,20 @@ class Bridge:
   elif cmd=='voice-on':
    if request.get('consent') is not True:raise ValueError('Microphone consent required')
    self.judge.stop()
-   if request.get('reasoning_off')is True:self.voice.start(consent=True,cloud=False,reasoning_off=True)
-   else:self.voice.start(consent=True,cloud=False)
-  elif cmd=='voice-off':self.voice.pause()
+   self.barge_in=request.get('barge_in')is True
+   if request.get('reasoning_off')is True:self.voice.start(consent=True,cloud=False,reasoning_off=True,barge_in=self.barge_in)
+   else:self.voice.start(consent=True,cloud=False,barge_in=self.barge_in)
+  elif cmd=='voice-off':self.voice.pause();self.barge_in=False
   elif cmd=='camera-on':
    if request.get('consent') is not True:raise ValueError('Camera consent required')
    self.camera.start(True)
-  elif cmd=='camera-off':self.judge.stop();self.camera.stop();self.context.presence='unknown';self.context.events.clear()
+  elif cmd=='camera-off':self.vision.disable();self.judge.stop();self.camera.stop();self.context.presence='unknown';self.context.events.clear()
+  elif cmd=='camera-vision':
+   if request.get('enabled') is False:self.vision.disable()
+   else:
+    if request.get('consent') is not True:raise ValueError('Camera vision consent required')
+    if self.context.camera!='on':raise ValueError('Allow the local camera first; vision shares the current camera frame with the local model only.')
+    self.vision.enable(consent=True)
   elif cmd=='apps':
    if type(request.get('enabled')) is not bool or type(request.get('titles',False)) is not bool:raise ValueError('Invalid app consent')
    self.judge.stop();self.titles=request.get('titles',False) and request['enabled'];self.context.set_apps(request['enabled']);self.context.events.clear()
@@ -284,7 +292,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'laya':dict(self.laya_state,enabled=self.laya_enabled),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':self.context.snapshot(),'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'laya':dict(self.laya_state,enabled=self.laya_enabled),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
