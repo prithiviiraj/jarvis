@@ -141,7 +141,16 @@ try:
  before_warmup=len(requests)
  button('Warm local model').wait('exists',timeout=10)
  assert not any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests),'Warmup started without click'
- click('Warm local model');time.sleep(.5);window.type_keys('{ENTER}');time.sleep(2)
+ click('Warm local model')
+ button('Confirm local warmup').wait('exists',timeout=10)
+ assert len(requests)==before_warmup,'Review itself sent an unexpected model request'
+ window.capture_as_image().save('ui-evidence/native-local-warmup-review.png')
+ click('Confirm local warmup')
+ deadline=time.monotonic()+10
+ while time.monotonic()<deadline:
+  if any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests[before_warmup:]):break
+  time.sleep(.2)
+ time.sleep(1)
  assert any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests[before_warmup:]),'No explicit fixed local warmup request'
  checks.append('explicit local warmup sends fixed greeting only after review; no automatic launch inference')
  window.capture_as_image().save('ui-evidence/native-local-warmup.png')
