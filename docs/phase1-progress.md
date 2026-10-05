@@ -17,3 +17,10 @@ The bridge/UI reports scanned count, unreadable/oversized skips and partial
 reasons. No matches in a partial scan never means the note is absent. Hidden
 and linked notes remain excluded even on complete scans. Disconnect clears
 these results. Search/reads still never enter chat-model context automatically.
+
+Build 74 replaces native browser-confirm dialogs for vault connection and new
+notes with visible in-app exact-folder/name/text reviews and Confirm/Cancel.
+Changing fields invalidates their review; disconnect clears it. The backend
+still checks the exact current vault/name/text and uses exclusive create, so
+existing notes cannot be overwritten. Native Windows acceptance operates only
+on a temporary test vault, never the owner's files.
