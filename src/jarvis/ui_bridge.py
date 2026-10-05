@@ -177,11 +177,14 @@ class Bridge:
    if request.get('mode')not in ENDPOINT_FRAMES:raise ValueError('Choose a listening pause preset')
    self.voice.endpoint_mode=request['mode']
   elif cmd=='voice-engine':
-   if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice before changing speech engine')
+   if self.voice.busy or self.voice.runtime is not None or self.setup.busy:raise ValueError('Stop voice and wait for model setup before changing speech engine')
    if request.get('engine')not in ('kokoro','kitten'):raise ValueError('Unknown speech engine')
    if self.voice_preferences:self.voice_preferences.save(request['engine'])
    self.judge.close();self.voice.tts_engine=request['engine']
-  elif cmd=='voice-setup':self.setup.start(consent=request.get('consent') is True,engine=getattr(self.voice,'tts_engine','kokoro'))
+  elif cmd=='voice-setup':
+   engine=getattr(self.voice,'tts_engine','kokoro')
+   if request.get('reviewed_engine')!=engine:raise ValueError('Speech engine changed; review the download again')
+   self.setup.start(consent=request.get('consent') is True,engine=engine)
   elif cmd=='voice-check':self.setup.start(check=True,engine=getattr(self.voice,'tts_engine','kokoro'))
   elif cmd=='voice-cancel':self.setup.stop()
   elif cmd=='voice-on':
