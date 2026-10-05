@@ -113,7 +113,7 @@ try:
  window.capture_as_image().save('ui-evidence/native-local-warmup.png')
 
  window.capture_as_image().save('ui-evidence/native-brain-settings.png')
- click('Voice')
+ click('Agents')
  click('DEX Coder')
  click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
@@ -121,7 +121,7 @@ try:
  endpoint=window.child_window(title='Listening pause',control_type='ComboBox');endpoint.wait('exists',timeout=10);endpoint.wrapper_object().set_focus();window.type_keys('{DOWN}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Fast - 480ms';endpoint.wrapper_object().set_focus();window.type_keys('{UP}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Balanced - 800ms (default)'
  window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
  checks.append('native session listening-pause fast480ms then balanced800ms selector')
- click('Voice')
+ click('Agents')
  interrupt=window.child_window(title='Interrupt (headphones)',control_type='CheckBox');interrupt.wait('exists',timeout=10);interrupt.wrapper_object().set_focus();time.sleep(.3)
  window.capture_as_image().save('ui-evidence/native-headphone-interruption-off.png')
  assert interrupt.wrapper_object().get_toggle_state()==0,'Interruption must default OFF'
@@ -187,7 +187,7 @@ try:
 
 
  # Isolate real chat archive title from earlier explicit action-routing messages.
- click('Voice');click('New chat');time.sleep(.5)
+ click('Agents');click('New chat');time.sleep(.5)
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
  click('Add local draft')
  deadline=time.monotonic()+8
@@ -237,7 +237,7 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-chat-error.png');checks.append('model error remains visible after idle polling')
  pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
  # Native archive navigation and Pause preservation are visible, not metadata-only.
- click('Voice');click('New chat')
+ click('Agents');click('New chat')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.'not in' '.join(x.window_text()for x in window.descendants()):break
