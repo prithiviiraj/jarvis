@@ -8,3 +8,5 @@ class PersonaTests(unittest.TestCase):
  def test_roster_known_to_all(self):
   for name in ROLES:
    for other in ROLES:self.assertIn(other,prompt(name))
+ def test_lively_no_canned_hearing(self):
+  self.assertIn('not proof you heard audio',prompt('LYRA'));self.assertIn('affectionate curious',prompt('LYRA'));self.assertNotIn('Let us settle this and help master',prompt('LYRA'));self.assertIn('concise but engaged',prompt('KAI'))
