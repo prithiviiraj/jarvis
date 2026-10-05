@@ -33,6 +33,7 @@ def run(core):
    assert call('vault-disconnect')['data']['vault']['connected']is False;assert call('status')['data']['vault']['search']=={}
    assert not call('vault-preview',text='obsidian read seed.md')['ok']
    assert call('browser-mode',consent=True)['ok']
+   assert not call('browser-preview',text='browser scroll down')['ok']
    pending=call('browser-preview',text='Jarvis browser open example.com')['data']['browser']['pending'];assert pending=={'command':'open','value':'https://example.com'}
    assert not call('browser-run',confirm=True,reviewed={'command':'search','value':'wrong'})['ok']
    assert not call('browser-preview',text='browser open localhost')['ok']
@@ -65,9 +66,10 @@ def run(core):
    assert state['state']=='ready',state
    assert state['url']=='https://www.iana.org/help/example-domains'and state['title']=='Example Domains',state
    pending=call('browser-preview',text='browser scroll down')['data']['browser']['pending']
+   assert pending['expected_url']==state['url']
    assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
    call('close');p.wait(10)
-   return {'frozen_vault':True,'bounded_search_completeness_and_result_limit':True,'explicit_local_vault_voice_parse_read_search':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
+   return {'frozen_vault':True,'bounded_search_completeness_and_result_limit':True,'explicit_local_vault_voice_parse_read_search':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'scroll_exact_page_bound':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
   finally:
    if p.poll()is None:p.kill()
