@@ -120,6 +120,12 @@ try:
  endpoint=window.child_window(title='Listening pause',control_type='ComboBox');endpoint.wait('exists',timeout=10);endpoint.wrapper_object().set_focus();window.type_keys('{DOWN}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Fast - 480ms';endpoint.wrapper_object().set_focus();window.type_keys('{UP}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Balanced - 800ms (default)'
  window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
  checks.append('native session listening-pause fast480ms then balanced800ms selector')
+ click('Voice')
+ interrupt=window.child_window(title='Interrupt (headphones)',control_type='CheckBox');interrupt.wait('exists',timeout=10);interrupt.wrapper_object().set_focus();time.sleep(.3)
+ window.capture_as_image().save('ui-evidence/native-headphone-interruption-off.png')
+ assert interrupt.wrapper_object().get_toggle_state()==0,'Interruption must default OFF'
+ checks.append('native headphone interruption checkbox visible and defaults OFF; no microphone started')
+ click('Voice setup')
  button('Mic ON / start local voice').wait('exists',timeout=10)
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
  button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
