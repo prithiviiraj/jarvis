@@ -15,5 +15,7 @@ for dist in md.distributions():
     dst=licenses/dist.metadata['Name']/str(f);dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dst)
 shutil.copy2(root/'APACHE-2.0.txt',licenses/'MODEL-APACHE-2.0.txt')
 (licenses/'SOURCES.txt').write_text('Laya runtime: https://github.com/NandhaKishorM/laya (Apache2).\nModel: https://huggingface.co/ichenney/laya-browser-v32b (model card declares Apache2), pinned161d54d6000913ff279b0afd1ac77faef8685a9b.\nTorch: https://github.com/pytorch/pytorch . Transformers: https://github.com/huggingface/transformers . Distribution notices retained alongside.\n')
+# Exclude only upstream NumPy test maps omitted by artifact upload, not runtime data.
+for p in (out/'_internal/numpy/f2py/tests').rglob('.f2py_f2cmap'):p.unlink()
 manifest={str(p.relative_to(out)):{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}for p in out.rglob('*')if p.is_file()};(root/'manifest.json').write_text(json.dumps(manifest,indent=2))
 subprocess.run([str(out/'JARVIS-Laya.exe'),'--version'],check=True)
