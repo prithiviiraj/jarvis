@@ -1,0 +1,26 @@
+[
+  {
+    "name": "encoder_model.ort",
+    "url": "https://download.moonshine.ai/model/tiny-en/quantized/tiny-en/encoder_model.ort",
+    "size": 13281600,
+    "checksum": "jmn6JA==",
+    "checksum_type": "crc32c",
+    "sha256": "94e90a4654fc45cdfedb77c4c08e1739f48862998e58fada384b25118134f221"
+  },
+  {
+    "name": "decoder_model_merged.ort",
+    "url": "https://download.moonshine.ai/model/tiny-en/quantized/tiny-en/decoder_model_merged.ort",
+    "size": 30412256,
+    "checksum": "LngmQA==",
+    "checksum_type": "crc32c",
+    "sha256": "cf524c4862d36e9e5ab032eddc73637efd822d70e868ac575cf1a46e1e4708a0"
+  },
+  {
+    "name": "tokenizer.bin",
+    "url": "https://download.moonshine.ai/model/tiny-en/quantized/tiny-en/tokenizer.bin",
+    "size": 249974,
+    "checksum": "B7s10Q==",
+    "checksum_type": "crc32c",
+    "sha256": "6884b35fd6377d4c4d32336a0bc152f36b64d1e45b6503683cdc238250a8472d"
+  }
+]
