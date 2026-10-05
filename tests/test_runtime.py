@@ -57,3 +57,5 @@ class RuntimeTests(unittest.TestCase):
  def test_no_output_adapter_does_not_invent_measurement(self):
   events=[];self.v.notify=lambda *a:events.append(a);self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
   metric=[v for k,v in events if k=='metrics'and v][-1];self.assertNotIn('first_output_write_s',metric)
+ def test_spoken_address_punctuation_selects_kai_not_previous_dex(self):
+  self.v.persona='DEX';self.v.stt.transcribe.return_value='Hey, Kai. Can you hear me?';self.v.enable(True);self.v.turn([0],self.v.generation,False,[]);self.assertEqual(self.v.persona,'KAI');self.v.speaker.select_profile.assert_called_once_with('KAI');self.v.router.select_persona.assert_called_once_with('KAI')
