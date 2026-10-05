@@ -115,6 +115,51 @@ class WorkspaceVoice:
                     self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
+    def dialogue(self,topic,brains,audio=False,rounds=2):
+        """Actual routed turns, with previous observed replies. One audible voice at a time."""
+        from .team_discussion import order,messages,clean_reply,participants
+        if not isinstance(topic,str)or not topic.strip()or len(topic)>1000:raise ValueError('Enter a short team topic')
+        if type(rounds)is not int or not 1<=rounds<=3:raise ValueError('Choose1to3conversation rounds')
+        with self.lock:
+            if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Stop voice and wait for the current reply first')
+            self.busy=True;self.generation+=1;ticket=self.generation;context=self.memory.messages();self.text_cancel=threading.Event();cancel=self.text_cancel
+        self.notify('transcript',topic);self.notify('state','team discussion')
+        def run():
+            speaker=None
+            try:
+                if audio:
+                    speaker=build_proactive_speaker(self.tts_engine);self.round_speaker=speaker
+                    speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
+                actors=participants(topic)*rounds+('JARVIS',)
+                for index,name in enumerate(actors):
+                    if cancel.is_set()or self.closed or ticket!=self.generation:return
+                    self.reply_actor=name;self.notify('state',name+' thinking')
+                    request=messages(name,topic,context,0)
+                    instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.' if index==len(actors)-1 else 'Round '+str(index//len(participants(topic))+1)+': reply only as '+name+' in2to3sentences. React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
+                    request[-1]['content']+='\n'+instruction
+                    router=brains.router(name)
+                    answer=router.ask(request,cancel=cancel)
+                    try:text=clean_reply(answer.get('text'))
+                    except ValueError:
+                        if cancel.is_set():return
+                        answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel)
+                        text=clean_reply(answer.get('text'))
+                    if cancel.is_set()or self.closed or ticket!=self.generation:return
+                    self.notify('answer',{**answer,'text':text,'profile':name,'stream_id':str(ticket)+'-dialogue-'+str(index)})
+                    self.memory.append(name,topic,text);context.append({'role':'assistant','content':'['+name+'] '+text})
+                    if speaker:
+                        speaker.select_profile(name);spoken=spoken_text(text)
+                        if spoken.strip():speaker.speak(spoken)
+                self.notify('status','Team discussion complete; each shown reply came from its named profile route.')
+            except Exception as error:
+                if not cancel.is_set():self.notify('error','Team discussion stopped: '+str(error)[:160]+'. Earlier actual replies remain; no invented replacement.')
+            finally:
+                if speaker:
+                    speaker.stop();speaker.synth.g2p.close();self.round_speaker=None
+                with self.lock:
+                    self.busy=False
+                    if not self.closed and ticket==self.generation:self.notify('state','off')
+        worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def parallel_round(self,topic,brains,audio=False):
         """Five bounded parallel perspectives, then ordered output and synthesis."""
         if not isinstance(topic,str)or not topic.strip()or len(topic)>1000:raise ValueError('Enter a team topic up to 1000 characters')
