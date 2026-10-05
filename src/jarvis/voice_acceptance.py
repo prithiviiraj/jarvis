@@ -58,7 +58,7 @@ def run():
     bridge.execute({'command':'voice-on','consent':True});deadline=time.monotonic()+60
     while bridge.voice.busy and time.monotonic()<deadline:time.sleep(.1)
     progress('runtime-ready',persona=name,load_s=time.monotonic()-loaded)
-    runtime=bridge.voice.runtime;assert runtime is not None,bridge.execute({'command':'status'})
+    runtime=bridge.voice.runtime;assert runtime.mic.endpointer.silence_frames==25;assert runtime is not None,bridge.execute({'command':'status'})
     runtime.speaker.output_factory=Sink
     caption_events=[];original_playback=runtime.speaker.playback_event
     def playback(event,text,actor,sr,n):
