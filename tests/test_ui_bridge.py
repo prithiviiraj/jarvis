@@ -48,7 +48,7 @@ class UiBridgeTests(unittest.TestCase):
   self.assertEqual(self.b.execute({'command':'pause'})['error'],'')
 
  def test_setup_does_not_enable_audio(self):
-  self.b.setup.start=Mock();state=self.b.execute({'command':'voice-setup','consent':True});self.b.setup.start.assert_called_once_with(consent=True,engine='kokoro');self.assertFalse(state['voice_active'])
+  self.b.setup.start=Mock();state=self.b.execute({'command':'voice-setup','consent':True,'reviewed_engine':'kokoro'});self.b.setup.start.assert_called_once_with(consent=True,engine='kokoro');self.assertFalse(state['voice_active'])
  def test_voice_failure_visible(self):
   self.b.voice.notify('error','Speech assets missing');self.b.voice.notify('state','off');self.assertEqual(self.b.execute({'command':'status'})['error'],'Speech assets missing')
 
@@ -75,3 +75,14 @@ class UiBridgeTests(unittest.TestCase):
   self.b.voice.runtime=None
   from pathlib import Path
   s=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8');self.assertIn('"voice-endpoint"',s.split('.contains(&command)')[0])
+
+ def test_voice_setup_exact_engine_review(self):
+  self.b.setup.start=Mock()
+  for reviewed in (None,'kitten'):
+   with self.assertRaises(ValueError):self.b.execute({'command':'voice-setup','consent':True,'reviewed_engine':reviewed})
+  self.b.setup.start.assert_not_called()
+  self.b.voice.tts_engine='kitten';self.b.execute({'command':'voice-setup','consent':True,'reviewed_engine':'kitten'});self.b.setup.start.assert_called_once_with(consent=True,engine='kitten')
+ def test_setup_busy_blocks_engine_switch(self):
+  self.b.setup.busy=True
+  with self.assertRaises(ValueError):self.b.execute({'command':'voice-engine','engine':'kitten'})
+  self.b.setup.busy=False
