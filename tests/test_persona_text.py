@@ -63,3 +63,10 @@ class ReportSuppression(unittest.TestCase):
  def test_entire_multisentence_report_line(self):
   from jarvis.persona_text import spoken_chunks
   self.assertEqual(''.join(spoken_chunks(['Hello.\nReport to master: Ready. ', 'All systems checked.\nGood evening.'])),'Hello.\n\nGood evening.')
+
+class OwnSpeakerTests(unittest.TestCase):
+ def test_attribution_rejected_mentions_allowed(self):
+  from jarvis.persona_text import own_reply
+  for t in ('My answer. Nova argues humans are computers.','My answer.\nNOVA: invented'):
+   with self.assertRaises(ValueError):own_reply(t,'JARVIS')
+  self.assertEqual(own_reply('Nova, what do you think?','JARVIS'),'Nova, what do you think?')
