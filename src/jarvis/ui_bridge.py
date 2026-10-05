@@ -65,9 +65,19 @@ class Bridge:
    except (ValueError,RuntimeError,queue.Full):
     self.browser_pending=None;self.voice.notify('error','Open a reviewed site and read its available links first.')
    return True
-  with self.lock:self.browser_pending=proposal
+  try:
+   with self.lock:self.browser_pending=self.bind_browser_page(proposal)
+  except ValueError as error:
+   self.browser_pending=None;self.voice.notify('error',str(error));return True
   self.voice.notify('status','Browser command ready. Review the exact command in Settings > Tools. Nothing opened yet.')
   return True
+ def bind_browser_page(self,proposal):
+  if proposal['command']not in ('scroll-down','scroll-up'):return proposal
+  if not self.browser or self.browser.cancel.is_set():raise ValueError('Open a reviewed browser page before scrolling')
+  state=self.browser.snapshot()
+  if state.get('state')!='ready' or not state.get('url'):raise ValueError('Wait for the browser page to finish loading before scrolling')
+  from .browser_control import BrowserControl
+  return dict(proposal,expected_url=BrowserControl.destination(state['url']))
  def stop(self):
   self.brains.stop_warmup()
   self.browser_enabled=False;self.browser_pending=None;
@@ -90,7 +100,7 @@ class Bridge:
     if not self.browser_enabled:raise ValueError('Enable browser mode first')
     from .browser_control import parse_voice
     self.browser_pending=None
-    self.browser_pending=parse_voice(request.get('text'))
+    parsed=parse_voice(request.get('text'));self.browser_pending=self.bind_browser_page(parsed)if parsed else None
     if not self.browser_pending:raise ValueError('Use browser open example.com, browser search for something, or browser scroll down/up')
     if self.browser_pending['command']in ('read-links','select-link'):
      proposal=self.browser_pending;self.browser_pending=None
