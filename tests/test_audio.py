@@ -44,3 +44,45 @@ class OnsetCallbackTests(unittest.TestCase):
   thread=threading.Thread(target=mic.run,daemon=True);thread.start()
   mic.frames.put((mic.generation,[0.0]*512));time.sleep(.4)
   mic.stop_event.set();thread.join(timeout=2)
+
+class SemanticEndpointTests(unittest.TestCase):
+ def test_incomplete_waits_then_complete(self):
+  from jarvis.audio import Endpointer
+  calls=[]
+  def complete(frames):calls.append(len(frames));return len(calls)>1
+  e=Endpointer(silence_frames=2,min_frames=1,max_frames=100,turn_complete=complete);self.assertEqual(e.feed([0],1)[0],'start')
+  self.assertIsNone(e.feed([0],0));self.assertIsNone(e.feed([0],0))
+  for _ in range(14):self.assertIsNone(e.feed([0],0))
+  self.assertEqual(e.feed([0],0)[0],'utterance');self.assertEqual(len(calls),2)
+ def test_incomplete_bounded_hard_cap(self):
+  from jarvis.audio import Endpointer
+  e=Endpointer(silence_frames=2,min_frames=1,max_frames=20,turn_complete=lambda frames:False);e.feed([0],1)
+  seen=[e.feed([0],0)for _ in range(19)];self.assertEqual(seen[-1][0],'utterance')
+ def test_invalid_detector_fails_closed(self):
+  from jarvis.audio import Endpointer
+  def fail(f):raise ValueError('Invalid model')
+  e=Endpointer(silence_frames=1,min_frames=1,turn_complete=fail);e.feed([0],1)
+  with self.assertRaises(ValueError):e.feed([0],0)
+ def test_smart_turn_features_no_heavy_dependency(self):
+  import numpy as np
+  from jarvis.experimental.turn_features import features
+  out=features(np.zeros(16000,np.float32));self.assertEqual(out.shape,(1,80,800));self.assertTrue(np.isfinite(out).all());self.assertTrue(np.all(out==-1.5))
+ def test_voiced_restart_resets_semantic_check(self):
+  from jarvis.audio import Endpointer
+  calls=[];e=Endpointer(silence_frames=2,min_frames=1,turn_complete=lambda f:calls.append(1)or False);e.feed([0],1);e.feed([0],0);e.feed([0],0);self.assertEqual(len(calls),1);e.feed([0],1);e.feed([0],0);e.feed([0],0);self.assertEqual(len(calls),2)
+ def test_moonshine_no_tamil_or_implicit_download(self):
+  from jarvis.experimental.moonshine_stt import MoonshineSTT,download
+  with self.assertRaises(ValueError):MoonshineSTT('/nonexistent',language='ta')
+  with self.assertRaises(ValueError):MoonshineSTT('/nonexistent')
+  with self.assertRaises(ValueError):download('/nonexistent')
+
+class SmartTurnBound(unittest.TestCase):
+ def test_exact_extra_wait_ceiling(self):
+  from jarvis.audio import Endpointer
+  calls=[];e=Endpointer(turn_complete=lambda frames:(calls.append(len(frames))or False))
+  for _ in range(7):e.feed([0],1)
+  ended=None
+  for i in range(1,100):
+   ended=e.feed([0],0)
+   if ended:break
+  self.assertEqual(i,75);self.assertEqual(len(calls),4)
