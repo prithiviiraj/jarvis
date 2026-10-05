@@ -59,3 +59,26 @@ class StreamErrorDetailTests(unittest.TestCase):
  def test_http_failure_code_survives(self):
   t=Mock();t.stream.side_effect=ProviderFailure('http-503')
   with self.assertRaisesRegex(RouterError,'http-503'):list(BrainRouter([Provider('local','http://127.0.0.1:1234/v1','test')]).stream([{}],stream_transport=t))
+
+class ScaffoldRetryTests(unittest.TestCase):
+ def test_one_direct_retry_no_scaffold_emitted_cloud_or_local(self):
+  from unittest.mock import patch
+  from jarvis.streaming import StreamTransport
+  for cloud in (False,True):
+   provider=Provider('test','https://example.invalid/v1'if cloud else'http://127.0.0.1:1234/v1','test',cloud)
+   response=io.BytesIO(delta("Here's a thinking process: internal calculation 1907")+b'data: [DONE]\n\n');response.headers={'Content-Type':'text/event-stream'}
+   transport=StreamTransport();opener=Mock();opener.open.return_value=response
+   with patch.object(transport,'opener',return_value=opener),patch('jarvis.streaming.HttpTransport')as cls:
+    cls.return_value.complete.return_value='The answer is 1907.'
+    cls.return_value.last_diagnostics=[]
+    self.assertEqual(list(transport.stream(provider,[{'role':'user','content':'25 plus1882?'}],'synthetic'if cloud else None)),['The answer is 1907.'])
+    cls.return_value.complete.assert_called_once();self.assertIn('Answer the original question directly',cls.return_value.complete.call_args.args[1][-1]['content'])
+ def test_repeated_scaffold_failure_has_no_second_retry(self):
+  from unittest.mock import patch
+  from jarvis.streaming import StreamTransport
+  response=io.BytesIO(delta('Thinking process: secret')+b'data: [DONE]\n\n');response.headers={'Content-Type':'text/event-stream'}
+  transport=StreamTransport();opener=Mock();opener.open.return_value=response
+  with patch.object(transport,'opener',return_value=opener),patch('jarvis.streaming.HttpTransport')as cls:
+   cls.return_value.complete.side_effect=ProviderFailure('empty');cls.return_value.last_diagnostics=[]
+   with self.assertRaises(ProviderFailure):list(transport.stream(Provider('local','http://127.0.0.1:1234/v1','test'),[{'role':'user','content':'answer'}]))
+   self.assertEqual(cls.return_value.complete.call_count,1)
