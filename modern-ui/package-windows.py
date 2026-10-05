@@ -23,7 +23,7 @@ for dist in md.distributions():
 (licenses/'README.txt').write_text('Third-party license texts retained from bundled distributions. JARVIS source is in the owner repository.\n',encoding='utf-8')
 if os.environ.get('JARVIS_PACKAGE_VOICE')=='1':
  shutil.copytree(root/'speech-notices',licenses/'speech',dirs_exist_ok=True)
- start=out/'START HERE.txt';start.write_text(start.read_text().replace('Voice model weights must be downloaded inside the app.','Local speech runtime is bundled. Click Download local voice models (roughly500MB), then Mic ON. Headphones required for this first half-duplex test. No AEC/barge-in yet. Microphone starts OFF.'))
+ start=out/'START HERE.txt';start.write_text(start.read_text().replace('Voice model weights must be downloaded inside the app.','Local speech runtime is bundled. Click Download local voice models (roughly500MB), then Mic ON. Headphones required. Default voice is half-duplex. Interrupt on headphones is opt-in and experimental; not verified on your hardware. No acoustic echo cancellation (AEC). Microphone starts OFF.'))
 core=out/'backend/jarvis-local-core.exe'
 env=dict(os.environ);env.pop('PYTHONPATH',None);env['PATH']=str(pathlib.Path(os.environ['WINDIR'])/'System32');env['JARVIS_DATA_DIR']=str(root/'ui-evidence'/'isolated-brain-test')
 log=open(root/'ui-evidence/frozen-core-stderr.txt','w')
