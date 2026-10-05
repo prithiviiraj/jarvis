@@ -72,22 +72,33 @@ class BrainSettings:
       raw=r.read(262145)
       if len(raw)>262144:raise ValueError('Model list too large')
       ids=[x['id']for x in json.loads(raw).get('data',[])if isinstance(x,dict)and isinstance(x.get('id'),str)]
+     greeted=None
      if s.model=='automatic':
       if s.provider=='groq':
        from .groq_models import PREFERRED
        choices=[m for m in PREFERRED if m in ids]
       elif s.provider=='gemini':choices=sorted([m for m in ids if 'flash' in m.lower() and not any(w in m.lower()for w in ('preview','image','tts','live','audio','embedding','omni','veo'))],reverse=True)
-      else:choices=[m for m in ('meta/llama-3.3-70b-instruct','meta/llama-3.1-8b-instruct')if m in ids]
+      else:choices=[m for m in ('nvidia/nemotron-3.5-lightning-30b-a3b','meta/llama-3.3-70b-instruct','meta/llama-3.1-8b-instruct')if m in ids]
       if not choices:raise ValueError('No approved automatic chat model listed. Select an exact model ID')
-      s=replace(s,model=choices[0])
+      last_error=None
+      # Each listed candidate must answer the fixed public greeting; auth/quota errors stop immediately.
+      for candidate in choices:
+       started=time.monotonic()
+       router=BrainRouter([replace(configured(s.provider,candidate),name=s.id,requires_free_plan=True,timeout=30)],key_store=_Keys(self,{sid:s}))
+       try:greeted=router.ask([{'role':'user','content':'Say hello in one short sentence.'}],cloud_consent=True,verified_free_providers=(sid,));s=replace(s,model=candidate);break
+       except Exception as e:
+        if any(w in str(e)for w in ('http-401','http-403','http-429')):raise
+        last_error=e
+      if greeted is None:raise ValueError('No approved automatic chat model answered the fixed greeting. Tried: '+', '.join(choices[:5])+('. Last error: '+str(last_error)[:100] if last_error else ''))
       with self.lock:self.rows[sid]=s
      if s.provider=='gemini'and any(w in s.model.lower()for w in ('omni','veo','image','tts','audio','embedding','live')):raise ValueError('Selected Gemini model is not supported text chat. Clear Model ID for Automatic or choose a listed text Flash model.')
      if s.model not in ids:
       with self.lock:self.checks[sid]={'state':'failed','models':ids[:100],'error':'Choose an exact listed model ID and save again'}
       raise ValueError('Selected model not listed. Available IDs shown below')
-     started=time.monotonic();router=BrainRouter([replace(configured(s.provider,s.model),name=s.id,requires_free_plan=True,timeout=30)],key_store=_Keys(self,{sid:s}))
-     answer=router.ask([{'role':'user','content':'Say hello in one short sentence.'}],cloud_consent=True,verified_free_providers=(sid,))
-     result={'state':'ready','model':s.model,'models':ids[:100],'seconds':round(time.monotonic()-started,3),'reply':answer['text'][:120],'scope':'real text greeting; not audible voice latency or billing verification'}
+     if greeted is None:
+      started=time.monotonic();router=BrainRouter([replace(configured(s.provider,s.model),name=s.id,requires_free_plan=True,timeout=30)],key_store=_Keys(self,{sid:s}))
+      greeted=router.ask([{'role':'user','content':'Say hello in one short sentence.'}],cloud_consent=True,verified_free_providers=(sid,))
+     result={'state':'ready','model':s.model,'models':ids[:100],'seconds':round(time.monotonic()-started,3),'reply':greeted['text'][:120],'scope':'real text greeting; not audible voice latency or billing verification'}
    except Exception as e:
     # Never include response bodies, request headers or secrets in errors.
     code='HTTP_'+str(e.code)if isinstance(e,urllib.error.HTTPError)else str(e)if isinstance(e,(ValueError,RouterError))else type(e).__name__
