@@ -55,6 +55,10 @@ def run(core):
    assert state['state']=='ready'and state['links'],state
    row=state['links'][0];assert row['url'].startswith('https://')
    assert not call('laya-mode')['ok'];assert call('laya-mode',consent=True)['data']['laya']['enabled']
+   blocked=call('chat',text='Reo find the observed documentation link')['data'];assert blocked['reo_log'][-1]['state']=='blocked';assert blocked['browser']['pending']is None
+   direct=call('chat',text='Reo scroll down')['data'];assert direct['browser']['pending']['command']=='scroll-down';assert direct['reo_log'][-1]['state']=='review';assert direct['browser']['status']['url']==state['url']
+   assert call('laya-stop')['data']['browser']['pending']is None
+   assert call('laya-mode',consent=True)['data']['laya']['enabled']
    assert call('laya-propose',goal='Read the observed documentation link')['ok']
    deadline=time.monotonic()+8
    while time.monotonic()<deadline:
