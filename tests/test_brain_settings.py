@@ -108,3 +108,46 @@ class BrainTests(unittest.TestCase):
   self.b.configure(self.rows,{});self.keys.get.return_value='fixture';http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':'llama-3.1-8b-instant'}]}).encode());router=Mock();router.ask.side_effect=RouterError('No enabled brain answered (slot1:http-429)')
   with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot1');t.join(1)
   self.assertIn('rate limit or quota',self.b.checks['slot1']['error']);self.assertIn('reset time is unknown',self.b.checks['slot1']['error'])
+
+class NimAutomaticTests(unittest.TestCase):
+ def setUp(self):
+  from jarvis.brain_settings import BrainSettings
+  from unittest.mock import Mock
+  import tempfile
+  from pathlib import Path
+  self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+  self.keys=Mock();self.b=BrainSettings(self.keys,Path(self.tmp.name)/'routes.json')
+ def test_nim_automatic_prefers_verified_nemotron_when_listed(self):
+  import io
+  from unittest.mock import Mock,patch
+  self.b.configure([{'id':'slot2','provider':'nim','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  ids=['meta/llama-3.3-70b-instruct','nvidia/nemotron-3.5-lightning-30b-a3b'];http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':m}for m in ids]}).encode())
+  router=Mock();router.ask.return_value={'text':'Hello'}
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot2');t.join(1)
+  self.assertEqual(self.b.rows['slot2'].model,'nvidia/nemotron-3.5-lightning-30b-a3b');self.assertEqual(self.b.checks['slot2']['state'],'ready')
+ def test_nim_automatic_falls_back_on_transient_failure_not_429(self):
+  import io
+  from unittest.mock import Mock,patch
+  from jarvis.router import RouterError
+  self.b.configure([{'id':'slot2','provider':'nim','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  ids=['meta/llama-3.3-70b-instruct','nvidia/nemotron-3.5-lightning-30b-a3b'];http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':m}for m in ids]}).encode())
+  router=Mock();router.ask.side_effect=[RouterError('No enabled brain answered (slot2:http-500)'),{'text':'Hello'}]
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot2');t.join(1)
+  self.assertEqual(self.b.rows['slot2'].model,'meta/llama-3.3-70b-instruct');self.assertEqual(self.b.checks['slot2']['state'],'ready');self.assertEqual(router.ask.call_count,2)
+ def test_nim_automatic_stops_on_429_without_second_candidate(self):
+  import io
+  from unittest.mock import Mock,patch
+  from jarvis.router import RouterError
+  self.b.configure([{'id':'slot2','provider':'nim','model':'','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  ids=['meta/llama-3.3-70b-instruct','nvidia/nemotron-3.5-lightning-30b-a3b'];http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':m}for m in ids]}).encode())
+  router=Mock();router.ask.side_effect=RouterError('No enabled brain answered (slot2:http-429)')
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot2');t.join(1)
+  self.assertEqual(router.ask.call_count,1);self.assertIn('rate limit or quota',self.b.checks['slot2']['error']);self.assertEqual(self.b.rows['slot2'].model,'automatic')
+ def test_nim_manual_id_unchanged_by_candidates(self):
+  import io
+  from unittest.mock import Mock,patch
+  self.b.configure([{'id':'slot2','provider':'nim','model':'some/custom-manual-id','enabled':True,'consent':True,'free':True}],{});self.keys.get.return_value='fixture'
+  http=Mock();http.open.return_value=io.BytesIO(json.dumps({'data':[{'id':'some/custom-manual-id'}]}).encode())
+  router=Mock();router.ask.return_value={'text':'Hello'}
+  with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot2');t.join(1)
+  self.assertEqual(self.b.rows['slot2'].model,'some/custom-manual-id')
