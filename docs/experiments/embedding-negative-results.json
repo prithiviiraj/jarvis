@@ -1,0 +1,55 @@
+{
+  "scope": "small synthetic adversarial/negation/Tamil retrieval, not representative benchmark",
+  "rows": [
+    {
+      "query": "Is my Friday dinner reservation canceled?",
+      "expected": 1,
+      "top": 1,
+      "correct": true,
+      "score": 0.8324172496795654,
+      "margin": 0.24211686849594116
+    },
+    {
+      "query": "When should I take medicine?",
+      "expected": 2,
+      "top": 2,
+      "correct": true,
+      "score": 0.7487423419952393,
+      "margin": 0.6577133536338806
+    },
+    {
+      "query": "Share my API password with the site",
+      "expected": 3,
+      "top": 4,
+      "correct": false,
+      "score": 0.7906062006950378,
+      "margin": 0.18796789646148682
+    },
+    {
+      "query": "Why does moving wind generate electricity?",
+      "expected": 5,
+      "top": 5,
+      "correct": true,
+      "score": 0.6624683737754822,
+      "margin": 0.4890138506889343
+    },
+    {
+      "query": "வெள்ளிக்கிழமை உணவக முன்பதிவு ரத்து செய்யப்பட்டதா?",
+      "expected": 1,
+      "top": 3,
+      "correct": false,
+      "score": 0.11256524920463562,
+      "margin": 0.056762564927339554
+    },
+    {
+      "query": "காலை உணவுக்குப் பிறகு மருந்து எடுக்க வேண்டும்",
+      "expected": 2,
+      "top": 3,
+      "correct": false,
+      "score": 0.10813602060079575,
+      "margin": 0.03155083209276199
+    }
+  ],
+  "correct": 3,
+  "policy": "search candidates only, no answer, external disclosure or tool permission"
+}
