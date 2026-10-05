@@ -33,7 +33,9 @@ class UiBridgeTests(unittest.TestCase):
  def test_voice_consent_and_local(self):
   self.b.voice.start=Mock()
   with self.assertRaises(ValueError):self.b.execute({'command':'voice-on'})
-  self.b.execute({'command':'voice-on','consent':True});self.b.voice.start.assert_called_once_with(consent=True,cloud=False)
+  self.b.execute({'command':'voice-on','consent':True});self.b.voice.start.assert_called_once_with(consent=True,cloud=False,barge_in=False)
+ def test_voice_on_barge_in_opt_in(self):
+  self.b.voice.start=Mock();self.b.execute({'command':'voice-on','consent':True,'barge_in':True});self.b.voice.start.assert_called_once_with(consent=True,cloud=False,barge_in=True);self.assertTrue(self.b.execute({'command':'status'})['barge_in'])
  def test_pause_disables_all(self):
   self.b.execute({'command':'judgment','enabled':True,'context_consent':True,'audio':True});self.b.execute({'command':'apps','enabled':True,'titles':True})
   state=self.b.execute({'command':'pause'});self.assertFalse(state['judgment']['enabled']);self.assertFalse(state['judgment']['audio']);self.assertFalse(state['awareness']['app_monitor']);self.assertFalse(self.b.titles)
