@@ -79,3 +79,6 @@ User0.5s first-audio goal remains unproven. Balanced endpoint800ms and Fast480ms
 precede telemetry's STT/model/PCM timings; PCM write is not sound heard.
 OptionalCPUruntime packaging removes only two upstreamNumPy test maps omitted
 by artifact uploader, then computes the actual shipped-file manifest.
+Actual laptop screenshot recognized "Hey, Kai. Can you hear me?" while previous
+DEX replied. Build90 parses punctuation after Hey/Hi/Hello and tests this exact
+transcript so the explicit KAI address overrides previous DEX.
