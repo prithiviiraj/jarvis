@@ -2,6 +2,11 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      run_laya_windows:
+        description: Build optional Windows Laya runtime and synthetic acceptance
+        required: false
+        type: boolean
+        default: false
       run_xtts:
         description: Run optional XTTS CPU runtime import only, no model download
         required: false
@@ -21,7 +26,7 @@ permissions:
   actions: read
 jobs:
   windows:
-    if: ${{ !inputs.run_laya && !inputs.run_xtts }}
+    if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: windows-latest
     timeout-minutes: 50
     defaults:
@@ -156,3 +161,45 @@ jobs:
           path: optional-engine-evidence
           if-no-files-found: error
           retention-days: 7
+
+  windows-laya:
+    if: ${{ inputs.run_laya_windows }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      USE_TF: '0'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pinned CPU runtime and build tools
+        shell: pwsh
+        run: |
+          python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          if ($LASTEXITCODE -ne 0) { throw 'CPU Torch install failed' }
+          python -m pip install -r optional-laya/requirements.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime dependencies failed' }
+          python -m pip check
+          if ($LASTEXITCODE -ne 0) { throw 'Runtime dependency check failed' }
+      - name: Package separate runtime without model weights
+        run: python optional-laya/package.py
+      - name: Actual frozen CPU and pinned model acceptance
+        run: python optional-laya/acceptance.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-optional-Laya-Windows-runtime
+          path: optional-laya/portable
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JARVIS-optional-Laya-Windows-evidence
+          path: |
+            optional-laya/acceptance.json
+            optional-laya/manifest.json
+            optional-laya/server.log
+          retention-days: 7
+          if-no-files-found: error
