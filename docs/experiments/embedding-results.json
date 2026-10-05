@@ -1,0 +1,81 @@
+{
+  "scope": "synthetic English note retrieval on Linux CPU; no private vault, Tamil or laptop accuracy proof",
+  "revision": "9b3cff412d30be9ae8603fe10224c224f3401869",
+  "assets": {
+    "config.json": {
+      "bytes": 202,
+      "sha256": "90a28f209637bea10a440b69c1b41b72a24c4cb7d378030172f89c671c254c80",
+      "url": "https://huggingface.co/minishlab/potion-base-4M/resolve/9b3cff412d30be9ae8603fe10224c224f3401869/config.json"
+    },
+    "model.safetensors": {
+      "bytes": 15118424,
+      "sha256": "8a7140edd17ffab30ddcff1135eda127df57abfae856203dbd7b3d061295c31a",
+      "url": "https://huggingface.co/minishlab/potion-base-4M/resolve/9b3cff412d30be9ae8603fe10224c224f3401869/model.safetensors"
+    },
+    "tokenizer.json": {
+      "bytes": 683666,
+      "sha256": "e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50",
+      "url": "https://huggingface.co/minishlab/potion-base-4M/resolve/9b3cff412d30be9ae8603fe10224c224f3401869/tokenizer.json"
+    },
+    "README.md": {
+      "bytes": 5202,
+      "sha256": "f0d13fe7a9aa2369a71b14eb4e1fa11dfa27498713e1fc600165b4b9cbc53705",
+      "url": "https://huggingface.co/minishlab/potion-base-4M/resolve/9b3cff412d30be9ae8603fe10224c224f3401869/README.md"
+    }
+  },
+  "load_s": 0.19052022800315171,
+  "six_document_encode_ms": 1.7833730016718619,
+  "rows": [
+    {
+      "query": "book dinner for four",
+      "expected": 0,
+      "top": 0,
+      "correct": true,
+      "query_ms": 0.14172499868436716,
+      "score": 0.36891844868659973
+    },
+    {
+      "query": "medicine after morning food",
+      "expected": 1,
+      "top": 1,
+      "correct": true,
+      "query_ms": 0.1234480005223304,
+      "score": 0.6285739541053772
+    },
+    {
+      "query": "browser automation in Python",
+      "expected": 2,
+      "top": 2,
+      "correct": true,
+      "query_ms": 0.08291000267490745,
+      "score": 0.7039602398872375
+    },
+    {
+      "query": "send CV for placement",
+      "expected": 3,
+      "top": 3,
+      "correct": true,
+      "query_ms": 0.0669270011712797,
+      "score": 0.4179016351699829
+    },
+    {
+      "query": "how does a windmill generate power",
+      "expected": 4,
+      "top": 4,
+      "correct": true,
+      "query_ms": 0.07698199988226406,
+      "score": 0.6165872812271118
+    },
+    {
+      "query": "secret API keys",
+      "expected": 5,
+      "top": 5,
+      "correct": true,
+      "query_ms": 0.06304000271484256,
+      "score": 0.6058936715126038
+    }
+  ],
+  "top1_correct": 6,
+  "license": "MIT per official model card",
+  "not_integrated": true
+}
