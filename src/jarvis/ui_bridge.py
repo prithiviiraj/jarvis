@@ -40,6 +40,17 @@ class Bridge:
   self.judge.poll(busy)
   if self.voice.runtime is not None:self.voice.runtime.action_handler=self.voice_action
  def voice_action(self,text):
+  from .vault_voice import parse_voice as parse_vault
+  try:vault_request=parse_vault(text)
+  except ValueError as error:
+   self.voice.notify('error',str(error));return True
+  if vault_request:
+   try:
+    self.execute(vault_request)
+    self.voice.notify('status','Local vault results ready in Settings > Memory. Nothing sent to a chat API.')
+   except (ValueError,OSError,UnicodeError) as error:
+    self.voice.notify('error','Local vault command failed. Check the connected vault and exact Markdown note path in Settings > Memory.')
+   return True
   if not self.browser_enabled:return False
   from .browser_control import parse_voice
   try:proposal=parse_voice(text)
@@ -65,7 +76,7 @@ class Bridge:
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','browser-links','browser-select'}
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','browser-links','browser-select'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd.startswith('browser-'):
    if cmd=='browser-stop':
@@ -109,6 +120,11 @@ class Bridge:
     self.browser.submit(**self.browser_pending,confirmed=True);self.browser_pending=None
    self.error=''
   elif cmd.startswith('vault-'):
+   if cmd=='vault-preview':
+    from .vault_voice import parse_voice as parse_vault
+    proposal=parse_vault(request.get('text'))
+    if not proposal:raise ValueError('Use obsidian search words or obsidian read Exact/Note.md')
+    return self.execute(proposal)
    if cmd=='vault-connect':
     if request.get('consent') is not True:raise ValueError('Allow local vault access first')
     from .obsidian import Vault
