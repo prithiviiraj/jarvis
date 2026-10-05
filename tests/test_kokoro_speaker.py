@@ -17,3 +17,12 @@ class SpeakerTests(unittest.TestCase):
   self.output.write.side_effect=RuntimeError('audio unavailable')
   with self.assertRaises(RuntimeError):self.speaker.speak('hello')
   self.output.close.assert_called_once();self.assertIsNone(self.speaker.output)
+ def test_one_first_write_event_after_write_not_start(self):
+  seen=[];self.speaker.output_event=lambda *a:seen.append((a,self.output.write.call_count))
+  self.speaker.speak('hello');self.assertEqual(seen,[(('first-write',0,24000),1)])
+ def test_failed_write_no_metric(self):
+  seen=[];self.speaker.output_event=lambda *a:seen.append(a);self.output.write.side_effect=RuntimeError('failed')
+  with self.assertRaises(RuntimeError):self.speaker.speak('hello')
+  self.assertEqual(seen,[])
+ def test_pause_during_first_write_no_metric(self):
+  seen=[];self.speaker.output_event=lambda *a:seen.append(a);self.output.write.side_effect=lambda a:self.speaker.stop();self.speaker.speak('hello');self.assertEqual(seen,[])
