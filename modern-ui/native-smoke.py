@@ -12,7 +12,8 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
  def do_POST(self):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
   # Direct-final retries append a user instruction. Match the original probe too.
-  text='\n'.join(m['content'] for m in body['messages'] if m.get('role')=='user' and isinstance(m.get('content'),str))
+  user_texts=[m['content'] for m in body['messages'] if m.get('role')=='user' and isinstance(m.get('content'),str)]
+  text=user_texts[-2] if user_texts[-1].startswith('Your previous response did not include a final answer.') else user_texts[-1]
   if text=='Say ready in one word.':
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers();self.wfile.write(b'data: {"choices":[{"delta":{"content":"Ready"}}]}\n\ndata: [DONE]\n\n');return
   if 'scaffold-probe' in text:
