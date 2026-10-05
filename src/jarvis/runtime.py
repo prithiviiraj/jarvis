@@ -38,7 +38,7 @@ class VoiceRuntime:
         with self.lock:self.turn_metrics={'ticket':ticket,'started':started,'generation':generation,'metrics':metrics}
         self.notify('metrics',{})
         try:
-            self.notify('response-diagnostics',[]);self.notify('error','');self.notify('state','transcribing');text=self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
+            self.notify('response-diagnostics',[]);self.notify('error','');self.notify('state','transcribing');cancellable=getattr(type(self.stt),'transcribe_cancellable',None);text=cancellable(self.stt,audio,self.cancel)if callable(cancellable)else self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
