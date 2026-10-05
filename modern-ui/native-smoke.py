@@ -129,7 +129,20 @@ try:
  click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
  assert window.child_window(title='Last voice turn timing',control_type='Text').exists(),'Voice timing heading missing'
- endpoint=window.child_window(title='Listening pause',control_type='ComboBox');endpoint.wait('exists',timeout=10);endpoint.wrapper_object().set_focus();window.type_keys('{DOWN}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Fast - 480ms';endpoint.wrapper_object().set_focus();window.type_keys('{UP}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Balanced - 800ms (default)'
+ from pywinauto import mouse
+ def choose_native_option(name,label,key):
+  for attempt in range(3):
+   control=window.child_window(title=name,control_type='ComboBox');control.wait('exists',timeout=10)
+   try:control.wrapper_object().select(label)
+   except Exception:
+    control.wrapper_object().set_focus();window.type_keys('{HOME}'+key+'{ENTER}')
+   deadline=time.monotonic()+4
+   while time.monotonic()<deadline:
+    if control.wrapper_object().selected_text()==label:return
+    time.sleep(.2)
+  raise AssertionError('Native option readback failed: '+name+' -> '+label)
+ choose_native_option('Listening pause','Fast - 480ms','{DOWN}')
+ choose_native_option('Listening pause','Balanced - 800ms (default)','')
  window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
  checks.append('native session listening-pause fast480ms then balanced800ms selector')
  click('Settings');click('Voices')
