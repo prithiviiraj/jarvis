@@ -23,10 +23,53 @@ class Dialogue(unittest.TestCase):
   def ask(*a,**kw):started.set();released.wait(1);return {'text':'A reply.'}
   router.ask.side_effect=ask;brains=Mock();brains.router.return_value=router
   worker=v.dialogue('Lyra and Dex talk to each other',brains);started.wait(1);v.pause();released.set();worker.join(2);self.assertFalse(any(x[0]=='answer'for x in list(v.events.queue)));v.close()
-
  def test_natural_named_discussion_intents(self):
   for t in ('JARVIS, can you discuss with NOVA about why humans have imagination?', 'Jarvis have a discussion with Nova about science', 'Lyra talk to Dex about coding'):
    self.assertTrue(requested(t),t)
   self.assertEqual(order('JARVIS, can you discuss with NOVA about humans?'),('JARVIS','NOVA','JARVIS','NOVA','JARVIS'))
   for t in ("Jarvis don't discuss with Nova about this",'Stop the conversation with Nova','Do not talk to Nova about science','What does Nova do?','I talked with Nova yesterday','Talk to Nova','Lyra what is time now?'):
    self.assertFalse(requested(t),t)
+ def test_no_fabricated_user_turn_on_idle(self):
+  v=WorkspaceVoice();brains=Mock();brains.router.return_value.ask.return_value={'text':'A short real reply.'}
+  v.dialogue('Nova and Lyra talk to each other about hello',brains,rounds=1,origin='idle').join(2)
+  self.assertFalse(any(k=='transcript'for k,x in list(v.events.queue)));self.assertEqual(sum(k=='answer'for k,x in list(v.events.queue)),3);v.close()
+
+class StreamingDialogue(unittest.TestCase):
+ def test_partial_arrives_before_generation_finishes(self):
+  v=WorkspaceVoice();entered=threading.Event();release=threading.Event();calls=[]
+  class Router:
+   def stream(self,messages,**kw):
+    calls.append(messages);yield {'text':'A useful ','provider':'fixture'};entered.set();release.wait(2);yield {'text':'reply.','provider':'fixture'}
+  brains=Mock();brains.router.return_value=Router()
+  w=v.dialogue('Nova and Lyra talk to each other about art',brains,rounds=1);self.assertTrue(entered.wait(1))
+  a=[x[1]for x in list(v.events.queue)if x[0]=='answer'];self.assertEqual(a[0]['text'],'A useful ');self.assertTrue(w.is_alive())
+  release.set();w.join(3);a=[x[1]for x in list(v.events.queue)if x[0]=='answer'];self.assertEqual(len(a),6);self.assertEqual(a[0]['stream_id'],a[1]['stream_id']);self.assertIn('[NOVA] A useful reply.',str(calls[1]));v.close()
+ def test_pause_stops_delta_and_next_profile(self):
+  v=WorkspaceVoice();entered=threading.Event();release=threading.Event();calls=[]
+  class Router:
+   def stream(self,*a,**kw):
+    calls.append(1);yield {'text':'First ','provider':'fixture'};entered.set();release.wait(2);yield {'text':'late.','provider':'fixture'}
+  brains=Mock();brains.router.return_value=Router();w=v.dialogue('Nova and Lyra talk to each other',brains,rounds=1);entered.wait(1);v.pause();release.set();w.join(2)
+  a=[x[1]for x in list(v.events.queue)if x[0]=='answer'];self.assertEqual(len(a),1);self.assertEqual(len(calls),1);self.assertEqual(v.memory.messages(),[]);v.close()
+ def test_invented_teammate_stream_stops_without_replacement(self):
+  v=WorkspaceVoice()
+  class Router:
+   def stream(self,*a,**kw):yield {'text':'[Dex, secretly fixes things]','provider':'fixture'}
+  brains=Mock();brains.router.return_value=Router();v.dialogue('Nova and Lyra talk to each other',brains,rounds=1).join(2)
+  self.assertFalse(any(k=='answer'for k,x in list(v.events.queue)));self.assertTrue(any(k=='error'for k,x in list(v.events.queue)));v.close()
+ def test_clause_audio_before_full_reply_and_stop(self):
+  from unittest.mock import patch
+  v=WorkspaceVoice();spoken=threading.Event();release=threading.Event();said=[]
+  class Speaker:
+   generation=0
+   synth=Mock()
+   def select_profile(self,name):self.profile=name
+   def speak(self,text,generation=None):said.append((self.profile,text));spoken.set()
+   def stop(self):self.generation+=1
+  class Router:
+   def stream(self,*a,**kw):
+    yield {'text':'First useful sentence.','provider':'fixture'};release.wait(2);yield {'text':' Another sentence.','provider':'fixture'}
+  brains=Mock();brains.router.return_value=Router()
+  with patch('jarvis.workspace_voice.build_proactive_speaker',return_value=Speaker()):
+   w=v.dialogue('Nova and Lyra talk to each other',brains,audio=True,rounds=1);self.assertTrue(spoken.wait(1));self.assertTrue(w.is_alive());v.pause();release.set();w.join(3)
+  self.assertEqual(said,[('NOVA','First useful sentence.')]);v.close()
