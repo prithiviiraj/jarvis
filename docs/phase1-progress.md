@@ -61,3 +61,12 @@ operation is unsupported. Unsupported vault writes/incomplete read/search
 commands stay local too; no silent model fallback. Vault commands recognize
 allfive addressed personas and preserve exact Markdown paths. Ordinary
 conversation about a browser/vault is not reclassified as an action.
+
+Build87 connects an experimental local Laya proposal client, session opt-in,
+loopback127.0.0.1:8000. This build does NOT install a Laya model or server.
+Goals/host/up to20 observed link labels go only to that explicitly enabled local
+server; no screenshot/page text/accountkeys. Link/scroll proposals map into
+existing exact review, never autonomous execution. Stop and page/link changes
+reject late replies; deterministic commands override outstanding suggestions.
+Model DONE/WAIT/BLOCKED is not task completion. Typing/forms/payment/upload
+remain unavailable. Endpoint fixtures validate wiring, not actualmodelquality.
