@@ -52,6 +52,7 @@ class VoiceRuntime:
             # Browser mode uses only explicit commands, not model decisions or page text.
             handler=getattr(self,'action_handler',None)
             if callable(handler) and handler(text):return
+            from .persona_text import own_reply
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             if requested(text):
                 stage='team discussion';context=list(history[-6:]);answers=[]
@@ -105,6 +106,7 @@ class VoiceRuntime:
                             if not self.valid(generation):return
                             if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
                             pieces.append(delta['text']);provider[:]=[delta]
+                            own_reply(strip_speaker_tag(''.join(pieces)),self.persona,context)
                             self.notify('answer',{'text':strip_speaker_tag(''.join(pieces)),'provider':delta['provider'],'profile':self.persona})
                             if delta.get('model'):self.notify('status',delta['provider']+' model '+delta['model'])
                         yield delta['text']
