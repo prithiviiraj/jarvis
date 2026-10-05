@@ -92,9 +92,10 @@ class BrowserSession:
      page=context.pages[0]if context.pages else context.new_page()
      if expected_url is not None:
       if page.url!=expected_url:raise ValueError('Browser page changed; read links again')
-      from .browser_links import links
-      fresh=links(page)
-      if value not in {r['url']for r in fresh['links']}:raise ValueError('Selected link changed; read links again')
+      if command=='open':
+       from .browser_links import links
+       fresh=links(page)
+       if value not in {r['url']for r in fresh['links']}:raise ValueError('Selected link changed; read links again')
      if command=='read-links':
       from .browser_links import links
       snapshot=links(page);result={'url':page.url,'title':page.title()[:160],'links':snapshot['links']}
