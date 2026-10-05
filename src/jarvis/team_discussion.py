@@ -5,9 +5,18 @@ ORDER=('JARVIS','NOVA','LYRA','KAI','DEX','JARVIS')
 BANTER_ORDER=('JARVIS','NOVA','DEX','JARVIS','NOVA','LYRA','KAI','DEX','JARVIS')
 def banter(text):return bool(re.search(r'\b(?:argue|argument|bicker|banter)\b',text,re.I))
 def order(text):
- if re.search(r'\beach\s+other\b',text,re.I):return participants(text)*2+('JARVIS',)
+ if re.search(r'\beach\s+other\b',text,re.I)or (requested(text)and not re.search(r'\b(?:among|amongst|between)\s+yourselves\b',text,re.I)):return participants(text)*2+('JARVIS',)
  return BANTER_ORDER if banter(text) else ORDER
-def requested(text):return bool(re.search(r'\b(?:discuss|talk|chat)\s+(?:among|amongst|between)\s+yourselves\b|\b(?:discuss|talk|chat)\b.{0,100}\beach\s+other\b',text,re.I))
+def requested(text):
+ if not isinstance(text,str):return False
+ if re.search(r"\b(?:do\s+not|don't|dont|never|stop|cancel)\b.{0,50}\b(?:discuss|talk|chat|conversation)\b",text,re.I):return False
+ if re.search(r'\b(?:discuss|talk|chat)\s+(?:among|amongst|between)\s+yourselves\b|\b(?:discuss|talk|chat)\b.{0,100}\beach\s+other\b',text,re.I):return True
+ from .personas import ROLES
+ names='|'.join(re.escape(n)for n in ROLES if n!='REO')
+ # "discuss with Nova", "have a discussion with Dex", "talk to Nova about".
+ verb=r'(?:discuss|discussion|conversation|talk|chat)'
+ return bool(re.search(r'\b'+verb+r'\b.{0,45}\bwith\s+(?:the\s+)?(?:'+names+r')\b',text,re.I)or re.search(r'\b'+verb+r'\b.{0,45}\bto\s+(?:'+names+r')\b.{0,25}\babout\b',text,re.I))
+
 def messages(actor,topic,context,index):
  actors=order(topic)
  if index==len(actors)-1:instruction='Give a final one-line useful answer to master, using only this actual discussion. Do not append a routine report label. Never claim jobs are done.'
@@ -24,14 +33,19 @@ def messages(actor,topic,context,index):
 
 def participants(text):
  names=[]
- for m in re.finditer(r'\b(jarvis|nova|lyra|kai|dex)\b',text,re.I):
+ from .personas import ROLES
+ pattern=r'\b('+'|'.join(re.escape(n)for n in ROLES if n!='REO')+r')\b'
+ for m in re.finditer(pattern,text,re.I):
   name=m.group(1).upper()
   if name not in names:names.append(name)
+ if len(names)>5:raise ValueError('Choose at most5profiles per discussion (maximum16turns)')
  return tuple(names) if len(names)>=2 else ('JARVIS','NOVA','LYRA','KAI','DEX')
 
 def clean_reply(text):
  from .persona_text import strip_speaker_tag
  text=strip_speaker_tag(text)
  if not isinstance(text,str)or not text.strip()or len(text)>3000:raise ValueError('Invalid team reply')
- if re.search(r'\[(?:JARVIS|NOVA|LYRA|KAI|DEX|REO)\]|(?:^|\n)\s*(?:JARVIS|NOVA|LYRA|KAI|DEX|REO)\s*:',text,re.I):raise ValueError('One profile attempted to write another profile reply')
+ from .personas import ROLES
+ names='|'.join(re.escape(n)for n in ROLES)
+ if re.search(r'\[(?:'+names+r')\]|(?:^|\n)\s*(?:'+names+r')\s*:',text,re.I):raise ValueError('One profile attempted to write another profile reply')
  return text
