@@ -63,7 +63,7 @@ jobs:
           npm install --no-save playwright@1.51.1
           npx playwright install chromium
           $server = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','dist' -PassThru
-          try { node ui-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI check failed' }; node account-scroll-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Account scroll check failed' }; node onboarding-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Onboarding check failed' }; node expression-connected-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Expression check failed' }; node caption-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI smoke failed' }; if (Test-Path 'public/faces/manifest.json') { node face-pack-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Face persistence failed' }; node motion-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Motion check failed' } } } finally { Stop-Process -Id $server.Id }
+          try { node ui-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI check failed' }; node account-scroll-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Account scroll check failed' }; node laya-managed-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Managed Laya renderer check failed' }; node onboarding-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Onboarding check failed' }; node expression-connected-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Expression check failed' }; node caption-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI smoke failed' }; if (Test-Path 'public/faces/manifest.json') { node face-pack-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Face persistence failed' }; node motion-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'Motion check failed' } } } finally { Stop-Process -Id $server.Id }
       - name: Build Tauri Windows executable
         shell: pwsh
         run: |
@@ -85,6 +85,10 @@ jobs:
         run: |
           python -m pip install pyinstaller==6.16.0 opencv-python==4.12.0.88 playwright==1.51.0
           if ($LASTEXITCODE -ne 0) { throw 'Packaging dependencies failed' }
+          python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          if ($LASTEXITCODE -ne 0) { throw 'Inbuilt Laya CPU Torch failed' }
+          python -m pip install -r ../optional-laya/requirements.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Inbuilt Laya runtime dependencies failed' }
           python package-windows.py
           if ($LASTEXITCODE -ne 0) { throw 'Frozen core acceptance failed' }
           $env:JARVIS_UI_EXE = (Resolve-Path 'windows-portable/JARVIS.exe').Path
@@ -93,6 +97,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Packaged Tauri launch failed' }
           & ./windows-portable/backend/jarvis-local-core.exe --voice-self-test
           if ($LASTEXITCODE -ne 0) { throw 'Frozen speech software chain failed' }
+          & ./windows-portable/backend/jarvis-local-core.exe --laya-self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen managed Laya acceptance failed' }
       - uses: actions/upload-artifact@v4
         with:
           name: JARVIS-Windows-Voice-Preview
