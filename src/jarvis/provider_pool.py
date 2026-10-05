@@ -33,8 +33,11 @@ class ProviderPool:
         for s in slots:
             if s.provider!='local' and (s.id not in consented or s.id not in free_confirmed):raise ValueError('Confirm disclosure and free account status for each cloud slot')
         providers=[replace(configured(s.provider,s.model),name=s.id,requires_free_plan=s.provider!='local') for s in slots]
-        return PoolSessionRouter(BrainRouter(providers,transport=transport,key_store=SlotKeys(store,slots)),tuple(s.id for s in slots if s.provider!='local'))
+        return PoolSessionRouter(BrainRouter(providers,transport=transport,key_store=SlotKeys(store,slots)),tuple(s.id for s in slots if s.provider!='local'),{s.id:s.provider for s in slots})
 class PoolSessionRouter:
-    def __init__(self,router,verified):self.router=router;self.verified=verified
-    def ask(self,*args,**kw):return self.router.ask(*args,verified_free_providers=self.verified,**kw)
-    def stream(self,*args,**kw):return self.router.stream(*args,verified_free_providers=self.verified,**kw)
+    def __init__(self,router,verified,kinds=None):self.router=router;self.verified=verified;self.kinds=kinds or {}
+    def ask(self,*args,**kw):return self.source(self.router.ask(*args,verified_free_providers=self.verified,**kw))
+    def source(self,row):
+        slot=row.get('provider');return {**row,'provider':self.kinds.get(slot,slot),'slot':slot}
+    def stream(self,*args,**kw):
+        for row in self.router.stream(*args,verified_free_providers=self.verified,**kw):yield self.source(row)
