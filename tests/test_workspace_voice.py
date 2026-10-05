@@ -57,3 +57,7 @@ class BridgeTests(unittest.TestCase):
  def test_shared_memory_survives_profile_switch_and_clears_close(self):
   c=WorkspaceVoice(Mock(return_value=Mock()));c.start(True).join(2);c.runtime.record_turn('a','b');c.select('NOVA');c.start(True).join(2)
   self.assertEqual(c.runtime.shared_context()[1]['content'],'[JARVIS] b');c.close();self.assertEqual(c.memory.messages(),[])
+ def test_endpoint_preset_applied_before_mic_enable(self):
+  runtime=Mock();c=WorkspaceVoice(Mock(return_value=runtime));c.endpoint_mode='fast'
+  runtime.enable.side_effect=lambda **kw:self.assertEqual(runtime.mic.endpointer.silence_frames,15)
+  c.start(True).join(2);runtime.enable.assert_called_once()
