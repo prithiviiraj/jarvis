@@ -141,10 +141,12 @@ try:
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
  button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-kokoro-download-review.png');click('Cancel voice download review');window.child_window(title='Confirm voice download',control_type='Button').wait_not('exists',timeout=10)
- window.child_window(title='Speech engine',control_type='ComboBox').wrapper_object().set_focus()
+ from pywinauto import mouse
+ mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.5)
  engine=window.child_window(title='Speech engine',control_type='ComboBox')
  def choose_engine(label,key):
   for attempt in range(3):
+   mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.3)
    control=engine.wrapper_object()
    try:control.select(label)
    except Exception:
@@ -160,7 +162,7 @@ try:
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
  assert 'About 28MB'in' '.join(x.window_text()for x in window.descendants())
  button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
- window.capture_as_image().save('ui-evidence/native-kitten-download-review.png');click('Cancel voice download review');window.child_window(title='Speech engine',control_type='ComboBox').wrapper_object().set_focus();choose_engine('Kokoro - default','{HOME}')
+ window.capture_as_image().save('ui-evidence/native-kitten-download-review.png');click('Cancel voice download review');mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.5);choose_engine('Kokoro - default','{HOME}')
  assert 'Downloading 'not in' '.join(x.window_text()for x in window.descendants())
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('native exact Kokoro/Kitten download reviews canceled; no download or microphone start; engine restored')
