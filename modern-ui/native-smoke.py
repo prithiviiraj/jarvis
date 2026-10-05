@@ -160,6 +160,8 @@ try:
  click('DEX Coder')
  click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
+ assert window.child_window(title='Last voice turn timing',control_type='Text').exists(),'Voice timing heading missing'
+ window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('voice model setup and explicit Mic ON controls visible')
  click('Voice')
