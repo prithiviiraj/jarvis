@@ -55,3 +55,9 @@ or action handler. A running native inference call is not force-interrupted.
 CI diagnostic60second timer is now scoped to each voice turn, not cumulative
 model downloads+five turns, so its stackdump cannot imply a long single turn
 just because the full acceptance run took a minute.
+
+Build86 consumes explicit browser requests locally when mode is OFF or the
+operation is unsupported. Unsupported vault writes/incomplete read/search
+commands stay local too; no silent model fallback. Vault commands recognize
+allfive addressed personas and preserve exact Markdown paths. Ordinary
+conversation about a browser/vault is not reclassified as an action.
