@@ -188,3 +188,8 @@ class NimAutomaticTests(unittest.TestCase):
   router=Mock();router.ask.return_value={'text':'Hello'}
   with patch('jarvis.brain_settings.urllib.request.build_opener',return_value=http),patch('jarvis.brain_settings.BrainRouter',return_value=router):t=self.b.check('slot2');t.join(1)
   self.assertEqual(self.b.rows['slot2'].model,'some/custom-manual-id')
+
+class NativeModelListBoundary(unittest.TestCase):
+ def test_native_allows_list_command(self):
+  p=Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs'
+  self.assertIn('"brain-models"',p.read_text().split('.contains(&command)')[0])
