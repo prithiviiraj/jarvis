@@ -13,7 +13,7 @@ class ChatHistory:
   if not isinstance(chat_id,str)or len(chat_id)!=32 or any(c not in '0123456789abcdef' for c in chat_id):raise ValueError('Invalid conversation')
   clean=[]
   for row in messages[-self.max_messages:]:
-   if not isinstance(row,dict)or row.get('name')not in ('You','JARVIS','NOVA','KAI','LYRA','DEX')or not isinstance(row.get('text'),str):raise ValueError('Invalid message')
+   if not isinstance(row,dict)or row.get('name')not in ('You','JARVIS','NOVA','KAI','LYRA','DEX','REO')or not isinstance(row.get('text'),str):raise ValueError('Invalid message')
    clean.append({'name':row['name'],'text':row['text'][:4000]})
   title=next((x['text'].replace('\n',' ')[:70]for x in clean if x['name']=='You'),'New conversation')
   with self.lock,self.db:
@@ -26,7 +26,7 @@ class ChatHistory:
    row=self.db.execute('SELECT messages FROM chats WHERE id=?',(chat_id,)).fetchone()
    if not row:raise ValueError('Conversation not found')
    rows=json.loads(row[0])
-   if not isinstance(rows,list)or len(rows)>self.max_messages or any(not isinstance(r,dict)or r.get('name')not in ('You','JARVIS','NOVA','KAI','LYRA','DEX')or not isinstance(r.get('text'),str)or len(r['text'])>4000 for r in rows):raise ValueError('Saved conversation invalid; file preserved')
+   if not isinstance(rows,list)or len(rows)>self.max_messages or any(not isinstance(r,dict)or r.get('name')not in ('You','JARVIS','NOVA','KAI','LYRA','DEX','REO')or not isinstance(r.get('text'),str)or len(r['text'])>4000 for r in rows):raise ValueError('Saved conversation invalid; file preserved')
    return rows
  def delete(self,chat_id):
   with self.lock,self.db:self.db.execute('DELETE FROM chats WHERE id=?',(chat_id,))
