@@ -79,10 +79,12 @@ try:
  def button(name,root=None):
   item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
- click('Connect core / check brains');time.sleep(2)
+ time.sleep(2)
+ assert not requests,'Bundled core launch must not probe LM Studio or send inference'
+ click('Review proactive team ON');click('Cancel proactive team review');checks.append('front proactive review canceled; permission remains OFF')
  click('Settings');click('Brain & APIs')
  click('Review local speed test');button('Confirm local speed test').wait('exists',timeout=10);button('Confirm local speed test').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-local-speed-review.png');click('Cancel local speed review');window.child_window(title='Confirm local speed test',control_type='Button').wait_not('exists',timeout=10);checks.append('native synthetic local timing review/cancel; no test request started')
- button('Check LM Studio connection').wait('exists',timeout=10)
+ button('Check LM Studio connection').wait('exists',timeout=10);click('Check LM Studio connection')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
   connection_text=' '.join(x.window_text()for x in window.descendants())
@@ -114,6 +116,15 @@ try:
 
  window.capture_as_image().save('ui-evidence/native-brain-settings.png')
  click('Agents')
+ def fill_named(name,text):
+  control=window.child_window(title=name,control_type='Edit');control.wait('exists',timeout=10);control.wrapper_object().set_focus();window.type_keys('^a');window.type_keys(text,with_spaces=True)
+ fill_named('New agent name','MIRA');fill_named('New agent personality','Curious patient tutor.')
+ click('Review new agent');button('Confirm create agent').wait('exists',timeout=10);click('Cancel agent review')
+ assert not window.child_window(title='Confirm create agent',control_type='Button').exists(),'Creator cancel failed'
+ click('Review new agent');button('Confirm create agent').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-agent-create-review.png');click('Confirm create agent');time.sleep(1)
+ button('MIRA Custom teammate').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-agent-created-team.png')
+ checks.append('native custom creator exact review/cancel/create joins Team; no mic/model starts')
+ click('Team room')
  click('DEX Coder')
  click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
@@ -121,17 +132,16 @@ try:
  endpoint=window.child_window(title='Listening pause',control_type='ComboBox');endpoint.wait('exists',timeout=10);endpoint.wrapper_object().set_focus();window.type_keys('{DOWN}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Fast - 480ms';endpoint.wrapper_object().set_focus();window.type_keys('{UP}{ENTER}');time.sleep(.7);assert endpoint.wrapper_object().selected_text()=='Balanced - 800ms (default)'
  window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
  checks.append('native session listening-pause fast480ms then balanced800ms selector')
- click('Agents')
+ click('Settings');click('Voices')
  interrupt=window.child_window(title='Interrupt (headphones)',control_type='CheckBox');interrupt.wait('exists',timeout=10);interrupt.wrapper_object().set_focus();time.sleep(.3)
  window.capture_as_image().save('ui-evidence/native-headphone-interruption-off.png')
  assert interrupt.wrapper_object().get_toggle_state()==0,'Interruption must default OFF'
  checks.append('native headphone interruption checkbox visible and defaults OFF; no microphone started')
- click('Voice setup')
  button('Mic ON / start local voice').wait('exists',timeout=10)
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
  button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-kokoro-download-review.png');click('Cancel voice download review');window.child_window(title='Confirm voice download',control_type='Button').wait_not('exists',timeout=10)
- button('Check local voice models').wrapper_object().set_focus();window.type_keys('+{TAB}+{TAB}');time.sleep(.3)
+ window.child_window(title='Speech engine',control_type='ComboBox').wrapper_object().set_focus()
  engine=window.child_window(title='Speech engine',control_type='ComboBox')
  def choose_engine(label,key):
   for attempt in range(3):
@@ -150,7 +160,7 @@ try:
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
  assert 'About 28MB'in' '.join(x.window_text()for x in window.descendants())
  button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
- window.capture_as_image().save('ui-evidence/native-kitten-download-review.png');click('Cancel voice download review');button('Check local voice models').wrapper_object().set_focus();window.type_keys('+{TAB}+{TAB}');time.sleep(.3);choose_engine('Kokoro - default','{HOME}')
+ window.capture_as_image().save('ui-evidence/native-kitten-download-review.png');click('Cancel voice download review');window.child_window(title='Speech engine',control_type='ComboBox').wrapper_object().set_focus();choose_engine('Kokoro - default','{HOME}')
  assert 'Downloading 'not in' '.join(x.window_text()for x in window.descendants())
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('native exact Kokoro/Kitten download reviews canceled; no download or microphone start; engine restored')
@@ -198,12 +208,14 @@ try:
  click('Stop browser control');time.sleep(.5);checks.append('native visible browser permission review/cancel/enable and exact destination review/cancel; no navigation fired')
 
 
- # Isolate real chat archive title from earlier explicit action-routing messages.
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
- field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft');time.sleep(.5)
- button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-team-browser-review.png');click('Cancel Team browser action')
- assert not window.child_window(title='Confirm Team browser action',control_type='Button').exists(),'Team browser cancel failed'
- checks.append('native compound YouTube command exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Stop browser control')
+ field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft')
+ button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
+ assert 'https://www.youtube.com/'in' '.join(x.window_text()for x in window.descendants())
+ window.capture_as_image().save('ui-evidence/native-team-browser-review.png');click('Cancel Team browser action')
+ checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Stop browser control')
+
+ # Isolate real chat archive title from earlier explicit action-routing messages.
  click('Agents');click('New chat');time.sleep(.5)
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
  click('Add local draft')
@@ -218,11 +230,10 @@ try:
  time.sleep(3)
  text=' '.join(x.window_text() for x in window.descendants())
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
+ assert 'Local · LM Studio · qwen2.5-vl-3b-instruct'in text,'True local provider/model source label missing'
+ checks.append('native true local route/model visible on reply')
  window.capture_as_image().save('ui-evidence/tauri-chat-roundtrip.png');checks.append('packaged UI IPC frozen-core local HTTP reply shown')
- for expression in ['thinking','speaking','idle']:
-  click(expression);time.sleep(.4)
-  window.capture_as_image().save('ui-evidence/tauri-preview-'+expression+'.png')
- checks.append('connected expression preview controls visibly tested; foursecondreturnlive')
+ checks.append('legacy preview controls removed for creator; streamed live expression checked through Team renderer')
  field.wrapper_object().set_edit_text('empty-stream-probe');click('Add local draft')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
@@ -281,7 +292,7 @@ try:
  assert not ctypes.windll.user32.IsWindowVisible(transcript_handle),'Caption transcript must hide on workspace restore'
  window.capture_as_image().save('ui-evidence/workspace-restored-no-duplicate-captions.png')
  click('Transcript OFF')
- click('Local awareness');click('Allow app names');time.sleep(2)
+ click('Settings');click('Privacy');click('Allow app names');time.sleep(2)
  click('Allow local context judgment');time.sleep(2)
  click('Stop sensors and speech');time.sleep(1)
  click('Transcript ON')
@@ -309,7 +320,7 @@ try:
  assert ctypes.windll.user32.IsWindow(restarted_workspace_handle),'Restarted workspace HWND is invalid'
  ctypes.windll.user32.ShowWindow(restarted_workspace_handle,9) # SW_RESTORE
  window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
- window.wait('visible',timeout=10);window.set_focus();click('Connect core / check brains');time.sleep(2);click('Agents');click('Local awareness')
+ window.wait('visible',timeout=10);window.set_focus();time.sleep(2);click('Team room');button('MIRA Custom teammate').wait('exists',timeout=10);checks.append('custom profile survives real native restart');click('Settings');click('Privacy')
  checks.append('native full restart preserves transcript OFF and never recreates avatar window')
  window.set_focus();
  from pywinauto import mouse
