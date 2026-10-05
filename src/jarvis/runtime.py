@@ -52,7 +52,7 @@ class VoiceRuntime:
             # Browser mode uses only explicit commands, not model decisions or page text.
             handler=getattr(self,'action_handler',None)
             if callable(handler) and handler(text):return
-            from .team_discussion import requested,order,messages as discussion_messages
+            from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             if requested(text):
                 stage='team discussion';context=list(history[-6:]);answers=[]
                 for index,actor in enumerate(order(text)):
@@ -63,7 +63,7 @@ class VoiceRuntime:
                     if callable(select):select(actor)
                     self.persona=actor;self.notify('voice-actor',actor);self.notify('state','thinking')
                     reply=self.router.ask(discussion_messages(actor,text,context,index),cloud_consent=cloud,cancel=self.cancel)
-                    answer_text=strip_speaker_tag(reply.get('text'))
+                    answer_text=clean_reply(reply.get('text'))
                     if not isinstance(answer_text,str)or not answer_text.strip()or len(answer_text)>1500:raise ValueError('Invalid discussion reply')
                     if not self.valid(generation)or self.cancel.is_set():return
                     self.notify('answer',dict(reply,text=answer_text,profile=actor));self.notify('state','speaking');spoken=spoken_text(answer_text)
