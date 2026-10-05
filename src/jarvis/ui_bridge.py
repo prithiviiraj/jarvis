@@ -28,6 +28,8 @@ class Bridge:
   from .idle_companion import IdleCompanion
   from .experimental.smart_turn import TurnSetup
   self.turn_setup=TurnSetup()
+  from .experimental.static_vault_search import SearchSetup,VaultSearch
+  self.search_setup=SearchSetup();self.semantic_search=VaultSearch(self.search_setup)
   self.idle=IdleCompanion(self.voice,self.brains,self.voice.notify)
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.warning='';self.response_diagnostics=[];self.voice_metrics={};self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
@@ -143,7 +145,7 @@ class Bridge:
   from .browser_control import BrowserControl
   return dict(proposal,expected_url=BrowserControl.destination(state['url']))
  def stop_laya(self):
-  self.laya_engine.stop();self.laya_setup.stop()
+  self.laya_engine.stop();self.laya_setup.stop();self.search_setup.stop();self.semantic_search.stop()
   self.laya_enabled=False;self.laya_generation+=1;self.laya_state={'busy':False,'status':'Off - no proposals requested','error':''}
  def start_laya(self,goal):
   if not self.laya_enabled or not self.browser_enabled or not self.browser or self.browser.cancel.is_set():raise ValueError('Enable shared Laya and open a reviewed browser page first')
@@ -171,7 +173,7 @@ class Bridge:
   self.local_speed.stop();self.brains.stop_warmup()
   self.browser_enabled=False;self.browser_pending=None;
   if self.browser:self.browser.close()
-  self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.status='off';self.error='';self.response_diagnostics=[];self.voice_metrics={};self.caption={'active':False,'name':'','text':''}
+  self.search_setup.stop();self.semantic_search.stop();self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.status='off';self.error='';self.response_diagnostics=[];self.voice_metrics={};self.caption={'active':False,'name':'','text':''}
   if not self.camera.stopped():self.context.camera_state('stopping')
  def interrupt_conversation(self):
   """User changes supersede current reply/mic, without global sensor/tool shutdown."""
@@ -184,7 +186,7 @@ class Bridge:
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+  cmd=request.get('command');allowed={'status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd not in ('status','idle-mode'):self.idle.activity()
   scoped_changes={'conversation-interrupt','brain-save','voice-engine','voice-endpoint','turn-mode','team-dialogue','team-round','history-new','history-open','history-delete','history-clear'}
@@ -247,20 +249,26 @@ class Bridge:
      self.browser=BrowserSession(data_root()/'browser-profile')
     self.reo_event('submitted','Reviewed '+self.browser_pending['command']+' command submitted to browser. Completion not yet verified.');self.browser.submit(**self.browser_pending,confirmed=True);self.reo_submitted=True;self.browser_pending=None
    self.error=''
+  elif cmd in ('embedding-check','embedding-setup'):self.search_setup.start(consent=request.get('consent')is True,check=cmd=='embedding-check')
+  elif cmd=='embedding-stop':self.search_setup.stop();self.semantic_search.stop()
   elif cmd.startswith('vault-'):
    if cmd=='vault-preview':
     from .vault_voice import parse_voice as parse_vault
     proposal=parse_vault(request.get('text'))
     if not proposal:raise ValueError('Use obsidian search words or obsidian read Exact/Note.md')
     return self.execute(proposal)
-   if cmd=='vault-connect':
+   if cmd=='vault-semantic-stop':self.semantic_search.stop()
+   elif cmd=='vault-connect':
     if request.get('consent') is not True:raise ValueError('Allow local vault access first')
     from .obsidian import Vault
-    self.vault=Vault(request.get('vault_folder',''));self.vault_results=[];self.vault_search={};self.vault_note=''
-   elif cmd=='vault-disconnect':self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note=''
+    self.semantic_search.stop();self.vault=Vault(request.get('vault_folder',''));self.vault_results=[];self.vault_search={};self.vault_note=''
+   elif cmd=='vault-disconnect':self.semantic_search.stop();self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note=''
    else:
     if not self.vault:raise ValueError('Connect a local vault first')
-    if cmd=='vault-search':
+    if cmd=='vault-semantic':
+     if request.get('reviewed')!={'vault_folder':str(self.vault.root),'query':request.get('query')}:raise ValueError('Vault or query changed; review again')
+     self.semantic_search.start(self.vault,request.get('query'),consent=request.get('consent')is True)
+    elif cmd=='vault-search':
      self.vault_results=[];self.vault_search={}
      self.vault_search=self.vault.search_details(request.get('query'));self.vault_results=self.vault_search['results']
     elif cmd=='vault-read':self.vault_note=self.vault.read(request.get('note_name'))
@@ -405,7 +413,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,enabled=self.laya_enabled,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,enabled=self.laya_enabled,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
