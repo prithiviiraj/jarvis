@@ -67,3 +67,8 @@ class IncrementalChatTests(unittest.TestCase):
   def chunks(*a,**k):yield {'text':'Partial','provider':'local'};raise RuntimeError('stream stopped')
   r.stream.side_effect=chunks;c=WorkspaceVoice(text_factory=lambda:r);b=Bridge(c);c.send_text('hi').join(2);s=b.execute({'command':'status'})
   self.assertEqual(s['messages'][-1]['text'],'Partial');self.assertIn('stream stopped',s['error']);self.assertEqual(c.memory.snapshot(),[]);b.close()
+
+class OwnProfileRetry(unittest.TestCase):
+ def test_narrated_other_reply_retried_without_fake_bubble(self):
+  r=Mock();r.stream.return_value=iter([{'text':'Nova argues humans are computers.','provider':'local'}]);r.ask.return_value={'text':'Humans learn through experience.','provider':'local'};v=WorkspaceVoice(text_factory=lambda:r)
+  v.send_text('Explain humans').join(2);r.ask.assert_called_once();answers=[a for k,a in list(v.events.queue)if k=='answer'];self.assertEqual(len(answers),1);self.assertEqual(answers[0]['profile'],'JARVIS');self.assertNotIn('Nova argues',answers[0]['text']);self.assertEqual(v.memory.snapshot()[0][2],'Humans learn through experience.');v.close()
