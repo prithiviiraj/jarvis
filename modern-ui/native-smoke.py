@@ -292,7 +292,7 @@ try:
  assert ctypes.windll.user32.IsWindow(restarted_workspace_handle),'Restarted workspace HWND is invalid'
  ctypes.windll.user32.ShowWindow(restarted_workspace_handle,9) # SW_RESTORE
  window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
- window.wait('visible',timeout=10);window.set_focus();click('Connect core / check brains');time.sleep(2);click('Local awareness')
+ window.wait('visible',timeout=10);window.set_focus();click('Connect core / check brains');time.sleep(2);click('Agents');click('Local awareness')
  checks.append('native full restart preserves transcript OFF and never recreates avatar window')
  window.set_focus();
  from pywinauto import mouse
