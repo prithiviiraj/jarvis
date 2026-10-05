@@ -35,3 +35,9 @@ class LocalWarmup(unittest.TestCase):
   with patch('jarvis.brain_settings.local_models',return_value=['fixture']),patch('jarvis.brain_settings.BrainRouter')as router:
    router.return_value.stream.side_effect=stream;w=s.prewarm(True);entered.wait(1);s.stop_warmup();release.set();w.join(2)
   self.assertEqual(s.checks['local-warmup']['state'],'cancelled')
+
+ def test_shell_allows_reviewed_bridge_command(self):
+  from pathlib import Path
+  root=Path(__file__).resolve().parents[1]
+  source=(root/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8')
+  self.assertIn('"brain-warmup"',source.split('.contains(&command)')[0])
