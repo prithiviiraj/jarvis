@@ -7,6 +7,7 @@ class VoiceRuntime:
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
         self.cancel=threading.Event();self.streaming=False;self.reasoning_off=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
         self.turn_metrics=None;self.shared_context=None;self.record_turn=None;self.close_hook=None
+        self.vision=None;self.barge_in=False
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
         self.speaker.playback_event=lambda event,text,actor,sr,n:self.notify('speech-caption',{'active':event=='start','name':actor or self.persona,'text':text,'duration_s':n/sr if sr else 0,'at':time.monotonic()})
         self.speaker.output_event=self.output_event
@@ -42,9 +43,34 @@ class VoiceRuntime:
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
+                # Experimental headphone barge-in: listen for speech onset while
+                # generating/speaking. Headphones only; no AEC on speakers.
+                if getattr(self,'barge_in',False):
+                    self.mic.on_onset=lambda:self.interrupt(generation)
+                    self.mic.resume()
             # Browser mode uses only explicit commands, not model decisions or page text.
             handler=getattr(self,'action_handler',None)
             if callable(handler) and handler(text):return
+            from .team_discussion import requested,order,messages as discussion_messages
+            if requested(text):
+                stage='team discussion';context=list(history[-6:]);answers=[]
+                for index,actor in enumerate(order(text)):
+                    if not self.valid(generation)or self.cancel.is_set():return
+                    choose=getattr(self.router,'select_persona',None)
+                    if callable(choose):choose(actor)
+                    select=getattr(self.speaker,'select_profile',None)
+                    if callable(select):select(actor)
+                    self.persona=actor;self.notify('voice-actor',actor);self.notify('state','thinking')
+                    reply=self.router.ask(discussion_messages(actor,text,context,index),cloud_consent=cloud,cancel=self.cancel)
+                    answer_text=reply.get('text')
+                    if not isinstance(answer_text,str)or not answer_text.strip()or len(answer_text)>1500:raise ValueError('Invalid discussion reply')
+                    if not self.valid(generation)or self.cancel.is_set():return
+                    self.notify('answer',dict(reply,profile=actor));self.notify('state','speaking');self.speaker.speak(answer_text,generation=ticket)
+                    if not self.valid(generation)or self.cancel.is_set():return
+                    context.append({'role':'assistant','content':'['+actor+'] '+answer_text});answers.append(answer_text)
+                    if callable(self.record_turn):self.record_turn(text,answer_text)
+                self.history=(history+[{'role':'user','content':text}]+context[-6:])[-12:]
+                return
             # Direct spoken address selects one actual persona and installed voice.
             import re
             match=re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
@@ -59,6 +85,9 @@ class VoiceRuntime:
             stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
             messages=[{'role':'system','content':prompt(self.persona)}]+context+[{'role':'user','content':text}]
+            if self.vision is not None:
+                try:messages=self.vision.attach(messages)
+                except Exception as vision_error:self.notify('error','Vision frame skipped: '+str(vision_error)[:140])
             if self.streaming:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
@@ -119,10 +148,17 @@ class VoiceRuntime:
                 self.busy=False
                 if self.valid(generation):
                     metrics['turn_s']=time.monotonic()-started;metrics['scope']='session voice processing; first output write is PCM submitted to an adapter, not sound heard; no hardware latency measurement';self.notify('metrics',dict(metrics))
-                self.turn_metrics=None
+                self.turn_metrics=None;self.mic.on_onset=None
                 if self.valid(generation) and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
                 elif self.valid(generation):
                     self.enabled=False;self.mic.stop_event.set();self.speaker.stop();self.notify('state','off - voice failed, press Enable to retry')
+    def interrupt(self,generation):
+        """User speech onset during our reply: stop output, keep their new utterance."""
+        with self.lock:
+            if not self.valid(generation):return
+            old=self.cancel;self.cancel=threading.Event();self.generation+=1
+            old.set()
+        self.speaker.stop();self.notify('state','listening');self.notify('status','Interrupted - listening to you')
     def close(self):
         self.pause();self.history=[];self.shared_context=None;self.record_turn=None
         hook=self.close_hook;self.close_hook=None
