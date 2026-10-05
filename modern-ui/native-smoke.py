@@ -161,7 +161,9 @@ try:
  click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
  assert window.child_window(title='Last voice turn timing',control_type='Text').exists(),'Voice timing heading missing'
+ endpoint=window.child_window(title='Listening pause',control_type='ComboBox');endpoint.wait('exists',timeout=10);endpoint.wrapper_object().select('Fast - 480ms');time.sleep(.5);assert endpoint.wrapper_object().selected_text()=='Fast - 480ms';endpoint.wrapper_object().select('Balanced - 800ms (default)');time.sleep(.5)
  window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
+ checks.append('native session listening-pause fast480ms then balanced800ms selector')
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('voice model setup and explicit Mic ON controls visible')
  # Actual temporary-vault UI flow, no owner's files. Reviews must fire nothing.
