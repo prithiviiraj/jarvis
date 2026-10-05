@@ -73,7 +73,7 @@ class LocalContext:
 class CameraWorker:
     def __init__(self,context,capture_factory=None,detect=None):
         self.context=context;self.capture_factory=capture_factory;self.detect=detect
-        self.stop_event=threading.Event();self.thread=None;self.capture=None;self.lock=threading.RLock()
+        self.stop_event=threading.Event();self.thread=None;self.capture=None;self.frame=None;self.lock=threading.RLock()
     def start(self,consent=False):
         if not consent:raise ValueError('Camera consent required')
         with self.lock:
@@ -105,13 +105,16 @@ class CameraWorker:
                 if self.stop_event.is_set():break
                 if not ok:raise RuntimeError('Camera frame unavailable')
                 try:changed=state.update(bool(detect(frame)))
-                finally:frame=None
+                finally:
+                    with self.lock:self.frame=frame
+                    frame=None
                 if changed:self.context.presence_event(changed)
                 if self.stop_event.wait(1.0):break
         except Exception:
             if not self.stop_event.is_set():self.context.camera_state('error')
         finally:
             frame=None
+            with self.lock:self.frame=None
             if cap is not None:cap.release()
             self.capture=None
             if self.stop_event.is_set():self.context.camera_state('off')
@@ -120,6 +123,17 @@ class CameraWorker:
         # Release in the capture thread's finally, never concurrently with native read.
         # STOPPING remains visible and restart is blocked until device release completes.
     def stopped(self):return not self.thread or not self.thread.is_alive()
+    def latest_jpeg(self):
+        """Current RAM frame as bounded JPEG bytes, or None. Never written to disk."""
+        with self.lock:frame=self.frame
+        if frame is None:return None
+        import cv2
+        h,w=frame.shape[:2]
+        if w>384:frame=cv2.resize(frame,(384,max(1,int(h*384/w))))
+        for quality in (70,50):
+            ok,buf=cv2.imencode('.jpg',frame,[cv2.IMWRITE_JPEG_QUALITY,quality])
+            if ok and len(buf)<=250000:return buf.tobytes()
+        return None
 
 
 def foreground_app(include_title=False):
