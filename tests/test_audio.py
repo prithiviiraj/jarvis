@@ -15,3 +15,13 @@ class AudioTests(unittest.TestCase):
   with self.assertRaises(AudioError):mic.start()
  def test_pause_discards(self):
   v=Mock();mic=ContinuousMic(v,Mock());mic.accepting=True;mic.frames.put((1,[1]));mic.close();self.assertFalse(mic.accepting);self.assertTrue(mic.frames.empty());v.reset.assert_called_once()
+ def test_endpoint_presets_exact_silence_and_resume(self):
+  from jarvis.audio import ENDPOINT_FRAMES
+  self.assertEqual({k:v*32 for k,v in ENDPOINT_FRAMES.items()},{'balanced':800,'fast':480,'deliberate':1216})
+  for n in ENDPOINT_FRAMES.values():
+   e=Endpointer(silence_frames=n)
+   for i in range(6):e.feed([1],1)
+   for i in range(n-1):self.assertIsNone(e.feed([0],0))
+   self.assertIsNone(e.feed([1],1))
+   for i in range(n-1):self.assertIsNone(e.feed([0],0))
+   self.assertEqual(e.feed([0],0)[0],'utterance')
