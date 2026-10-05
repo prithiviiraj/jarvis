@@ -56,9 +56,32 @@ def run(core):
    row=state['links'][0];assert row['url'].startswith('https://')
    assert not call('laya-mode')['ok'];assert call('laya-mode',consent=True)['data']['laya']['enabled']
    blocked=call('chat',text='Reo find the observed documentation link')['data'];assert blocked['reo_log'][-1]['state']=='blocked';assert blocked['browser']['pending']is None
-   direct=call('chat',text='Reo scroll down')['data'];assert direct['browser']['pending']['command']=='scroll-down';assert direct['reo_log'][-1]['state']=='review';assert direct['browser']['status']['url']==state['url']
+   direct=call('chat',text='Lyra scroll slightly')['data'];assert direct['browser']['pending']['command']=='scroll-down-small';assert direct['reo_log'][-1]['state']=='review';assert direct['browser']['status']['url']==state['url']
    assert call('laya-stop')['data']['browser']['pending']is None
    assert call('laya-mode',consent=True)['data']['laya']['enabled']
+   blank=call('chat',text='Reo open browser')['data']['browser']['pending'];assert blank=={'command':'open-window','value':''}
+   assert call('status')['data']['browser']['status']['url']==state['url']
+   assert not call('browser-run',reviewed=blank)['ok']
+   assert call('browser-run',confirm=True,reviewed=blank)['ok']
+   deadline=time.monotonic()+15
+   while time.monotonic()<deadline:
+    bs=call('status')['data']['browser']['status']
+    if bs['state']=='ready':break
+    time.sleep(.1)
+   assert bs['url']=='about:blank',bs
+   assert call('browser-preview',text='browser open example.com')['ok']
+   review=call('status')['data']['browser']['pending'];assert call('browser-run',confirm=True,reviewed=review)['ok']
+   deadline=time.monotonic()+20
+   while time.monotonic()<deadline:
+    bs=call('status')['data']['browser']['status']
+    if bs['state']=='ready':break
+    time.sleep(.1)
+   assert call('browser-links')['ok']
+   deadline=time.monotonic()+10
+   while time.monotonic()<deadline:
+    state=call('status')['data']['browser']['status']
+    if state['state']=='ready'and state['links']:break
+    time.sleep(.1)
    assert call('laya-propose',goal='Read the observed documentation link')['ok']
    deadline=time.monotonic()+8
    while time.monotonic()<deadline:
