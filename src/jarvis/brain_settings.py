@@ -76,11 +76,12 @@ class BrainSettings:
       if s.provider=='groq':
        from .groq_models import PREFERRED
        choices=[m for m in PREFERRED if m in ids]
-      elif s.provider=='gemini':choices=sorted([m for m in ids if 'flash' in m.lower() and not any(w in m.lower()for w in ('preview','image','tts','live','audio','embedding'))],reverse=True)
+      elif s.provider=='gemini':choices=sorted([m for m in ids if 'flash' in m.lower() and not any(w in m.lower()for w in ('preview','image','tts','live','audio','embedding','omni','veo'))],reverse=True)
       else:choices=[m for m in ('meta/llama-3.3-70b-instruct','meta/llama-3.1-8b-instruct')if m in ids]
       if not choices:raise ValueError('No approved automatic chat model listed. Select an exact model ID')
       s=replace(s,model=choices[0])
       with self.lock:self.rows[sid]=s
+     if s.provider=='gemini'and any(w in s.model.lower()for w in ('omni','veo','image','tts','audio','embedding','live')):raise ValueError('Selected Gemini model is not supported text chat. Clear Model ID for Automatic or choose a listed text Flash model.')
      if s.model not in ids:
       with self.lock:self.checks[sid]={'state':'failed','models':ids[:100],'error':'Choose an exact listed model ID and save again'}
       raise ValueError('Selected model not listed. Available IDs shown below')
@@ -90,6 +91,7 @@ class BrainSettings:
    except Exception as e:
     # Never include response bodies, request headers or secrets in errors.
     code='HTTP_'+str(e.code)if isinstance(e,urllib.error.HTTPError)else str(e)if isinstance(e,(ValueError,RouterError))else type(e).__name__
+    if 'http-429'in code.lower()or code=='HTTP_429':code='HTTP429: rate limit or quota reached. Wait and check this provider account limits; reset time is unknown. No paid fallback.'
     result={'state':'failed','error':code[:220],**({'models':ids[:100]}if 'ids' in locals()else{})}
    with self.lock:self.checks[sid]=result;self.busy.discard(sid)
    notify('status','Connection '+sid+': '+result['state'])
