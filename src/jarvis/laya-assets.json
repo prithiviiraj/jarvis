@@ -1,0 +1,32 @@
+[
+  {
+    "name": "encoder/config.json",
+    "url": "https://huggingface.co/ichenney/laya-browser-v32b/resolve/161d54d6000913ff279b0afd1ac77faef8685a9b/v32b/encoder/config.json",
+    "bytes": 1939,
+    "sha256": "fad4076bcae03044a509e35a2d36c1cdff482fd4c2d6e7c5d187bbc7d8b91590"
+  },
+  {
+    "name": "model.safetensors",
+    "url": "https://huggingface.co/ichenney/laya-browser-v32b/resolve/161d54d6000913ff279b0afd1ac77faef8685a9b/v32b/model.safetensors",
+    "bytes": 1287653720,
+    "sha256": "eec9cfb0e6b0db8bb777e2a5e83bc34c60c059fc26966050d769bff0785c8bee"
+  },
+  {
+    "name": "rl_agent_config.json",
+    "url": "https://huggingface.co/ichenney/laya-browser-v32b/resolve/161d54d6000913ff279b0afd1ac77faef8685a9b/v32b/rl_agent_config.json",
+    "bytes": 547,
+    "sha256": "9d01ae8ca762d39ffb2d979884f3ab3bdf1c9ef391112e75a77366a85d273c1a"
+  },
+  {
+    "name": "tokenizer/tokenizer.json",
+    "url": "https://huggingface.co/ichenney/laya-browser-v32b/resolve/161d54d6000913ff279b0afd1ac77faef8685a9b/v32b/tokenizer/tokenizer.json",
+    "bytes": 34363188,
+    "sha256": "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f"
+  },
+  {
+    "name": "tokenizer/tokenizer_config.json",
+    "url": "https://huggingface.co/ichenney/laya-browser-v32b/resolve/161d54d6000913ff279b0afd1ac77faef8685a9b/v32b/tokenizer/tokenizer_config.json",
+    "bytes": 623,
+    "sha256": "e8e6a37c189f9dd23976b86b3e1ddb6928472e9f87c94103a1aaff311f45f090"
+  }
+]
