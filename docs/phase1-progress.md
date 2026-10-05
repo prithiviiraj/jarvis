@@ -48,3 +48,10 @@ No page/no ready state refuses preparation. A page URL change before execution
 refuses scrolling; observed-link navigation still rechecks link membership.
 Exact current page is displayed in review. This is a URL binding, not a content
 freeze: a page can change its content at the same URL.
+
+Build85 adds cooperative STT cancellation before/between yielded segments and
+closes the segment iterator. Pause discards cancelled recognition before a model
+or action handler. A running native inference call is not force-interrupted.
+CI diagnostic60second timer is now scoped to each voice turn, not cumulative
+model downloads+five turns, so its stackdump cannot imply a long single turn
+just because the full acceptance run took a minute.
