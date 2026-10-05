@@ -30,12 +30,33 @@ class SpokenTextFilter:
             out.append(self.buffer[:start]);self.buffer=self.buffer[start+1:];self.hidden=True
         return ''.join(out)
     def finish(self):return self.feed('',True)
+class ReportSpeechFilter:
+    """Sentence buffering prevents split report/thought labels escaping into TTS."""
+    def __init__(self):self.buffer='';self.report=False
+    def feed(self,text,final=False):
+        self.buffer+=text;out=[]
+        while self.buffer:
+            if self.report or re.match(r'^\s*(?:report\s+to\s+master|report\s+for\s+master|internal\s+(?:report|thought)|thought|status\s+report)\s*[:\-]',self.buffer,re.I):
+                self.report=True
+                newline=self.buffer.find('\n')
+                if newline<0:
+                    self.buffer=''
+                    if final:self.report=False
+                    break
+                self.buffer=self.buffer[newline+1:];self.report=False;out.append('\n');continue
+            boundary=re.search(r'[.!?](?=\s|$)|\n',self.buffer)
+            if boundary is None and not final:break
+            end=boundary.end() if boundary else len(self.buffer)
+            sentence=self.buffer[:end];self.buffer=self.buffer[end:]
+            if not re.match(r'^\s*(?:report\s+to\s+master|report\s+for\s+master|internal\s+(?:report|thought)|thought|status\s+report)\s*[:\-]',sentence,re.I):out.append(sentence)
+        return ''.join(out)
+    def finish(self):return self.feed('',True)
 def spoken_text(text):
-    f=SpokenTextFilter();return f.feed(text)+f.finish()
+    f=SpokenTextFilter();r=ReportSpeechFilter();return r.feed(f.feed(text)+f.finish(),True)
 def spoken_chunks(chunks):
-    f=SpokenTextFilter()
+    f=SpokenTextFilter();r=ReportSpeechFilter()
     for part in chunks:
-        text=f.feed(part)
+        text=r.feed(f.feed(part))
         if text:yield text
-    tail=f.finish()
+    tail=r.feed(f.finish(),True)
     if tail:yield tail
