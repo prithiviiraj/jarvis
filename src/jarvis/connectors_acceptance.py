@@ -16,6 +16,10 @@ def run(core):
    assert call('vault-connect',vault_folder=str(vault),consent=True)['data']['vault']['connected']
    r=call('vault-search',query='வணக்கம்');assert r['data']['vault']['results'][0]['name']=='seed.md'
    assert call('vault-read',note_name='seed.md')['data']['vault']['note']=='Tamil local fixture வணக்கம்'
+   assert call('vault-preview',text='obsidian search வணக்கம்')['data']['vault']['results'][0]['name']=='seed.md'
+   assert call('vault-preview',text='obsidian read seed.md')['data']['vault']['note']=='Tamil local fixture வணக்கம்'
+   assert not call('vault-preview',text='obsidian read ../outside.md')['ok']
+   assert not call('vault-preview',text='obsidian create new.md')['ok']
    assert not call('vault-read',note_name='../outside.md')['ok']
    (vault/'.private').mkdir();(vault/'.private/hidden.md').write_text('hidden fixture')
    assert not call('vault-read',note_name='.private/hidden.md')['ok']
@@ -25,6 +29,7 @@ def run(core):
    assert call('vault-create',note_name='new.md',note_text='review',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'new.md','note_text':'review'})['ok'];assert(vault/'new.md').read_text()=='review'
    assert not call('vault-create',note_name='new.md',note_text='overwrite',confirm=True,reviewed={'vault_folder':str(vault.resolve()),'note_name':'new.md','note_text':'overwrite'})['ok']
    assert call('vault-disconnect')['data']['vault']['connected']is False
+   assert not call('vault-preview',text='obsidian read seed.md')['ok']
    assert call('browser-mode',consent=True)['ok']
    pending=call('browser-preview',text='Jarvis browser open example.com')['data']['browser']['pending'];assert pending=={'command':'open','value':'https://example.com'}
    assert not call('browser-run',confirm=True,reviewed={'command':'search','value':'wrong'})['ok']
@@ -61,6 +66,6 @@ def run(core):
    assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
    call('close');p.wait(10)
-   return {'frozen_vault':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
+   return {'frozen_vault':True,'explicit_local_vault_voice_parse_read_search':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Edge_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
   finally:
    if p.poll()is None:p.kill()
