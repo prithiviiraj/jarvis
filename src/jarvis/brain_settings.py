@@ -8,7 +8,7 @@ from .router import BrainRouter,NoRedirect,RouterError,ProviderFailure
 from .providers import configured,ENDPOINTS,local_models
 class BrainSettings:
  def __init__(self,store=None,path=None):
-  self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.local_gate=threading.Lock()
+  self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.local_gate=threading.Lock();self.warmup_cancel=threading.Event()
   if self.path and self.path.is_file():
    try:
     saved=json.loads(self.path.read_text());self.configure(saved.get('slots',[]),saved.get('assignments',{}),persist=False)
@@ -94,6 +94,39 @@ class BrainSettings:
    with self.lock:self.checks[sid]=result;self.busy.discard(sid)
    notify('status','Connection '+sid+': '+result['state'])
   t=threading.Thread(target=work,daemon=True);t.start();return t
+ def prewarm(self,consent=False,notify=lambda *a:None):
+  """Fixed local greeting only. No cloud, history, keys, or implicit launch call."""
+  if consent is not True:raise ValueError('Allow a fixed local LM Studio warmup first')
+  with self.lock:
+   if 'local-warmup'in self.busy:return
+   self.warmup_cancel=threading.Event();cancel=self.warmup_cancel
+   self.busy.add('local-warmup');self.checks['local-warmup']={'state':'waiting','scope':'fixed local greeting only; no conversation or cloud'}
+  def work():
+   acquired=False
+   try:
+    acquired=self.local_gate.acquire(timeout=2)
+    if not acquired:raise ValueError('Local model is busy. Try warmup after the current reply')
+    models=local_models(timeout=8)
+    if len(models)!=1:raise ValueError('Load exactly one chat model in LM Studio')
+    started=time.monotonic()
+    router=BrainRouter([replace(configured('local',models[0]),timeout=20)])
+    parts=[]
+    for delta in router.stream([{'role':'user','content':'Say ready in one word.'}],cloud_consent=False,cancel=cancel):
+     if cancel.is_set():break
+     parts.append(delta.get('text',''))
+    if cancel.is_set():raise ValueError('Local warmup cancelled')
+    if not ''.join(parts).strip():raise ValueError('Local warmup returned no text')
+    result={'state':'ready','model':models[0],'seconds':round(time.monotonic()-started,3),'scope':'fixed local inference time, not voice latency; no conversation or cloud'}
+   except Exception as error:
+    detail=str(error)if isinstance(error,(ValueError,RouterError))else type(error).__name__
+    result={'state':'failed','error':detail[:220],'scope':'local-only warmup; no cloud fallback'}
+   finally:
+    if acquired:self.local_gate.release()
+   if cancel.is_set():result={'state':'cancelled','scope':'local warmup stopped; no cloud fallback'}
+   with self.lock:self.checks['local-warmup']=result;self.busy.discard('local-warmup')
+   notify('status','Local warmup: '+result['state'])
+  worker=threading.Thread(target=work,daemon=True);worker.start();return worker
+ def stop_warmup(self):self.warmup_cancel.set()
  def router(self,name):return RoutedBrain(self,name)
  def candidates(self,name):
   with self.lock:
