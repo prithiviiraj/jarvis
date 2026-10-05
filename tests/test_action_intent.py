@@ -25,3 +25,13 @@ class Intents(unittest.TestCase):
   self.assertIsNone(goal('browser read links'))
  def test_shared_goal_laya_still_blocked_without_consent(self):
   b=Bridge();b.voice.send_text=Mock();b.execute({'command':'chat','text':'Nova find the documentation link'});b.voice.send_text.assert_not_called();self.assertEqual(b.reo_log[-1]['state'],'blocked');self.assertIsNone(b.browser);b.close()
+ def test_compound_youtube_one_review_not_effect(self):
+  self.assertEqual(parse('JARVIS, open the browser and open YouTube.'),{'command':'open','value':'https://www.youtube.com/'})
+  self.assertEqual(parse('open YouTube'),{'command':'open','value':'https://www.youtube.com/'})
+  b=Bridge();b.browser_enabled=True;b.voice.runtime=Mock();b.execute({'command':'chat','text':'open YouTube'});self.assertEqual(b.browser_pending['value'],'https://www.youtube.com/');self.assertIsNone(b.browser);b.close()
+ def test_laya_loading_and_mic_exclusive(self):
+  b=Bridge();b.laya_engine.load=Mock();b.voice.runtime=Mock()
+  with self.assertRaises(ValueError):b.execute({'command':'laya-load','consent':True})
+  b.laya_engine.load.assert_not_called();b.voice.runtime=None;b.laya_engine.loading=True;b.voice.start=Mock()
+  with self.assertRaises(ValueError):b.execute({'command':'voice-on','consent':True})
+  b.voice.start.assert_not_called();b.laya_engine.loading=False;b.close()
