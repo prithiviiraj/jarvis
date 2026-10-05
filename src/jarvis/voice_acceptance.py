@@ -10,7 +10,7 @@ def run():
  from .voice_assets import download as download_voices
  out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True)
  import faulthandler
- trace=open(out/'voice-watchdog.txt','w');faulthandler.enable(file=trace);faulthandler.dump_traceback_later(60,repeat=True,file=trace)
+ trace=open(out/'voice-watchdog.txt','w');faulthandler.enable(file=trace);
  def progress(stage,**values):
   row={'stage':stage,**values};print(json.dumps(row),flush=True)
   with open(out/'voice-progress.jsonl','a') as f:f.write(json.dumps(row)+'\n')
@@ -69,7 +69,7 @@ def run():
     assert runtime.speaker.profile==name
     # Threaded execution matches the real mic path and keeps the diagnostic clock responsive.
     progress('turn-start',persona=name);started=time.monotonic();runtime.busy=True
-    turn=threading.Thread(target=runtime.turn,args=(audio,runtime.generation,False,[]),daemon=True);turn.start();turn.join(60)
+    turn=threading.Thread(target=runtime.turn,args=(audio,runtime.generation,False,[]),daemon=True);faulthandler.dump_traceback_later(60,file=trace);turn.start();turn.join(60);faulthandler.cancel_dump_traceback_later()
     if turn.is_alive():
      progress('turn-timeout',persona=name);faulthandler.dump_traceback(file=trace);trace.flush();raise RuntimeError('Speech software turn exceeded60seconds: '+name)
     progress('turn-done',persona=name,turn_s=time.monotonic()-started);state=bridge.execute({'command':'status'})
