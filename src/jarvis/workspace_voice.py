@@ -3,6 +3,7 @@ import queue
 import threading
 from pathlib import Path
 from .persona_text import strip_speaker_tag,spoken_text
+from .personas import ROLES
 
 def banter_wait(stop,interval):return stop.wait(interval)
 
@@ -18,7 +19,7 @@ class WorkspaceVoice:
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
     def notify(self,kind,value):self.events.put((kind,value))
     def select(self,name):
-        if name not in VOICES:raise ValueError('Unknown voice profile.')
+        if name not in ROLES:raise ValueError('Unknown profile.')
         self.pause()
         while True:
             try:self.events.get_nowait()
@@ -28,6 +29,7 @@ class WorkspaceVoice:
     def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False,barge_in=False):
         if not consent:raise ValueError('Microphone session consent required.')
         if cloud and not verified_free:raise ValueError('Groq needs a confirmed Free-tier account.')
+        if self.name not in VOICES:raise ValueError(self.name+' is a silent text specialist with no voice. Type to this profile in chat, or select a voiced profile for the microphone.')
         with self.lock:
             if self.closed or self.busy:raise RuntimeError('Voice setup is busy or closed.')
             self.busy=True;self.generation+=1;ticket=self.generation;name=self.name
