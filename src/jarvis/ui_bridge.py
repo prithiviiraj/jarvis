@@ -172,7 +172,9 @@ class Bridge:
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('laya-setup','laya-check'):
    self.laya_setup.start(consent=request.get('consent')is True,check=cmd=='laya-check')
-  elif cmd=='laya-load':self.laya_engine.load(consent=request.get('consent')is True)
+  elif cmd=='laya-load':
+   if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop Mic and current reply before loading Laya CPU model; restart Mic after loading completes')
+   self.laya_engine.load(consent=request.get('consent')is True)
   elif cmd=='laya-cancel':self.stop_laya();self.browser_pending=None
   elif cmd=='laya-mode':
    if request.get('consent')is not True:raise ValueError('Review local Laya disclosure first')
@@ -278,7 +280,9 @@ class Bridge:
   elif cmd=='team-round':self.voice.parallel_round(request.get('text'),self.brains,request.get('audio') is True)
   elif cmd=='chat':
    self.error='';self.warning='';self.response_diagnostics=[];text=request.get('text')
-   if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice and wait for the current turn before typed chat')
+   from .action_intent import parse as parse_action,goal as parse_goal
+   action=bool(parse_action(text)or parse_goal(text))
+   if not action and (self.voice.busy or self.voice.runtime is not None):raise ValueError('Stop voice and wait for the current turn before typed chat')
    if self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
    else:
     from .team_discussion import requested
@@ -304,6 +308,7 @@ class Bridge:
   elif cmd=='voice-cancel':self.setup.stop()
   elif cmd=='voice-on':
    if request.get('consent') is not True:raise ValueError('Microphone consent required')
+   if self.laya_engine.loading:raise ValueError('Wait for Laya CPU loading to finish before starting Mic')
    self.judge.stop()
    self.barge_in=request.get('barge_in')is True
    if request.get('reasoning_off')is True:self.voice.start(consent=True,cloud=False,reasoning_off=True,barge_in=self.barge_in)
