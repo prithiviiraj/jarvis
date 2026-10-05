@@ -193,6 +193,7 @@ try:
    time.sleep(.1)
   assert 'Connected locally: '+str(vault_root.resolve()) in' '.join(x.window_text()for x in window.descendants())
   window.child_window(title='Search vault',control_type='Edit').wrapper_object().set_edit_text('native-vault-fixture');click('Search local notes');button('seed.md').wait('exists',timeout=10)
+  button('seed.md').wrapper_object().set_focus();window.type_keys('{TAB}');time.sleep(.3)
   name_field=window.child_window(title='New note path',control_type='Edit');name_field.wrapper_object().set_edit_text('native-created.md')
   body_field=window.child_window(title='New note text',control_type='Edit');body_field.wrapper_object().set_edit_text('exact native review text')
   click('Review / create new note');button('Confirm create new note').wait('exists',timeout=10);assert not(vault_root/'native-created.md').exists()
