@@ -12,6 +12,8 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
  def do_POST(self):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
   text=body['messages'][-1]['content']
+  if text=='Say ready in one word.':
+   self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers();self.wfile.write(b'data: {"choices":[{"delta":{"content":"Ready"}}]}\n\ndata: [DONE]\n\n');return
   if 'length-probe' in text:
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
    for part in ['<th','ink>PRIVATE REASONING</thi','nk>Final visible truncated answer.']:
@@ -136,6 +138,14 @@ try:
  assert 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text, 'Connection check must discover actual current loopback model'
  window.child_window(title='slot1 API key',control_type='Edit').wait('exists',timeout=10)
  checks.append('actual backend local model discovery ready; API key entry present; cloud remains off')
+ before_warmup=len(requests)
+ button('Warm local model').wait('exists',timeout=10)
+ assert not any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests),'Warmup started without click'
+ click('Warm local model');time.sleep(.5);window.type_keys('{ENTER}');time.sleep(2)
+ assert any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests[before_warmup:]),'No explicit fixed local warmup request'
+ checks.append('explicit local warmup sends fixed greeting only after review; no automatic launch inference')
+ window.capture_as_image().save('ui-evidence/native-local-warmup.png')
+
  window.capture_as_image().save('ui-evidence/native-brain-settings.png')
  click('Voice')
  click('DEX Coder')
