@@ -6,9 +6,15 @@ class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
         self.cancel=threading.Event();self.streaming=False;self.reasoning_off=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
-        self.shared_context=None;self.record_turn=None;self.close_hook=None
+        self.turn_metrics=None;self.shared_context=None;self.record_turn=None;self.close_hook=None
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
         self.speaker.playback_event=lambda event,text,actor,sr,n:self.notify('speech-caption',{'active':event=='start','name':actor or self.persona,'text':text,'duration_s':n/sr if sr else 0,'at':time.monotonic()})
+        self.speaker.output_event=self.output_event
+    def output_event(self,event,ticket,sr):
+        with self.lock:
+            current=self.turn_metrics
+            if event!='first-write' or not current or ticket!=current['ticket'] or not self.valid(current['generation']) or self.cancel.is_set():return
+            current['metrics'].setdefault('first_output_write_s',time.monotonic()-current['started'])
     def enable(self,consent=False,cloud_consent=False):
         if not consent:raise ValueError('Microphone needs session consent.')
         with self.lock:
@@ -29,6 +35,8 @@ class VoiceRuntime:
     def valid(self,generation):return self.enabled and generation==self.generation
     def turn(self,audio,generation,cloud,history):
         ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription'
+        with self.lock:self.turn_metrics={'ticket':ticket,'started':started,'generation':generation,'metrics':metrics}
+        self.notify('metrics',{})
         try:
             self.notify('response-diagnostics',[]);self.notify('error','');self.notify('state','transcribing');text=self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
             with self.lock:
@@ -87,6 +95,7 @@ class VoiceRuntime:
                 answer=self.router.ask(messages,cloud_consent=cloud)
                 with self.lock:
                     if not self.valid(generation):return
+                    metrics['first_text_s']=time.monotonic()-started
                     self.notify('answer',answer);self.notify('state','speaking')
                 stage='speech synthesis/playback'
                 self.speaker.speak(answer['text'],generation=ticket)
@@ -109,7 +118,8 @@ class VoiceRuntime:
             with self.lock:
                 self.busy=False
                 if self.valid(generation):
-                    metrics['turn_s']=time.monotonic()-started;metrics['scope']='processing/queued clause timing, not first audible audio';self.notify('metrics',metrics)
+                    metrics['turn_s']=time.monotonic()-started;metrics['scope']='session voice processing; first output write is PCM submitted to an adapter, not sound heard; no hardware latency measurement';self.notify('metrics',dict(metrics))
+                self.turn_metrics=None
                 if self.valid(generation) and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
                 elif self.valid(generation):
                     self.enabled=False;self.mic.stop_event.set();self.speaker.stop();self.notify('state','off - voice failed, press Enable to retry')
