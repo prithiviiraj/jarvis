@@ -41,3 +41,19 @@ class RuntimeTests(unittest.TestCase):
   events=[];self.v.notify=lambda *a:events.append(a);self.v.stt.transcribe.side_effect=UnclearSpeech('Speech was unclear. Please repeat.')
   self.v.router.last_diagnostics=[{'response_category':'final_text'}];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
   self.assertIn(('response-diagnostics',[]),events);self.assertFalse(any(e[0]=='response-diagnostics' and e[1] for e in events));self.assertTrue(any(e[0]=='error' and 'Nothing was sent to a model' in e[1] for e in events));self.v.router.ask.assert_not_called();self.v.mic.resume.assert_called_once()
+
+ def test_output_metric_successful_adapter_write_not_audible(self):
+  events=[];self.v.notify=lambda *a:events.append(a);self.v.enable(True)
+  def speak(text,generation=None):self.v.speaker.output_event('first-write',generation,24000)
+  self.v.speaker.speak.side_effect=speak;self.v.turn([0],self.v.generation,False,[])
+  metric=[v for k,v in events if k=='metrics'and v][-1]
+  self.assertLessEqual(metric['stt_s'],metric['first_text_s']);self.assertLessEqual(metric['first_text_s'],metric['first_output_write_s']);self.assertLessEqual(metric['first_output_write_s'],metric['turn_s']);self.assertIn('not sound heard',metric['scope'])
+  self.assertIsNone(self.v.turn_metrics)
+ def test_cancelled_output_does_not_report(self):
+  events=[];self.v.notify=lambda *a:events.append(a);self.v.enable(True)
+  def speak(text,generation=None):self.v.pause();self.v.speaker.output_event('first-write',generation,24000)
+  self.v.speaker.speak.side_effect=speak;self.v.turn([0],self.v.generation,False,[])
+  self.assertFalse(any(k=='metrics'and v for k,v in events));self.assertIsNone(self.v.turn_metrics)
+ def test_no_output_adapter_does_not_invent_measurement(self):
+  events=[];self.v.notify=lambda *a:events.append(a);self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  metric=[v for k,v in events if k=='metrics'and v][-1];self.assertNotIn('first_output_write_s',metric)
