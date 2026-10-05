@@ -168,7 +168,7 @@ class Bridge:
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+  cmd=request.get('command');allowed={'status','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','history-list','history-open','history-new','history-delete','history-clear','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('laya-setup','laya-check'):
    self.laya_setup.start(consent=request.get('consent')is True,check=cmd=='laya-check')
@@ -274,12 +274,16 @@ class Bridge:
   elif cmd=='local-speed-stop':self.local_speed.stop()
   elif cmd=='brain-check':self.brains.check(request.get('slot','local'),self.voice.notify)
   elif cmd=='brain-models':self.brains.list_models(request.get('slot'),self.voice.notify)
+  elif cmd=='team-dialogue':self.voice.dialogue(request.get('text'),self.brains,request.get('audio')is True,request.get('rounds',2))
   elif cmd=='team-round':self.voice.parallel_round(request.get('text'),self.brains,request.get('audio') is True)
   elif cmd=='chat':
    self.error='';self.warning='';self.response_diagnostics=[];text=request.get('text')
    if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice and wait for the current turn before typed chat')
    if self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
-   else:self.voice.send_text(text,auto_pick=True)
+   else:
+    from .team_discussion import requested
+    if requested(text):self.voice.dialogue(text,self.brains,request.get('audio')is True)
+    else:self.voice.send_text(text,auto_pick=True)
   elif cmd=='select':self.judge.stop();self.voice.select(request.get('name'))
   elif cmd=='pause':self.stop()
   elif cmd=='voice-endpoint':
