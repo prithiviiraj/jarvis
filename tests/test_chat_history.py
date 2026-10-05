@@ -5,6 +5,8 @@ class HistoryTests(unittest.TestCase):
  def tearDown(self):self.h.close();self.dir.cleanup()
  def test_restart_unicode(self):
   i=self.h.new();rows=[{'name':'You','text':'வணக்கம்'},{'name':'JARVIS','text':'Hello'}];self.h.save(i,rows);self.h.close();self.h=ChatHistory(self.path);self.assertEqual(self.h.load(i),rows)
+ def test_reo_roundtrip(self):
+  i=self.h.new();rows=[{'name':'You','text':'Reo, plan opening the docs'},{'name':'REO','text':'Plan: open reviewed browser command.'}];self.h.save(i,rows);self.assertEqual(self.h.load(i),rows)
  def test_retention(self):
   ids=[]
   for n in range(3):i=self.h.new();ids.append(i);self.h.save(i,[{'name':'You','text':str(n)}])
