@@ -56,7 +56,7 @@ class ContinuousMic:
     def __init__(self,vad,on_utterance,on_state=lambda *a:None):
         self.vad=vad;self.on_utterance=on_utterance;self.on_state=on_state
         self.frames=queue.Queue(maxsize=100);self.stop_event=threading.Event();self.stream=None;self.thread=None
-        self.accepting=False;self.endpointer=Endpointer();self.generation=0;self.lock=threading.RLock()
+        self.accepting=False;self.endpointer=Endpointer();self.generation=0;self.lock=threading.RLock();self.on_onset=None
     def start(self,consent=False):
         if not consent:raise AudioError('Enable the microphone with session consent first.')
         if self.stream is not None:return
@@ -89,7 +89,10 @@ class ContinuousMic:
                     if not self.accepting or generation!=self.generation:continue
                     result=self.endpointer.feed(frame,self.vad.score(frame))
                 if result:
-                    if result[0]=='start':self.on_state('state','capturing')
+                    if result[0]=='start':
+                        self.on_state('state','capturing')
+                        onset=self.on_onset
+                        if callable(onset):onset()
                     elif result[1] is not None:
                         self.suspend()
                         audio=np.concatenate(result[1])
