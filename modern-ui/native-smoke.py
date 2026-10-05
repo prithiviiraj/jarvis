@@ -65,7 +65,8 @@ try:
  main.capture_as_image().save('ui-evidence/workspace-floating-dock.png')
  checks.append('native floating visible reserves header space; actual face/header rectangles do not overlap')
 
- captions=Desktop(backend='uia').window(title='JARVIS / Live captions');captions.wait('exists',timeout=10)
+ captions=Desktop(backend='uia').window(title='JARVIS / Live captions',visible_only=False);captions.wait('exists',timeout=10)
+ time.sleep(.8);assert not ctypes.windll.user32.IsWindowVisible(captions.handle),'Duplicate captions must hide while workspace visible'
  style=ctypes.windll.user32.GetWindowLongW(captions.handle,-20)
  assert style&0x20,'Captions must be mouse clickthrough'
  checks.append('captionwindow mouseclickthrough nativeWS_EX_TRANSPARENT')
@@ -75,7 +76,8 @@ try:
  import tkinter as tk
  bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();main_handle=main.handle;ctypes.windll.user32.ShowWindow(main_handle,0);bg.attributes('-topmost',True);bg.lift();bg.update();
  for overlay_window in (faces,captions):ctypes.windll.user32.SetWindowPos(overlay_window.handle,-1,0,0,0,0,0x0013)
- time.sleep(.5)
+ time.sleep(.8)
+ ctypes.windll.user32.ShowWindow(captions.handle,5)
  cr=captions.rectangle();caption_pixels=ImageGrab.grab().crop((cr.left,cr.top,cr.right,cr.bottom));caption_pixels.save('ui-evidence/native-caption-empty-transparent.png')
  matched=sum(max(abs(a-b)for a,b in zip(pixel,(23,35,47)))<8 for pixel in caption_pixels.convert('RGB').getdata())
  assert matched>caption_pixels.width*caption_pixels.height*.95,'Native caption window is opaque, not desktop-transparent'
@@ -93,7 +95,9 @@ try:
  main.set_focus();main.child_window(title='Floating OFF',control_type='Button').wrapper_object().invoke();time.sleep(.3)
  assert not ctypes.windll.user32.IsWindowVisible(face_handle) and not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must hide faces and captions'
  time.sleep(.7);assert header_rectangle().top<strip_bottom_before_off,'Workspace dock not released after OFF'
+ bg.attributes('-topmost',False);bg.lower();main.set_focus();time.sleep(.3)
  main.capture_as_image().save('ui-evidence/workspace-floating-off-dock.png')
+ bg.attributes('-topmost',True);bg.lift();bg.update()
  main.child_window(title='Floating ON',control_type='Button').wrapper_object().invoke();faces.wait('visible',timeout=10);faces.set_focus();time.sleep(.3)
  checks.append('explicit OFF hides facesandcaptions; ON restoresexistingwindows')
  faces.capture_as_image().save('ui-evidence/tauri-compact-actual.png')
@@ -191,14 +195,17 @@ try:
  assert 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()),'Archived actual reply not restored'
  window.capture_as_image().save('ui-evidence/native-history-restored.png')
  checks.append('native new chat clears active context; saved conversation reopens actual reply')
- click('Floating ON');overlay_text=Desktop(backend='uia').window(title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
+ click('Floating ON');window.minimize();overlay_text=Desktop(backend='uia').window(title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
  deadline=time.monotonic()+8
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in overlay_text.descendants()):break
   time.sleep(.2)
  else:raise RuntimeError('Transparent right-side transcript missing saved actual reply')
  rr=overlay_text.rectangle();ImageGrab.grab().crop((rr.left,rr.top,rr.right,rr.bottom)).save('ui-evidence/native-overlay-full-text.png')
- checks.append('transparent overlay displays actual saved user and assistant conversation, not speech-time captions only')
+ checks.append('transparent overlay displays actual saved user and assistant conversation while workspace minimized')
+ window.restore();window.set_focus();time.sleep(.8)
+ assert not ctypes.windll.user32.IsWindowVisible(overlay_text.handle),'Caption transcript must hide on workspace restore'
+ window.capture_as_image().save('ui-evidence/workspace-restored-no-duplicate-captions.png')
  click('Floating OFF')
  click('Local awareness');click('Allow app names');time.sleep(2)
  click('Allow local context judgment');time.sleep(2)
