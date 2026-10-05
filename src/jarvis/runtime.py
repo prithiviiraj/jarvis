@@ -76,7 +76,9 @@ class VoiceRuntime:
                 return
             # Direct spoken address selects one actual persona and installed voice.
             import re
-            match=re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
+            from .workspace_voice import VOICES
+            names='|'.join(re.escape(n)for n in VOICES)
+            match=re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?('+names+r')\b',text,re.I)
             if not match:match=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+(jarvis|nova|kai|lyra|dex)\b',text,re.I)
             actor=match.group(1).upper()if match else self.persona
             if actor!=self.persona:
@@ -107,7 +109,7 @@ class VoiceRuntime:
                             if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
                             pieces.append(delta['text']);provider[:]=[delta]
                             own_reply(strip_speaker_tag(''.join(pieces)),self.persona,context)
-                            self.notify('answer',{'text':strip_speaker_tag(''.join(pieces)),'provider':delta['provider'],'profile':self.persona})
+                            self.notify('answer',{'text':strip_speaker_tag(''.join(pieces)),**{k:delta[k]for k in ('provider','model','cloud','slot')if k in delta},'profile':self.persona})
                             if delta.get('model'):self.notify('status',delta['provider']+' model '+delta['model'])
                         yield delta['text']
                 def clause(part):
@@ -118,7 +120,7 @@ class VoiceRuntime:
                             if 'first_clause_s' not in metrics:metrics['first_clause_s']=time.monotonic()-started
                             self.notify('state','speaking')
                 SpeechQueue(self.speaker,self.cancel).play_stream(spoken_chunks(chunks()),ticket,clause)
-                answer={'text':strip_speaker_tag(''.join(pieces)),'provider':provider[0]['provider'] if provider else 'local'}
+                answer={**(provider[0]if provider else {}),'text':strip_speaker_tag(''.join(pieces))}
                 if not answer['text']:raise RuntimeError('Empty reply')
                 warnings=getattr(self.router,'last_warnings',[])
                 if isinstance(warnings,list):
