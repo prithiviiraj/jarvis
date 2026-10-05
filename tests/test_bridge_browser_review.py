@@ -11,3 +11,13 @@ class BrowserReview(unittest.TestCase):
   with self.assertRaises(ValueError):b.execute({'command':'browser-preview','text':'browser open localhost'})
   self.assertIsNone(b.browser_pending)
   b.execute({'command':'pause'});self.assertFalse(b.browser_enabled)
+
+ def test_scroll_requires_ready_page_and_binds_url(self):
+  b=Bridge();b.execute({'command':'browser-mode','consent':True})
+  with self.assertRaises(ValueError):b.execute({'command':'browser-preview','text':'browser scroll down'})
+  self.assertIsNone(b.browser_pending)
+  b.browser=Mock();b.browser.cancel.is_set.return_value=False;b.browser.snapshot.return_value={'state':'working','url':'https://example.com/'}
+  with self.assertRaises(ValueError):b.execute({'command':'browser-preview','text':'browser scroll down'})
+  b.browser.snapshot.return_value={'state':'ready','url':'https://example.com/'}
+  r=b.execute({'command':'browser-preview','text':'browser scroll down'})['browser']['pending'];self.assertEqual(r,{'command':'scroll-down','value':'','expected_url':'https://example.com/'})
+  b.close()
