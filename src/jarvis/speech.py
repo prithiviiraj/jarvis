@@ -3,6 +3,9 @@ import os
 import subprocess
 import threading
 
+class SpeechCancelled(RuntimeError):
+    """Cooperative cancellation, not interruption of a native inference call."""
+
 class UnclearSpeech(ValueError):
     """No reliable words in this microphone segment; safe to ask for repetition."""
 
@@ -18,13 +21,26 @@ class WhisperSTT:
             self.model=_STT_MODELS[key]
         self.lock=_STT_LOCK
         self.vocabulary=vocabulary[:1000];self.language=language
-    def transcribe(self,audio):
+    def transcribe(self,audio):return self.transcribe_cancellable(audio)
+    def transcribe_cancellable(self,audio,cancel=None):
+        def check():
+            if cancel is not None and cancel.is_set():raise SpeechCancelled('Speech recognition cancelled')
+        check()
         with self.lock:
+            check()
             segments,info=self.model.transcribe(audio,beam_size=1,language=self.language,initial_prompt=self.vocabulary or None,vad_filter=False)
-            parts=[]
-            for s in segments:
-                if s.no_speech_prob<.6 and s.avg_logprob> -1.0:parts.append(s.text)
-        text=' '.join(parts).strip()
+            parts=[];iterator=iter(segments)
+            try:
+                while True:
+                    check()
+                    try:s=next(iterator)
+                    except StopIteration:break
+                    check()
+                    if s.no_speech_prob<.6 and s.avg_logprob> -1.0:parts.append(s.text)
+            finally:
+                close=getattr(iterator,'close',None)
+                if callable(close):close()
+        check();text=' '.join(parts).strip()
         if not text:raise UnclearSpeech('Speech was unclear. Please repeat.')
         return text
 
