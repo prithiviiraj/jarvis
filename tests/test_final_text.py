@@ -25,3 +25,10 @@ class FinalTextTests(unittest.TestCase):
   t=Mock();t.stream.side_effect=[ProviderFailure('completion-token-limit',False),iter(['Hello'])];r=BrainRouter([Provider('local','http://127.0.0.1:1234/v1','test')])
   with self.assertRaises(RouterError):list(r.stream([{}],stream_transport=t))
   self.assertEqual(list(r.stream([{}],stream_transport=t))[0]['text'],'Hello')
+ def test_observed_untagged_scaffold_never_streams(self):
+  leak="Here's a thinking process:\n1. **Analyze User Input**: NOVA you are also here right.\n2. **Check Constraints**: private instructions"
+  for size in (1,2,5,25,1000):
+   f=FinalTextFilter();out=''.join(f.feed(leak[i:i+size])for i in range(0,len(leak),size))+f.finish();self.assertEqual(out,'');self.assertTrue(f.suppressed)
+ def test_legitimate_numbered_answer_preserved(self):
+  self.assertEqual(final_text('1. Open Settings. 2. Stop Mic.'),'1. Open Settings. 2. Stop Mic.')
+  self.assertEqual(final_text("Here's a useful answer: yes."),"Here's a useful answer: yes.")
