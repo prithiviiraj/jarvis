@@ -1,0 +1,31 @@
+import unittest,threading,json
+from types import SimpleNamespace as N
+from unittest.mock import Mock
+from jarvis.idle_companion import IdleCompanion,decision
+class Idle(unittest.TestCase):
+ def make(self,text='{"speak":true,"profiles":["NOVA","LYRA"],"topic":"A friendly greeting"}'):
+  self.now=0;v=N(busy=False,runtime=None,memory=N(messages=lambda:[{'role':'user','content':'Actual chat'}]),dialogue=Mock());r=N(ask=Mock(return_value={'text':text}));brains=N(router=lambda name:r);notes=[];i=IdleCompanion(v,brains,lambda *a:notes.append(a),clock=lambda:self.now,hour=lambda:9);return v,r,i,notes
+ def test_off_review_and_rate(self):
+  v,r,i,n=self.make();self.now=300;self.assertIsNone(i.poll());r.ask.assert_not_called()
+  with self.assertRaises(ValueError):i.enable()
+  i.enable(True);self.now=421;i.poll().join(2);v.dialogue.assert_called_once();self.assertEqual(v.dialogue.call_args.kwargs['origin'],'idle');self.assertIsNone(i.poll());self.now=1100;i.poll().join(2);self.assertEqual(v.dialogue.call_count,1)
+ def test_quiet_busy_and_silence(self):
+  v,r,i,n=self.make('{"speak":false,"profiles":[],"topic":""}');i.enable(True);self.now=300;i.hour=lambda:1;self.assertIsNone(i.poll());i.hour=lambda:9;v.runtime=object();self.assertIsNone(i.poll());v.runtime=None;v.busy=True;self.assertIsNone(i.poll());v.busy=False;i.poll().join(2);v.dialogue.assert_not_called()
+ def test_activity_and_disable_cancel_late_decision(self):
+  for action in ('activity','stop'):
+   v,r,i,n=self.make();gate=threading.Event();entered=threading.Event()
+   def ask(*a,**k):entered.set();gate.wait(2);return {'text':'{"speak":true,"profiles":["NOVA","LYRA"],"topic":"Hello"}'}
+   r.ask=ask;i.enable(True,True);self.now=300;w=i.poll();entered.wait(1);getattr(i,action)();gate.set();w.join(2);v.dialogue.assert_not_called()
+ def test_schema_no_actions(self):
+  for text in ('{}','bad','{"speak":true,"profiles":["REO","NOVA"],"topic":"hey"}','{"speak":true,"profiles":["NOVA","LYRA"],"topic":"hey","tool":"open"}'):
+   with self.assertRaises(ValueError):decision(text)
+ def test_hourly_cap(self):
+  v,r,i,n=self.make();i.enable(True);self.now=300;i.requests.extend([299]*6);self.assertIsNone(i.poll());r.ask.assert_not_called()
+
+class GamingSuppression(unittest.TestCase):
+ def test_gaming_stays_quiet(self):
+  from unittest.mock import Mock
+  from jarvis.idle_companion import IdleCompanion
+  voice=Mock();voice.busy=False;voice.runtime=None;brains=Mock()
+  c=IdleCompanion(voice,brains,Mock(),clock=lambda:1000,hour=lambda:12);c.enable(True);c.last_activity=0;c.gaming=True
+  self.assertIsNone(c.poll());brains.router.assert_not_called();self.assertIn('gaming',c.waiting())
