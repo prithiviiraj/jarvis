@@ -11,7 +11,7 @@ class VaultVoice(unittest.TestCase):
  def test_explicit_and_exact(self):
   self.assertEqual(parse_voice('Jarvis obsidian search வணக்கம்'),{'command':'vault-search','query':'வணக்கம்'})
   self.assertEqual(parse_voice('vault read Work/Note.md'),{'command':'vault-read','note_name':'Work/Note.md'})
-  for s in ['search my notes','read Work/Note.md','obsidian create x.md','obsidian delete x.md','my vault read x.md']:self.assertIsNone(parse_voice(s))
+  for s in ['search my notes','read Work/Note.md','my vault read x.md']:self.assertIsNone(parse_voice(s))
  def test_disconnected_consumes_no_chat_fallback(self):
   b=self.bridge();self.assertTrue(b.voice_action('vault read secret.md'));b.voice.send_text.assert_not_called();b.voice.notify.assert_called_with('error','Local vault command failed. Check the connected vault and exact Markdown note path in Settings > Memory.')
  def test_connected_read_search_no_write_or_chat(self):
@@ -35,3 +35,18 @@ class VaultVoice(unittest.TestCase):
   b=self.bridge();r=VoiceRuntime.__new__(VoiceRuntime);r.lock=threading.RLock();r.enabled=True;r.generation=1;r.cancel=threading.Event();r.busy=True;r.stt=Mock();r.stt.transcribe.return_value='obsidian read secret.md';r.speaker=Mock();r.speaker.generation=0;r.notify=Mock();r.action_handler=b.voice_action;r.mic=Mock();r.router=Mock()
   r.turn([],1,False,[])
   r.router.ask.assert_not_called();r.router.stream.assert_not_called();r.speaker.speak.assert_not_called();r.mic.resume.assert_called_once();self.assertFalse(r.busy)
+
+ def test_all_persona_prefixes_keep_exact_path(self):
+  for name in ['JARVIS','NOVA','KAI','LYRA','DEX']:
+   self.assertEqual(parse_voice('Hey '+name+', vault read Work/Note.md'),{'command':'vault-read','note_name':'Work/Note.md'})
+ def test_unsupported_spoken_write_is_consumed_without_chat(self):
+  b=self.bridge()
+  for text in ['obsidian create x.md','Lyra vault delete x.md','vault read']:
+   self.assertTrue(b.voice_action(text));b.voice.send_text.assert_not_called()
+ def test_disabled_and_unsupported_commands_never_route_or_speak(self):
+  import threading
+  from jarvis.runtime import VoiceRuntime
+  b=self.bridge()
+  for text in ['Nova browser open example.com','Lyra vault delete secret.md','Dex vault read secret.md']:
+   r=VoiceRuntime.__new__(VoiceRuntime);r.lock=threading.RLock();r.enabled=True;r.generation=1;r.cancel=threading.Event();r.busy=True;r.stt=Mock();r.stt.transcribe.return_value=text;r.speaker=Mock();r.speaker.generation=0;r.notify=Mock();r.action_handler=b.voice_action;r.mic=Mock();r.router=Mock()
+   r.turn([],1,False,[]);r.router.ask.assert_not_called();r.router.stream.assert_not_called();r.speaker.speak.assert_not_called();self.assertFalse(r.busy)
