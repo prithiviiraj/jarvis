@@ -121,3 +121,16 @@ class NativeCommandParity(unittest.TestCase):
   from pathlib import Path
   source=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text()
   self.assertIn('"conversation-interrupt"',source)
+class SemanticBridgeTests(unittest.TestCase):
+ def setUp(self):self.b=Bridge(WorkspaceVoice())
+ def tearDown(self):self.b.close()
+ def test_setup_explicit_only(self):
+  self.b.search_setup.start=Mock();self.b.execute({'command':'status'});self.b.search_setup.start.assert_not_called();self.b.execute({'command':'embedding-check'});self.b.search_setup.start.assert_called_once_with(consent=False,check=True)
+ def test_search_exact_review(self):
+  import tempfile,pathlib
+  with tempfile.TemporaryDirectory()as t:
+   root=pathlib.Path(t);(root/'.obsidian').mkdir();self.b.execute({'command':'vault-connect','vault_folder':t,'consent':True});self.b.semantic_search.start=Mock()
+   with self.assertRaises(ValueError):self.b.execute({'command':'vault-semantic','query':'dinner','consent':True,'reviewed':{'vault_folder':t,'query':'different'}})
+   self.b.semantic_search.start.assert_not_called();self.b.execute({'command':'vault-semantic','query':'dinner','consent':True,'reviewed':{'vault_folder':str(root.resolve()),'query':'dinner'}});self.b.semantic_search.start.assert_called_once()
+ def test_stop_unloads_and_clears(self):
+  self.b.search_setup.model=object();self.b.semantic_search.results=[{'name':'old'}];s=self.b.execute({'command':'embedding-stop'});self.assertFalse(s['embedding_setup']['ready']);self.assertEqual(s['semantic_search']['results'],[])
