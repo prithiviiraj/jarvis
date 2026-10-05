@@ -164,6 +164,35 @@ try:
  window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('voice model setup and explicit Mic ON controls visible')
+ # Actual temporary-vault UI flow, no owner's files. Reviews must fire nothing.
+ import tempfile
+ with tempfile.TemporaryDirectory()as vault_tmp:
+  vault_root=pathlib.Path(vault_tmp);(vault_root/'.obsidian').mkdir();(vault_root/'seed.md').write_text('native-vault-fixture',encoding='utf-8')
+  click('Settings');click('Memory')
+  folder=window.child_window(title='Obsidian vault folder',control_type='Edit');folder.wait('exists',timeout=10);folder.wrapper_object().set_edit_text(vault_tmp)
+  click('Connect local vault');button('Confirm vault connection').wait('exists',timeout=10)
+  click('Cancel vault connection');assert not button('Confirm vault connection').exists()
+  click('Connect local vault');click('Confirm vault connection')
+  deadline=time.monotonic()+10
+  while time.monotonic()<deadline:
+   if 'Connected locally: '+vault_tmp in' '.join(x.window_text()for x in window.descendants()):break
+   time.sleep(.1)
+  assert 'Connected locally: '+vault_tmp in' '.join(x.window_text()for x in window.descendants())
+  window.child_window(title='Search vault',control_type='Edit').wrapper_object().set_edit_text('native-vault-fixture');click('Search local notes');button('seed.md').wait('exists',timeout=10)
+  name_field=window.child_window(title='New note path',control_type='Edit');name_field.wrapper_object().set_edit_text('native-created.md')
+  body_field=window.child_window(title='New note text',control_type='Edit');body_field.wrapper_object().set_edit_text('exact native review text')
+  click('Review / create new note');button('Confirm create new note').wait('exists',timeout=10);assert not(vault_root/'native-created.md').exists()
+  click('Cancel new note');assert not(vault_root/'native-created.md').exists()
+  click('Review / create new note');click('Confirm create new note')
+  deadline=time.monotonic()+10
+  while time.monotonic()<deadline:
+   if(vault_root/'native-created.md').exists():break
+   time.sleep(.1)
+  assert(vault_root/'native-created.md').read_text(encoding='utf-8')=='exact native review text'
+  click('Review / create new note');click('Confirm create new note');time.sleep(.5);assert(vault_root/'native-created.md').read_text(encoding='utf-8')=='exact native review text'
+  click('Disconnect vault');time.sleep(.5)
+  checks.append('native vault connect review/cancel/confirm, local search, exact note review/cancel/create, no overwrite, disconnect')
+
  click('Voice')
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
  click('Add local draft')
