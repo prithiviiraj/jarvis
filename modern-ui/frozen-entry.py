@@ -9,6 +9,11 @@ if __name__ == '__main__':
         # process-scoped; avoid interpreter-finalization disposal stalls on Windows.
         import os
         sys.stdout.flush();sys.stderr.flush();os._exit(0)
+    elif len(sys.argv)==2 and sys.argv[1]=='--turn-self-test':
+        from jarvis.turn_acceptance import run
+        run()
+        import os
+        sys.stdout.flush();sys.stderr.flush();os._exit(0)
     elif len(sys.argv)==2 and sys.argv[1]=='--laya-self-test':
         from jarvis.laya_acceptance import run
         run()
