@@ -194,6 +194,15 @@ try:
   click('Review / create new note');click('Confirm create new note');time.sleep(.5);assert(vault_root/'native-created.md').read_text(encoding='utf-8')=='exact native review text'
   click('Disconnect vault');time.sleep(.5)
   checks.append('native vault connect review/cancel/confirm, local search, exact note review/cancel/create, no overwrite, disconnect')
+ click('Tools');click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
+ click('Cancel browser permission');window.child_window(title='Confirm browser permission',control_type='Button').wait_not('exists',timeout=10)
+ click('Enable browser commands');click('Confirm browser permission');time.sleep(.5)
+ browser_field=window.child_window(title='Browser command',control_type='Edit');browser_field.wrapper_object().set_edit_text('browser open example.com');click('Prepare browser command');button('Review / run browser command').wait('exists',timeout=10)
+ click('Review / run browser command');button('Confirm browser command').wait('exists',timeout=10)
+ assert 'https://example.com'in' '.join(x.window_text()for x in window.descendants())
+ click('Cancel browser command');window.child_window(title='Confirm browser command',control_type='Button').wait_not('exists',timeout=10)
+ click('Stop browser control');time.sleep(.5);checks.append('native visible browser permission review/cancel/enable and exact destination review/cancel; no navigation fired')
+
 
  click('Voice')
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
