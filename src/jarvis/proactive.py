@@ -85,7 +85,9 @@ class ProactiveJudge:
                         self.speaker=candidate;voice_ticket=candidate.generation
                         candidate.playback_event=lambda event,text,actor,sr,n:self.notify('speech-caption',{'active':event=='start','name':'JARVIS','text':text,'duration_s':n/sr if sr else 0,'at':time.monotonic()})
                     self.notify('proactive-status','Local team-leader speech')
-                    candidate.speak(d['text'],generation=voice_ticket)
+                    from .persona_text import spoken_text
+                    spoken=spoken_text(d['text'])
+                    if spoken.strip():candidate.speak(spoken,generation=voice_ticket)
             except Exception:self.notify('proactive-status','Local judgment unavailable or invalid. Quiet; no cloud fallback.')
             finally:
                 with self.lock:self.busy=False
