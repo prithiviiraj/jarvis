@@ -10,10 +10,13 @@ KEYWORDS={
 def pick(text,selected='JARVIS'):
     if not isinstance(text,str) or not text.strip():raise ValueError('Text required')
     if selected not in ROLES:raise ValueError('Unknown selected profile')
+    names='|'.join(re.escape(n)for n in ROLES)
+    custom=re.match(r'^\s*(?:hey\s+|hi\s+)?('+names+r')\b',text,re.I)
+    if custom:return custom.group(1).upper(),'direct address'
     # Only direct address at the start is an explicit persona request.
-    m=re.match(r'^\s*(?:hey\s+|hi\s+)?(jarvis|nova|kai|lyra|dex|reo)\b',text,re.I)
+    m=re.match(r'^\s*(?:hey\s+|hi\s+)?('+names+r')\b',text,re.I)
     if m:return m.group(1).upper(),'direct address'
-    m=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+(jarvis|nova|kai|lyra|dex|reo)\b',text,re.I)
+    m=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+('+names+r')\b',text,re.I)
     if m:return m.group(1).upper(),'direct address'
     matches=[n for n,pattern in KEYWORDS.items() if re.search(pattern,text,re.I)]
     if len(matches)==1:return matches[0],'topic match'
