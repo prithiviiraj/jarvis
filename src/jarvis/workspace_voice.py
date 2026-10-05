@@ -2,7 +2,7 @@
 import queue
 import threading
 from pathlib import Path
-from .persona_text import strip_speaker_tag,spoken_text
+from .persona_text import strip_speaker_tag,spoken_text,own_reply
 from .personas import ROLES
 
 def banter_wait(stop,interval):return stop.wait(interval)
@@ -88,6 +88,13 @@ class WorkspaceVoice:
                     with self.lock:
                         if self.closed or ticket!=self.generation:return
                         pieces.append(delta['text']);answer={**delta,'text':strip_speaker_tag(''.join(pieces))}
+                        try:own_reply(answer['text'],name,context)
+                        except ValueError:
+                            retry=router.ask(messages+[{'role':'user','content':'Reply only as '+name+'. Do not attribute speech, thoughts or arguments to another profile. One short direct answer.'}],cloud_consent=False,cancel=cancel)
+                            answer={**retry,'text':strip_speaker_tag(retry.get('text'))};own_reply(answer['text'],name,context)
+                            pieces[:]=[answer['text']]
+                            self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
+                            break
                         self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
                 if not pieces:raise RuntimeError('Empty local stream')
                 warnings=getattr(router,'last_warnings',[])
