@@ -86,3 +86,7 @@ class UiBridgeTests(unittest.TestCase):
   self.b.setup.busy=True
   with self.assertRaises(ValueError):self.b.execute({'command':'voice-engine','engine':'kitten'})
   self.b.setup.busy=False
+
+ def test_engine_change_invalidates_ready_without_start(self):
+  self.b.setup.ready=True;self.b.setup.checked=True;self.b.setup.start=Mock();self.b.voice.start=Mock()
+  state=self.b.execute({'command':'voice-engine','engine':'kitten'});self.assertFalse(state['voice_setup']['ready']);self.assertFalse(state['voice_setup']['checked']);self.assertEqual(state['voice_setup']['engine'],'kitten');self.b.setup.start.assert_not_called();self.b.voice.start.assert_not_called()
