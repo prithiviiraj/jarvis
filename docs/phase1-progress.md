@@ -10,3 +10,10 @@ Half-duplex test mode suspends mic processing during the brain response and loca
 Cloud only: owner's laptop untouched. Router tests prove control flow/HTTP handling, not Gemini/NIM/Groq live access. No provider keys used. Groq is the owner's intended free provider, not xAI Grok. Groq requires a verified Free-tier account-plan gate; key presence alone does not prove free billing. No paid credits or upgrades allowed. Models are not bundled.
 
 Historical Windows baseline run2: https://github.com/prithiviiraj/jarvis/actions/runs/36998317529 passed 49 source/OS tests, real SAPI synthetic-file generation, preview launch/pixel inspection, pinned downloads and Whisper/Silero fixture inference. It did not prove default physical playback or mic. Streaming additions passed source checks and fixture run3: https://github.com/prithiviiraj/jarvis/actions/runs/36999121719 . Actual native Kokoro five WAV evaluation passed https://github.com/prithiviiraj/jarvis/actions/runs/37002579214 . Windows no-PyAV fork source/fixture passed87 cases at https://github.com/prithiviiraj/jarvis/actions/runs/37003009067 . Optional cancellable candidate speaker is unit tested only; physical output remains unrun. Candidate not chosen or installed.
+
+Build 72 adds truthful local-vault search boundaries: deterministic sorted
+visible Markdown traversal, at most 500 scanned notes, 30 results and 0.75s.
+The bridge/UI reports scanned count, unreadable/oversized skips and partial
+reasons. No matches in a partial scan never means the note is absent. Hidden
+and linked notes remain excluded even on complete scans. Disconnect clears
+these results. Search/reads still never enter chat-model context automatically.
