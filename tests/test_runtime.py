@@ -59,3 +59,60 @@ class RuntimeTests(unittest.TestCase):
   metric=[v for k,v in events if k=='metrics'and v][-1];self.assertNotIn('first_output_write_s',metric)
  def test_spoken_address_punctuation_selects_kai_not_previous_dex(self):
   self.v.persona='DEX';self.v.stt.transcribe.return_value='Hey, Kai. Can you hear me?';self.v.enable(True);self.v.turn([0],self.v.generation,False,[]);self.assertEqual(self.v.persona,'KAI');self.v.speaker.select_profile.assert_called_once_with('KAI');self.v.router.select_persona.assert_called_once_with('KAI')
+ def test_discuss_among_yourselves_six_actual_replies_and_leader_report(self):
+  self.v.stt.transcribe.return_value='Discuss among yourselves how to help me study';self.v.router.ask.side_effect=[{'text':'reply'+str(i)}for i in range(6)];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertEqual(self.v.router.ask.call_count,6);self.assertEqual([c.args[0]for c in self.v.speaker.select_profile.call_args_list],['JARVIS','NOVA','LYRA','KAI','DEX','JARVIS']);self.assertEqual(self.v.speaker.speak.call_count,6);self.assertEqual(self.v.persona,'JARVIS');self.assertIn('[NOVA] reply1',str(self.v.router.ask.call_args_list[-1]))
+ def test_discussion_stop_drops_late_reply(self):
+  self.v.stt.transcribe.return_value='Talk among yourselves';self.v.router.ask.side_effect=lambda *a,**kw:(self.v.pause()or{'text':'late'});self.v.enable(True);self.v.turn([0],self.v.generation,False,[]);self.v.speaker.speak.assert_not_called();self.assertEqual(self.v.router.ask.call_count,1)
+
+ def test_banter_is_bounded_and_leader_settles_before_apologies(self):
+  self.v.stt.transcribe.return_value='Talk among yourselves and bicker playfully';self.v.router.ask.side_effect=[{'text':'reply'+str(i)}for i in range(9)];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertEqual(self.v.router.ask.call_count,9);self.assertEqual([c.args[0]for c in self.v.speaker.select_profile.call_args_list],['JARVIS','NOVA','DEX','JARVIS','NOVA','LYRA','KAI','DEX','JARVIS']);self.assertIn('Stop all!',str(self.v.router.ask.call_args_list[3]));self.assertIn('short apology',str(self.v.router.ask.call_args_list[4]));self.assertIn('final one-line',str(self.v.router.ask.call_args_list[-1]))
+
+class ArgumentDynamicsTests(unittest.TestCase):
+ def test_kai_recorder_and_nova_temper_and_dex_closer_instructions(self):
+  from jarvis.team_discussion import messages
+  m=messages('KAI','argue about chores',[],0)
+  self.assertIn('recorder',m[-1]['content']);self.assertIn('Never invent',m[-1]['content'])
+  m=messages('NOVA','bicker about chores',[],1)
+  self.assertIn('hot-tempered',m[-1]['content'])
+  m=messages('DEX','argument about plans',[],2)
+  self.assertIn('ends the debate',m[-1]['content'])
+ def test_persona_argument_roles_present(self):
+  from jarvis.personas import prompt
+  kai=prompt('KAI');nova=prompt('NOVA');dex=prompt('DEX');jarvis=prompt('JARVIS')
+  self.assertIn('team recorder',kai);self.assertIn('no one wins a debate with you aside from Dex',kai)
+  self.assertIn('Why bring up the past',nova);self.assertIn('hot temper',nova)
+  self.assertIn('fear debating you',dex)
+  self.assertIn('Master is watching',jarvis);self.assertIn('hold back longer',jarvis);self.assertIn('bad word',jarvis)
+ def test_profanity_bound_never_at_master(self):
+  from jarvis.personas import prompt
+  for name in ('JARVIS','NOVA','KAI','LYRA','DEX'):
+   self.assertIn('never direct insults or profanity at master',prompt(name))
+
+class BargeInTests(unittest.TestCase):
+ def setUp(self):
+  self.v=VoiceRuntime(Mock(),Mock(),Mock(),Mock());self.v.mic=Mock();self.v.stt.transcribe.return_value='Hi';self.v.router.ask.return_value={'text':'Hello'}
+ def test_default_no_onset_hook(self):
+  self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertIsNone(self.v.mic.on_onset);self.v.mic.resume.assert_called_once()
+ def test_barge_in_resumes_mic_during_reply_and_clears_hook(self):
+  self.v.barge_in=True;self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertEqual(self.v.mic.resume.call_count,2);self.assertIsNone(self.v.mic.on_onset)
+ def test_interrupt_cancels_output_swaps_event_and_next_turn_works(self):
+  self.v.barge_in=True;self.v.enable(True)
+  old_cancel=self.v.cancel
+  def speaking(text,generation=None):self.v.interrupt(self.v.generation)
+  self.v.speaker.speak.side_effect=speaking
+  self.v.turn([0],self.v.generation,False,[])
+  self.assertTrue(old_cancel.is_set());self.assertFalse(self.v.cancel.is_set());self.assertIsNot(self.v.cancel,old_cancel)
+  self.v.speaker.speak.side_effect=None;self.v.speaker.speak.reset_mock()
+  self.v.turn([0],self.v.generation,False,[]);self.v.speaker.speak.assert_called_once()
+ def test_stale_interrupt_ignored(self):
+  self.v.enable(True);self.v.interrupt(self.v.generation+5);self.v.speaker.stop.assert_not_called()
+ def test_interrupted_turn_records_nothing(self):
+  self.v.barge_in=True;self.v.record_turn=Mock();self.v.enable(True)
+  def speaking(text,generation=None):self.v.interrupt(self.v.generation)
+  self.v.speaker.speak.side_effect=speaking
+  self.v.turn([0],self.v.generation,False,[])
+  self.v.record_turn.assert_not_called();self.assertEqual(self.v.history,[])
