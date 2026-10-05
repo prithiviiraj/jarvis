@@ -2,6 +2,7 @@
 import threading,time
 from .audio import ContinuousMic
 from .personas import prompt
+from .persona_text import strip_speaker_tag,spoken_text,spoken_chunks
 class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
@@ -62,10 +63,11 @@ class VoiceRuntime:
                     if callable(select):select(actor)
                     self.persona=actor;self.notify('voice-actor',actor);self.notify('state','thinking')
                     reply=self.router.ask(discussion_messages(actor,text,context,index),cloud_consent=cloud,cancel=self.cancel)
-                    answer_text=reply.get('text')
+                    answer_text=strip_speaker_tag(reply.get('text'))
                     if not isinstance(answer_text,str)or not answer_text.strip()or len(answer_text)>1500:raise ValueError('Invalid discussion reply')
                     if not self.valid(generation)or self.cancel.is_set():return
-                    self.notify('answer',dict(reply,profile=actor));self.notify('state','speaking');self.speaker.speak(answer_text,generation=ticket)
+                    self.notify('answer',dict(reply,text=answer_text,profile=actor));self.notify('state','speaking');spoken=spoken_text(answer_text)
+                    if spoken.strip():self.speaker.speak(spoken,generation=ticket)
                     if not self.valid(generation)or self.cancel.is_set():return
                     context.append({'role':'assistant','content':'['+actor+'] '+answer_text});answers.append(answer_text)
                     if callable(self.record_turn):self.record_turn(text,answer_text)
@@ -74,6 +76,7 @@ class VoiceRuntime:
             # Direct spoken address selects one actual persona and installed voice.
             import re
             match=re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
+            if not match:match=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+(jarvis|nova|kai|lyra|dex)\b',text,re.I)
             actor=match.group(1).upper()if match else self.persona
             if actor!=self.persona:
                 select=getattr(self.speaker,'select_profile',None)
@@ -102,7 +105,7 @@ class VoiceRuntime:
                             if not self.valid(generation):return
                             if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
                             pieces.append(delta['text']);provider[:]=[delta]
-                            self.notify('answer',{'text':''.join(pieces),'provider':delta['provider'],'profile':self.persona})
+                            self.notify('answer',{'text':strip_speaker_tag(''.join(pieces)),'provider':delta['provider'],'profile':self.persona})
                             if delta.get('model'):self.notify('status',delta['provider']+' model '+delta['model'])
                         yield delta['text']
                 def clause(part):
@@ -112,8 +115,8 @@ class VoiceRuntime:
                         if self.valid(generation):
                             if 'first_clause_s' not in metrics:metrics['first_clause_s']=time.monotonic()-started
                             self.notify('state','speaking')
-                SpeechQueue(self.speaker,self.cancel).play_stream(chunks(),ticket,clause)
-                answer={'text':''.join(pieces),'provider':provider[0]['provider'] if provider else 'local'}
+                SpeechQueue(self.speaker,self.cancel).play_stream(spoken_chunks(chunks()),ticket,clause)
+                answer={'text':strip_speaker_tag(''.join(pieces)),'provider':provider[0]['provider'] if provider else 'local'}
                 if not answer['text']:raise RuntimeError('Empty reply')
                 warnings=getattr(self.router,'last_warnings',[])
                 if isinstance(warnings,list):
@@ -122,12 +125,14 @@ class VoiceRuntime:
                 if isinstance(records,list):self.notify('response-diagnostics',records)
             else:
                 answer=self.router.ask(messages,cloud_consent=cloud)
+                answer['text']=strip_speaker_tag(answer['text'])
                 with self.lock:
                     if not self.valid(generation):return
                     metrics['first_text_s']=time.monotonic()-started
                     self.notify('answer',answer);self.notify('state','speaking')
                 stage='speech synthesis/playback'
-                self.speaker.speak(answer['text'],generation=ticket)
+                spoken=spoken_text(answer['text'])
+                if spoken.strip():self.speaker.speak(spoken,generation=ticket)
             with self.lock:
                 if not self.valid(generation):return
                 if callable(self.record_turn):self.record_turn(text,answer['text'])
@@ -138,6 +143,7 @@ class VoiceRuntime:
             from .router import RouterError
             from .speech import UnclearSpeech
             detail=str(exc)[:200] if isinstance(exc,RouterError) else type(exc).__name__
+            if 'local-empty-after-retry' in str(exc):detail='local model returned no usable final text after retry (empty streaming and non-streaming replies). This model may not fit this chat template; load a proven chat-instruct model in LM Studio (for example spark-x2.5-4b) or test an enabled cloud account.'
             if 'native-reasoning-off-' in detail:detail+=' Use a non-reasoning model in LM Studio or update LM Studio; no reasoning was spoken'
             with self.lock:
                 if self.valid(generation):
