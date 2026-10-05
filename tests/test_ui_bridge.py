@@ -64,3 +64,14 @@ class UiBridgeTests(unittest.TestCase):
   state=self.b.execute({'command':'status'});self.assertEqual(state['voice_metrics'],{'stt_s':.2,'first_output_write_s':1.1})
   self.b.voice.notify('metrics',{'turn_s':2});self.assertEqual(self.b.execute({'command':'pause'})['voice_metrics'],{})
   self.assertEqual(self.b.execute({'command':'status'})['voice_metrics'],{})
+ def test_endpoint_session_preset_stopped_only(self):
+  self.assertEqual(self.b.execute({'command':'status'})['endpoint_mode'],'balanced')
+  self.assertEqual(self.b.execute({'command':'voice-endpoint','mode':'fast'})['endpoint_mode'],'fast')
+  with self.assertRaises(ValueError):self.b.execute({'command':'voice-endpoint','mode':'arbitrary'})
+  self.b.voice.busy=True
+  with self.assertRaises(ValueError):self.b.execute({'command':'voice-endpoint','mode':'balanced'})
+  self.b.voice.busy=False;self.b.voice.runtime=Mock()
+  with self.assertRaises(ValueError):self.b.execute({'command':'voice-endpoint','mode':'balanced'})
+  self.b.voice.runtime=None
+  from pathlib import Path
+  s=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8');self.assertIn('"voice-endpoint"',s.split('.contains(&command)')[0])
