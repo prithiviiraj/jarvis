@@ -171,7 +171,7 @@ try:
   click('Settings');click('Memory')
   folder=window.child_window(title='Obsidian vault folder',control_type='Edit');folder.wait('exists',timeout=10);folder.wrapper_object().set_edit_text(vault_tmp)
   click('Connect local vault');button('Confirm vault connection').wait('exists',timeout=10)
-  click('Cancel vault connection');assert not button('Confirm vault connection').exists()
+  click('Cancel vault connection');window.child_window(title='Confirm vault connection',control_type='Button').wait_not('exists',timeout=10)
   click('Connect local vault');click('Confirm vault connection')
   deadline=time.monotonic()+10
   while time.monotonic()<deadline:
