@@ -51,13 +51,21 @@ class Bridge:
    except (ValueError,OSError,UnicodeError) as error:
     self.voice.notify('error','Local vault command failed. Check the connected vault and exact Markdown note path in Settings > Memory.')
    return True
-  if not self.browser_enabled:return False
+  import re
+  browser_explicit=bool(re.match(r'^\s*(?:(?:hey|hi|hello)\s+)?(?:(?:jarvis|nova|kai|lyra|dex)[, :]+)?browser\s+(?:open|search|scroll|read|choose|select|youtube|click|type|send|pay|buy|upload|delete)\b',text,re.I))
+  if not self.browser_enabled:
+   if browser_explicit:
+    self.browser_pending=None;self.voice.notify('error','Browser control is OFF. Enable it in Settings > Tools; nothing opened or sent to a model.');return True
+   return False
   from .browser_control import parse_voice
   try:proposal=parse_voice(text)
   except ValueError:
    self.browser_pending=None
    self.voice.notify('error','Browser destination rejected. Use a public HTTPS site.');return True
-  if not proposal:return False
+  if not proposal:
+   if browser_explicit:
+    self.browser_pending=None;self.voice.notify('error','Unsupported browser command. Use reviewed open/search/scroll or observed link numbers; nothing opened or sent to a model.');return True
+   return False
   if proposal['command']in ('read-links','select-link'):
    try:
     self.execute({'command':'browser-links'}if proposal['command']=='read-links'else {'command':'browser-select','link_id':proposal['value']})
