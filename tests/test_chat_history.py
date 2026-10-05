@@ -47,7 +47,7 @@ class HistoryTests(unittest.TestCase):
   from jarvis.ui_bridge import Bridge
   from jarvis.workspace_voice import WorkspaceVoice
   b=Bridge(WorkspaceVoice(),history=self.h);b.voice.busy=True
-  with self.assertRaisesRegex(ValueError,'wait'):b.execute({'command':'history-new'})
+  self.assertTrue(b.execute({'command':'history-new'})['chat_id']);self.assertFalse(b.voice.busy)
   b.voice.busy=False;b.close()
  def test_clear_requires_confirmation(self):
   from jarvis.ui_bridge import Bridge
@@ -68,3 +68,10 @@ class HistoryTests(unittest.TestCase):
   b=Bridge(WorkspaceVoice(),history=self.h);i=self.h.new();self.h.save(i,[{'name':'You','text':'retain'}])
   with self.assertRaisesRegex(ValueError,'Confirm'):b.execute({'command':'history-delete','chat_id':i})
   self.assertEqual(self.h.load(i)[0]['text'],'retain');b.close()
+
+class Provenance(unittest.TestCase):
+ def test_source_survives_archive(self):
+  import tempfile
+  from pathlib import Path
+  with tempfile.TemporaryDirectory()as d:
+   h=ChatHistory(Path(d)/'chat.db');cid=h.new();rows=[{'name':'DEX','text':'Actual reply','provider':'nim','model':'actual-model','cloud':True}];h.save(cid,rows);self.assertEqual(h.load(cid),rows);h.close()
