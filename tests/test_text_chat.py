@@ -72,3 +72,15 @@ class OwnProfileRetry(unittest.TestCase):
  def test_narrated_other_reply_retried_without_fake_bubble(self):
   r=Mock();r.stream.return_value=iter([{'text':'Nova argues humans are computers.','provider':'local'}]);r.ask.return_value={'text':'Humans learn through experience.','provider':'local'};v=WorkspaceVoice(text_factory=lambda:r)
   v.send_text('Explain humans').join(2);r.ask.assert_called_once();answers=[a for k,a in list(v.events.queue)if k=='answer'];self.assertEqual(len(answers),1);self.assertEqual(answers[0]['profile'],'JARVIS');self.assertNotIn('Nova argues',answers[0]['text']);self.assertEqual(v.memory.snapshot()[0][2],'Humans learn through experience.');v.close()
+
+class GenerationCleanup(unittest.TestCase):
+ def test_old_worker_cannot_clear_new_busy(self):
+  from jarvis.workspace_voice import WorkspaceVoice
+  first=threading.Event();oldrelease=threading.Event();second=threading.Event();newrelease=threading.Event();count=[]
+  class Router:
+   def stream(self,*a,**kw):
+    count.append(1);n=len(count)
+    if n==1:first.set();oldrelease.wait(2)
+    else:second.set();newrelease.wait(2)
+    yield {'text':'Done.','provider':'fixture'}
+  v=WorkspaceVoice(text_factory=Router);old=v.send_text('old');first.wait(1);v.pause();new=v.send_text('new');second.wait(1);oldrelease.set();old.join(1);self.assertTrue(v.busy);newrelease.set();new.join(2);self.assertFalse(v.busy);self.assertEqual(len(v.memory.snapshot()),1);v.close()
