@@ -30,3 +30,10 @@ class SpeechTextTests(unittest.TestCase):
   from unittest.mock import Mock
   context=Mock();context.seq=0;context.apps=False;context.snapshot.return_value={'camera':'off'};j=ProactiveJudge(context,Mock(),clock=lambda:10000,hour=lambda:14)
   self.assertIn('Off',j.waiting_reason());j.enable(True);self.assertIn('microphone',j.waiting_reason(True));self.assertIn('allowed',j.waiting_reason());context.apps=True;self.assertIn('new presence',j.waiting_reason());j.gaming=True;self.assertIn('gaming',j.waiting_reason());j.gaming=False;j.requests.extend([0]*12);self.assertNotIn('Hourly',j.waiting_reason());j.requests.extend([9999]*12);self.assertIn('Hourly',j.waiting_reason())
+
+class PersonaPronunciation(unittest.TestCase):
+ def test_names_spoken_as_words_without_display_change(self):
+  from jarvis.speech_text import speech_text
+  text='JARVIS calls N O V A and KAI. LYRA agrees with DEX.'
+  self.assertEqual(speech_text(text),'Jarvis calls Nova and Kai. Lyra agrees with Dex.')
+  self.assertEqual(text,'JARVIS calls N O V A and KAI. LYRA agrees with DEX.')
