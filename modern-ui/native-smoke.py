@@ -54,10 +54,14 @@ try:
  checks.append('workspace first; floating OFF at launch; explicit ON button')
  # Workspace header must sit below the visible native face strip.
  faces_for_dock=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces_for_dock.wait('visible',timeout=15)
- dock_header=main.child_window(title='Previous view',control_type='Button');dock_header.wait('exists',timeout=15)
+ def header_rectangle():
+  rows=[x.rectangle()for x in main.descendants(control_type='Text')if x.window_text()=='Voice'and x.rectangle().left>main.rectangle().left+220]
+  assert rows,'Voice header missing'
+  return max(rows,key=lambda r:r.left)
+ dock_header=header_rectangle
  deadline=time.monotonic()+10
- while dock_header.rectangle().top<faces_for_dock.rectangle().bottom and time.monotonic()<deadline:time.sleep(.2)
- assert dock_header.rectangle().top>=faces_for_dock.rectangle().bottom,'Floating strip overlaps workspace header'
+ while dock_header().top<faces_for_dock.rectangle().bottom and time.monotonic()<deadline:time.sleep(.2)
+ assert dock_header().top>=faces_for_dock.rectangle().bottom,'Floating strip overlaps workspace header'
  main.capture_as_image().save('ui-evidence/workspace-floating-dock.png')
  checks.append('native floating visible reserves header space; actual face/header rectangles do not overlap')
 
@@ -87,7 +91,7 @@ try:
  face_handle=faces.handle;caption_handle=captions.handle
  main.set_focus();main.child_window(title='Floating OFF',control_type='Button').wrapper_object().invoke();time.sleep(.3)
  assert not ctypes.windll.user32.IsWindowVisible(face_handle) and not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must hide faces and captions'
- time.sleep(.7);assert main.child_window(title='Previous view',control_type='Button').rectangle().top<faces.rectangle().bottom,'Workspace dock not released after OFF'
+ time.sleep(.7);assert header_rectangle().top<faces.rectangle().bottom,'Workspace dock not released after OFF'
  main.capture_as_image().save('ui-evidence/workspace-floating-off-dock.png')
  main.child_window(title='Floating ON',control_type='Button').wrapper_object().invoke();faces.wait('visible',timeout=10);faces.set_focus();time.sleep(.3)
  checks.append('explicit OFF hides facesandcaptions; ON restoresexistingwindows')
