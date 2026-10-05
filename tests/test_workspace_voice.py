@@ -43,6 +43,10 @@ class BridgeTests(unittest.TestCase):
   with self.assertRaises(Exception):voice_assets.download('/nonexistent')
  def test_unknown_profile(self):
   with self.assertRaises(ValueError):WorkspaceVoice(Mock()).select('EXTRA')
+ def test_reo_selectable_but_silent(self):
+  factory=Mock();c=WorkspaceVoice(factory);c.select('REO');self.assertEqual(c.name,'REO')
+  with self.assertRaises(ValueError):c.start(True)
+  factory.assert_not_called()
 
  def test_queued_old_caption_cleared_on_select(self):
   c=WorkspaceVoice(Mock());c.notify('transcript','Old profile');c.select('LYRA');self.assertNotIn(('transcript','Old profile'),list(c.events.queue))
