@@ -1,0 +1,22 @@
+{
+  "scope": "sequential synthetic public-frame CPU benchmark, not live camera, video understanding accuracy or owner-laptop proof",
+  "repo": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
+  "revision": "067788b187b95ebe7b2e040b3e4299e342e5b8fd",
+  "load_s": 0.5100221399989096,
+  "rows": [
+    {
+      "frame": 0,
+      "seconds": 61.19621444299992,
+      "answer": " The image shows a red square with a white outline. The"
+    }
+  ],
+  "assets": [
+    {
+      "name": "model.safetensors",
+      "bytes": 1025998224,
+      "sha256": "dcc8f4c00d30d70bb3028a1bfc373e1b1972e25919f8788183cae4ae72431ce2"
+    }
+  ],
+  "realtime_1fps": false,
+  "not_integrated": true
+}
