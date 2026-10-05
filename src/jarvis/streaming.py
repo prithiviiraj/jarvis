@@ -46,6 +46,7 @@ def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None,diagnostic=
     if diagnostic is not None:
         diagnostic.data['recognized_text_chars']=count
         if filter.suppressed and not count:diagnostic.data['response_category']='reasoning_without_final_text'
+    if filter.scaffold and not count:raise ProviderFailure('reasoning-scaffold',True)
     if limited and not count:raise ProviderFailure('reasoning-token-limit' if filter.suppressed or diagnostic is not None and diagnostic.snapshot()['response_category']=='reasoning_without_final_text' else 'completion-token-limit',False)
 
 class StreamTransport:
@@ -94,6 +95,12 @@ class StreamTransport:
                     if exc.code=='empty':raise ProviderFailure('local-empty-after-retry',False) from None
                     raise
                 if cancel is None or not cancel.is_set():yield text
+        except ProviderFailure as exc:
+            if exc.code!='reasoning-scaffold' or cancel is not None and cancel.is_set():raise
+            retry=HttpTransport()
+            direct=list(messages)+[{'role':'user','content':'Your previous response did not include a final answer. Answer the original question directly in one or two short sentences. Do not describe a thinking process, instructions, reasoning or analysis. Return only the final spoken answer.'}]
+            text=retry.complete(provider,direct,key)
+            if cancel is None or not cancel.is_set():yield text
         except urllib.error.HTTPError as e:raise ProviderFailure('http-'+str(e.code),e.code in (408,429,500,502,503,504)) from None
         except (urllib.error.URLError,TimeoutError,OSError):raise ProviderFailure('connection') from None
         finally:
