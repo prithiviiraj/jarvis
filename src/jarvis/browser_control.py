@@ -21,7 +21,12 @@ class BrowserControl:
    return url
   except ValueError:raise ValueError('Use a public HTTPS site, not local or private addresses')
  def execute(self,command,value='',confirmed=False):
-  if command=='search':
+  if command=='open-window':
+   if confirmed is not True:raise ValueError('Review opening the isolated browser first')
+   # Review covers a blank isolated window even when a prior session restored a page.
+   self.page.goto('about:blank',wait_until='domcontentloaded',timeout=15000)
+   return {'url':self.page.url,'title':self.page.title()[:160]}
+  elif command=='search':
    if not isinstance(value,str)or not value.strip()or len(value)>300:raise ValueError('Enter a short search')
    # Search terms leave the machine; review exact text before navigation.
    if confirmed is not True:raise ValueError('Review search terms before opening browser')
@@ -30,8 +35,9 @@ class BrowserControl:
    url=self.destination(value)
    if confirmed is not True:raise ValueError('Review exact destination first')
    self.page.goto(url,wait_until='domcontentloaded',timeout=15000)
-  elif command in ('scroll-down','scroll-up'):
-   self.page.mouse.wheel(0,600 if command=='scroll-down'else-600)
+  elif command in ('scroll-down','scroll-up','scroll-down-small','scroll-up-small'):
+   amount=200 if command.endswith('-small')else 600
+   self.page.mouse.wheel(0,amount if command.startswith('scroll-down')else-amount)
   else:raise ValueError('Available: open site, search web, scroll up/down. Sending, buying and form submission are not enabled.')
   return {'url':self.page.url,'title':self.page.title()[:160]}
 
@@ -39,6 +45,7 @@ def parse_voice(text):
  import re
  if not isinstance(text,str):return None
  text=re.sub(r'^\s*(?:(?:hey|hi|hello)\s+)?(?:jarvis|nova|kai|lyra|dex)[, ]*','',text,flags=re.I).strip()
+ if text.lower().rstrip('.!') in ('browser open browser','browser open window'):return {'command':'open-window','value':''}
  if text.lower().rstrip('.!')=='browser read links':return {'command':'read-links','value':''}
  match=re.fullmatch(r'browser (?:choose|select) link ([1-9]|1[0-9]|20)[.!]?',text,re.I)
  if match:return {'command':'select-link','value':match.group(1)}
