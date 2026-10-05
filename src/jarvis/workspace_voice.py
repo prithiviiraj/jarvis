@@ -13,8 +13,8 @@ class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
-        self.endpoint_mode='balanced';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
-        self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None
+        self.turn_mode='vad';self.endpoint_mode='balanced';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
+        self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None;self.dialogue_origin='user'
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
     def notify(self,kind,value):self.events.put((kind,value))
@@ -27,6 +27,7 @@ class WorkspaceVoice:
         with self.lock:self.name=name
         self.notify('state','off')
     def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False,barge_in=False):
+        self.dialogue_origin='user'
         if not consent:raise ValueError('Microphone session consent required.')
         if cloud and not verified_free:raise ValueError('Groq needs a confirmed Free-tier account.')
         if self.name not in VOICES:raise ValueError(self.name+' is a silent text specialist with no voice. Type to this profile in chat, or select a voiced profile for the microphone.')
@@ -47,7 +48,12 @@ class WorkspaceVoice:
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
                     from .audio import Endpointer,ENDPOINT_FRAMES
-                    runtime.mic.endpointer=Endpointer(silence_frames=ENDPOINT_FRAMES[self.endpoint_mode])
+                    detector=None
+                    if self.turn_mode=='smart':
+                        from .experimental.smart_turn import SmartTurn
+                        from .paths import data_root
+                        detector=SmartTurn(data_root()/'models'/'smart-turn.onnx').complete
+                    runtime.mic.endpointer=Endpointer(silence_frames=ENDPOINT_FRAMES[self.endpoint_mode],turn_complete=detector)
                     runtime.vision=self.vision;runtime.barge_in=barge_in is True
                     self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
@@ -57,9 +63,11 @@ class WorkspaceVoice:
                     if ticket==self.generation:
                         self.runtime=None;self.notify('error',str(exc)[:300])
             finally:
-                with self.lock:self.busy=False
+                with self.lock:
+                    if ticket==self.generation:self.busy=False
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def send_text(self,text,auto_pick=False):
+        self.dialogue_origin='user'
         if not isinstance(text,str) or not text.strip():raise ValueError('Type a message first.')
         if len(text)>2000:raise ValueError('Message limit is2000characters.')
         with self.lock:
@@ -119,52 +127,86 @@ class WorkspaceVoice:
                         self.notify('error',detail+'LM Studio server port1234. Retry your message.')
             finally:
                 with self.lock:
-                    self.busy=False
+                    if ticket==self.generation:self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
-    def dialogue(self,topic,brains,audio=False,rounds=2):
+    def dialogue(self,topic,brains,audio=False,rounds=2,origin='user'):
         """Actual routed turns, with previous observed replies. One audible voice at a time."""
         from .team_discussion import order,messages,clean_reply,participants
         if not isinstance(topic,str)or not topic.strip()or len(topic)>1000:raise ValueError('Enter a short team topic')
         if type(rounds)is not int or not 1<=rounds<=3:raise ValueError('Choose1to3conversation rounds')
+        if origin not in ('user','idle'):raise ValueError('Invalid conversation origin')
+        self.dialogue_origin=origin
+        members=participants(topic)
         with self.lock:
             if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Stop voice and wait for the current reply first')
             self.busy=True;self.generation+=1;ticket=self.generation;context=self.memory.messages();self.text_cancel=threading.Event();cancel=self.text_cancel
-        self.notify('transcript',topic);self.notify('state','team discussion')
+        if origin=='user':self.notify('transcript',topic)
+        self.notify('state','team discussion')
         def run():
             speaker=None
             try:
                 if audio:
                     speaker=build_proactive_speaker(self.tts_engine);self.round_speaker=speaker
                     speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
-                actors=participants(topic)*rounds+('JARVIS',)
+                actors=members*rounds+('JARVIS',)
                 for index,name in enumerate(actors):
                     if cancel.is_set()or self.closed or ticket!=self.generation:return
                     self.reply_actor=name;self.notify('state',name+' thinking')
                     request=messages(name,topic,context,0)
-                    instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.' if index==len(actors)-1 else 'Round '+str(index//len(participants(topic))+1)+': reply only as '+name+' in2to3sentences. React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
+                    instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.' if index==len(actors)-1 else 'Round '+str(index//len(members)+1)+': reply only as '+name+' in2to3sentences. React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
                     request[-1]['content']+='\n'+instruction
+                    if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
                     router=brains.router(name)
-                    answer=router.ask(request,cancel=cancel)
-                    try:text=clean_reply(answer.get('text'))
-                    except ValueError:
-                        if cancel.is_set():return
-                        answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel)
-                        text=clean_reply(answer.get('text'))
-                    if cancel.is_set()or self.closed or ticket!=self.generation:return
-                    self.notify('answer',{**answer,'text':text,'profile':name,'stream_id':str(ticket)+'-dialogue-'+str(index)})
+                    stream_id=str(ticket)+'-dialogue-'+str(index)
+                    answer={};pieces=[]
+                    streaming=callable(getattr(type(router),'stream',None))
+                    if streaming:
+                        def chunks():
+                            nonlocal answer
+                            for delta in router.stream(request,cancel=cancel):
+                                with self.lock:
+                                    if cancel.is_set()or self.closed or ticket!=self.generation:return
+                                    piece=delta.get('text')
+                                    if not isinstance(piece,str):raise ValueError('Invalid stream delta')
+                                    pieces.append(piece)
+                                    text=strip_speaker_tag(''.join(pieces))
+                                    if len(text)>3000:raise ValueError('Team reply too long')
+                                    own_reply(text,name,context)
+                                    answer={**delta,'text':text}
+                                    self.notify('answer',{**answer,'profile':name,'stream_id':stream_id})
+                                yield piece
+                        if speaker:
+                            from .speech_queue import SpeechQueue
+                            from .persona_text import spoken_chunks
+                            speaker.select_profile(name)
+                            SpeechQueue(speaker,cancel).play_stream(spoken_chunks(chunks()),speaker.generation)
+                        else:
+                            for _ in chunks():pass
+                        if cancel.is_set()or self.closed or ticket!=self.generation:return
+                        text=clean_reply(answer.get('text'));own_reply(text,name,context)
+                    else:
+                        answer=router.ask(request,cancel=cancel)
+                        try:text=clean_reply(answer.get('text'));own_reply(text,name,context)
+                        except ValueError:
+                            if cancel.is_set():return
+                            answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel)
+                            text=clean_reply(answer.get('text'));own_reply(text,name,context)
+                        if cancel.is_set()or self.closed or ticket!=self.generation:return
+                        self.notify('answer',{**answer,'text':text,'profile':name,'stream_id':stream_id})
+                        if speaker:
+                            speaker.select_profile(name);spoken=spoken_text(text)
+                            if spoken.strip():speaker.speak(spoken)
                     self.memory.append(name,topic,text);context.append({'role':'assistant','content':'['+name+'] '+text})
-                    if speaker:
-                        speaker.select_profile(name);spoken=spoken_text(text)
-                        if spoken.strip():speaker.speak(spoken)
                 self.notify('status','Team discussion complete; each shown reply came from its named profile route.')
             except Exception as error:
                 if not cancel.is_set():self.notify('error','Team discussion stopped: '+str(error)[:160]+'. Earlier actual replies remain; no invented replacement.')
             finally:
                 if speaker:
-                    speaker.stop();speaker.synth.g2p.close();self.round_speaker=None
+                    speaker.stop();speaker.synth.g2p.close()
+                    if self.round_speaker is speaker:self.round_speaker=None
                 with self.lock:
-                    self.busy=False
+                    if ticket==self.generation:self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def parallel_round(self,topic,brains,audio=False):
@@ -220,9 +262,10 @@ class WorkspaceVoice:
                 if not cancel.is_set():self.notify('error','Team round failed: '+str(e)[:160])
             finally:
                 if speaker:
-                    speaker.stop();speaker.synth.g2p.close();self.round_speaker=None
+                    speaker.stop();speaker.synth.g2p.close()
+                    if self.round_speaker is speaker:self.round_speaker=None
                 with self.lock:
-                    self.busy=False
+                    if ticket==self.generation:self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def team_round(self,topic,names=('NOVA','JARVIS')):
@@ -256,7 +299,7 @@ class WorkspaceVoice:
                     if not self.closed and ticket==self.generation:self.notify('round-status','Local round failed. No partial round saved. Check LM Studio.')
             finally:
                 with self.lock:
-                    self.busy=False
+                    if ticket==self.generation:self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def start_banter(self,topic,names,consent=False,turn_limit=2,interval=3):
@@ -304,15 +347,15 @@ class WorkspaceVoice:
                     if not self.closed and ticket==self.generation:self.notify('banter-status','Session failed or reached120seconds. No partial session saved. Check LM Studio.')
             finally:
                 with self.lock:
-                    self.busy=False;self.banter_active=False
+                    if ticket==self.generation:self.busy=False;self.banter_active=False
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
     def stop_banter(self):
         with self.lock:
-            self.banter_stop.set();self.generation+=1;self.banter_active=False
+            self.banter_stop.set();self.banter_active=False
         self.notify('banter-status','OFF. Current session discarded. In-flight local request may finish, but its reply will not be saved.')
     def pause(self):
         if self.round_speaker is not None:self.round_speaker.stop()
-        with self.lock:self.text_cancel.set();self.banter_stop.set();self.banter_active=False;self.generation+=1;runtime=self.runtime;self.runtime=None
+        with self.lock:self.text_cancel.set();self.banter_stop.set();self.banter_active=False;self.generation+=1;runtime=self.runtime;self.runtime=None;self.busy=False
         if runtime:runtime.close()
         self.notify('state','off')
     def close(self):
@@ -365,7 +408,8 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
     try:
         if tts_engine=='kitten':
             from .experimental.kitten_onnx import KittenONNX
-            names=dict(zip(VOICES,('Jasper','Luna','Bruno','Rosie','Hugo')))
+            kitten_map=dict(zip(('am_michael','af_heart','am_liam','af_sky','am_fenrir'),('Jasper','Luna','Bruno','Rosie','Hugo')))
+            names={n:kitten_map[v]for n,v in VOICES.items()}
             profiles={actor:KittenONNX(cache/'kitten',g2p,voice)for actor,voice in names.items()}
             speaker=KokoroSpeaker(profiles[name]);speaker.profiles=profiles
         else:
@@ -403,7 +447,8 @@ def build_proactive_speaker(tts_engine='kokoro'):
     try:
         if tts_engine=='kitten':
             from .experimental.kitten_onnx import KittenONNX
-            profiles={n:KittenONNX(cache/'kitten',g2p,v)for n,v in zip(VOICES,('Jasper','Luna','Bruno','Rosie','Hugo'))}
+            kitten_map=dict(zip(('am_michael','af_heart','am_liam','af_sky','am_fenrir'),('Jasper','Luna','Bruno','Rosie','Hugo')))
+            profiles={n:KittenONNX(cache/'kitten',g2p,kitten_map[v])for n,v in VOICES.items()}
         else:profiles={n:KokoroSynth(assets/'model.onnx',assets/(v+'.bin'),assets/'config.json',g2p)for n,v in VOICES.items()}
         speaker=KokoroSpeaker(profiles['JARVIS']);speaker.profiles=profiles;speaker.select_profile('JARVIS')
         speaker.close=lambda:(speaker.stop(),g2p.close())
