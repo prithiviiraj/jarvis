@@ -199,6 +199,11 @@ try:
 
 
  # Isolate real chat archive title from earlier explicit action-routing messages.
+ click('Enable browser commands');click('Confirm browser permission');click('Team room')
+ field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft');time.sleep(.5)
+ button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-team-browser-review.png');click('Cancel Team browser action')
+ assert not window.child_window(title='Confirm Team browser action',control_type='Button').exists(),'Team browser cancel failed'
+ checks.append('native compound YouTube command exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Stop browser control')
  click('Agents');click('New chat');time.sleep(.5)
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
  click('Add local draft')
