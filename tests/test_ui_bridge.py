@@ -58,3 +58,9 @@ class UiBridgeTests(unittest.TestCase):
   self.assertEqual(self.b.execute({'command':'status'})['expression']['state'],'thinking')
   self.b.voice.busy=False
   self.assertEqual(self.b.execute({'command':'status'})['expression']['state'],'idle')
+
+ def test_session_metrics_filter_clear_no_stale_pause(self):
+  self.b.voice.notify('metrics',{'stt_s':.2,'first_output_write_s':1.1,'private':'text','turn_s':-1,'first_text_s':True})
+  state=self.b.execute({'command':'status'});self.assertEqual(state['voice_metrics'],{'stt_s':.2,'first_output_write_s':1.1})
+  self.b.voice.notify('metrics',{'turn_s':2});self.assertEqual(self.b.execute({'command':'pause'})['voice_metrics'],{})
+  self.assertEqual(self.b.execute({'command':'status'})['voice_metrics'],{})
