@@ -53,9 +53,18 @@ async fn resize_faces(app:tauri::AppHandle,size:String)->Result<(),String>{
  }Ok(())
 }
 #[tauri::command]
+async fn floating_status(app:tauri::AppHandle)->Result<f64,String>{
+ if let Some(w)=app.get_webview_window("faces"){
+  if w.is_visible().map_err(|e|e.to_string())?{
+   let scale=w.scale_factor().map_err(|e|e.to_string())?;
+   return Ok(w.inner_size().map_err(|e|e.to_string())?.height as f64/scale+24.);
+  }
+ }Ok(0.)
+}
+#[tauri::command]
 async fn floating_off(app:tauri::AppHandle)->Result<(),String>{for name in ["faces","captions"]{if let Some(w)=app.get_webview_window(name){w.hide().map_err(|e|e.to_string())?;}}Ok(())}
 #[tauri::command]
 async fn workspace(app:tauri::AppHandle)->Result<(),String>{let w=app.get_webview_window("main").ok_or("Workspace missing")?;w.unminimize().map_err(|e|e.to_string())?;w.show().map_err(|e|e.to_string())?;w.set_focus().map_err(|e|e.to_string())?;Ok(())}
 #[tauri::command]
 async fn drag_faces(app:tauri::AppHandle)->Result<(),String>{app.get_webview_window("faces").ok_or("Faces missing")?.start_dragging().map_err(|e|e.to_string())}
-fn main(){tauri::Builder::default().manage(Shared(Arc::new(Mutex::new(None)))).manage(Minimized(AtomicBool::new(false))).on_window_event(|window,event|{if window.label()=="main" {if let tauri::WindowEvent::CloseRequested{api,..}=event{api.prevent_close();let _=window.hide();}if let tauri::WindowEvent::Resized(_)=event{let minimized=window.is_minimized().unwrap_or(false);let was=window.state::<Minimized>().0.swap(minimized,Ordering::SeqCst);if minimized&&!was{let app=window.app_handle().clone();tauri::async_runtime::spawn(async move{if let Err(e)=overlay(app).await{eprintln!("Floating overlay unavailable: {}",e);}});}}}}).invoke_handler(tauri::generate_handler![bridge,overlay,floating_off,workspace,drag_faces,resize_faces]).build(tauri::generate_context!()).expect("JARVIS UI failed").run(|app,event|{if let tauri::RunEvent::Exit=event {if let Ok(mut guard)=app.state::<Shared>().0.lock(){if let Some(b)=guard.as_mut(){let _=writeln!(b.input,"{}",json!({"command":"close"}));let _=b.input.flush();let _=b.output.recv_timeout(std::time::Duration::from_secs(2));let _=b.child.kill();}}}});}
+fn main(){tauri::Builder::default().manage(Shared(Arc::new(Mutex::new(None)))).manage(Minimized(AtomicBool::new(false))).on_window_event(|window,event|{if window.label()=="main" {if let tauri::WindowEvent::CloseRequested{api,..}=event{api.prevent_close();let _=window.hide();}if let tauri::WindowEvent::Resized(_)=event{let minimized=window.is_minimized().unwrap_or(false);let was=window.state::<Minimized>().0.swap(minimized,Ordering::SeqCst);if minimized&&!was{let app=window.app_handle().clone();tauri::async_runtime::spawn(async move{if let Err(e)=overlay(app).await{eprintln!("Floating overlay unavailable: {}",e);}});}}}}).invoke_handler(tauri::generate_handler![bridge,overlay,floating_status,floating_off,workspace,drag_faces,resize_faces]).build(tauri::generate_context!()).expect("JARVIS UI failed").run(|app,event|{if let tauri::RunEvent::Exit=event {if let Ok(mut guard)=app.state::<Shared>().0.lock(){if let Some(b)=guard.as_mut(){let _=writeln!(b.input,"{}",json!({"command":"close"}));let _=b.input.flush();let _=b.output.recv_timeout(std::time::Duration::from_secs(2));let _=b.child.kill();}}}});}
