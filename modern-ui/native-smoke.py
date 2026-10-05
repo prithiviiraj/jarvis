@@ -208,6 +208,10 @@ try:
  pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
  # Native archive navigation and Pause preservation are visible, not metadata-only.
  click('Voice');click('New chat')
+ deadline=time.monotonic()+10
+ while time.monotonic()<deadline:
+  if 'Packaged local chat round-trip confirmed.'not in' '.join(x.window_text()for x in window.descendants()):break
+  time.sleep(.1)
  assert 'Packaged local chat round-trip confirmed.' not in ' '.join(x.window_text()for x in window.descendants())
  saved=window.child_window(title='packaged-chat-probe',control_type='Button');saved.wait('exists',timeout=10);saved.wrapper_object().invoke()
  deadline=time.monotonic()+5
