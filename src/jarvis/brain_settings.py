@@ -36,7 +36,8 @@ class BrainSettings:
    self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps({'slots':[{'id':s.id,'provider':s.provider,'model':s.model,'enabled':True,'label':s.label}for s in slots],'assignments':assignments},indent=2));tmp.replace(self.path)
  def set_key(self,sid,kind,key):
   if sid not in SLOT_IDS or kind not in KINDS or kind=='local':raise ValueError('Unknown cloud account')
-  self.keys().set(kind+'/'+sid,key)
+  if not isinstance(key,str)or not key.strip():raise ValueError('API key required')
+  self.keys().set(kind+'/'+sid,key.strip())
  def delete_key(self,sid,kind):
   if sid not in SLOT_IDS or kind not in KINDS or kind=='local':raise ValueError('Unknown cloud account')
   self.keys().delete(kind+'/'+sid)
@@ -80,16 +81,17 @@ class BrainSettings:
       elif s.provider=='gemini':choices=sorted([m for m in ids if 'flash' in m.lower() and not any(w in m.lower()for w in ('preview','image','tts','live','audio','embedding','omni','veo'))],reverse=True)
       else:choices=[m for m in ('nvidia/nemotron-3.5-lightning-30b-a3b','meta/llama-3.3-70b-instruct','meta/llama-3.1-8b-instruct')if m in ids]
       if not choices:raise ValueError('No approved automatic chat model listed. Select an exact model ID')
-      last_error=None
+      last_error=None;attempts=[]
       # Each listed candidate must answer the fixed public greeting; auth/quota errors stop immediately.
       for candidate in choices:
        started=time.monotonic()
        router=BrainRouter([replace(configured(s.provider,candidate),name=s.id,requires_free_plan=True,timeout=30)],key_store=_Keys(self,{sid:s}))
        try:greeted=router.ask([{'role':'user','content':'Say hello in one short sentence.'}],cloud_consent=True,verified_free_providers=(sid,));s=replace(s,model=candidate);break
        except Exception as e:
-        if any(w in str(e)for w in ('http-401','http-403','http-429')):raise
-        last_error=e
-      if greeted is None:raise ValueError('No approved automatic chat model answered the fixed greeting. Tried: '+', '.join(choices[:5])+('. Last error: '+str(last_error)[:100] if last_error else ''))
+        if 'http-429' in str(e):raise ValueError('Automatic selection stopped at '+candidate+': rate limit or quota reached (HTTP 429). Wait and check this provider account limits; reset time is unknown. No paid fallback. The fetched list stays available for manual selection.')
+        if any(w in str(e)for w in ('http-401','http-403')):raise ValueError('Automatic selection stopped at '+candidate+': provider rejected this key or access. Recheck the saved key.')
+        last_error=e;attempts.append(candidate+' -> '+str(e)[:70])
+      if greeted is None:raise ValueError('No approved automatic chat model answered the fixed greeting. '+('; '.join(attempts[:5]) if attempts else ', '.join(choices[:5]))+'. Pick an exact model from the fetched list and Save & test, or wait if quota was hit.')
       with self.lock:self.rows[sid]=s
      if s.provider=='gemini'and any(w in s.model.lower()for w in ('omni','veo','image','tts','audio','embedding','live')):raise ValueError('Selected Gemini model is not supported text chat. Clear Model ID for Automatic or choose a listed text Flash model.')
      if s.model not in ids:
@@ -102,10 +104,43 @@ class BrainSettings:
    except Exception as e:
     # Never include response bodies, request headers or secrets in errors.
     code='HTTP_'+str(e.code)if isinstance(e,urllib.error.HTTPError)else str(e)if isinstance(e,(ValueError,RouterError))else type(e).__name__
-    if 'http-429'in code.lower()or code=='HTTP_429':code='HTTP429: rate limit or quota reached. Wait and check this provider account limits; reset time is unknown. No paid fallback.'
-    result={'state':'failed','error':code[:220],**({'models':ids[:100]}if 'ids' in locals()else{})}
+    if code=='HTTP_429' or ('http-429'in code.lower() and not code.startswith('Automatic selection stopped')):code='HTTP429: rate limit or quota reached. Wait and check this provider account limits; reset time is unknown. No paid fallback.'
+    elif isinstance(e,urllib.error.HTTPError)and e.code==400:code='HTTP400: the provider rejected this request before testing. For Gemini this usually means the saved API key is invalid, expired, or pasted with extra spaces. Copy a fresh key from the provider console (Google AI Studio for Gemini), Save key securely, then test again.'
+    result={'state':'failed','error':code[:500],**({'models':ids[:100]}if 'ids' in locals()else{})}
    with self.lock:self.checks[sid]=result;self.busy.discard(sid)
    notify('status','Connection '+sid+': '+result['state'])
+  t=threading.Thread(target=work,daemon=True);t.start();return t
+ def list_models(self,sid,notify=lambda *a:None):
+  """Fetch the account model list only; no test reply is sent."""
+  with self.lock:
+   if sid in self.busy:return
+   self.busy.add(sid)
+  def work():
+   try:
+    s=self.rows.get(sid)
+    if sid=='local' or s is None:raise ValueError('Save this enabled cloud slot first')
+    if s.id not in self.consent or s.id not in self.free:raise ValueError('Confirm share-context consent and a free/no-billing account for this session')
+    key=self.keys().get(s.key_target)
+    if not key:raise ValueError('Save this slot key first')
+    http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+    req=urllib.request.Request(ENDPOINTS[s.provider]+'/models',headers={'Authorization':'Bearer '+key,'Accept':'application/json'})
+    with http.open(req,timeout=12)as r:
+     raw=r.read(262145)
+     if len(raw)>262144:raise ValueError('Model list too large')
+     ids=[x['id']for x in json.loads(raw).get('data',[])if isinstance(x,dict)and isinstance(x.get('id'),str)]
+    if not ids:raise ValueError('Provider returned an empty model list')
+    result={'state':'models-listed','models':ids[:100],'scope':'model list only; no test reply sent. Listing does not confirm free quota or that a model answers.'}
+   except Exception as e:
+    code='HTTP_'+str(e.code)if isinstance(e,urllib.error.HTTPError)else str(e)if isinstance(e,(ValueError,RouterError))else type(e).__name__
+    if code=='HTTP_429' or ('http-429'in code.lower() and not code.startswith('Automatic selection stopped')):code='HTTP429: rate limit or quota reached. Wait and check this provider account limits; reset time is unknown. No paid fallback.'
+    elif isinstance(e,urllib.error.HTTPError)and e.code==400:code='HTTP400: the provider rejected this request. For Gemini this usually means the saved API key is invalid, expired, or pasted with extra spaces. Copy a fresh key from the provider console (Google AI Studio for Gemini), Save key securely, then retry.'
+    result={'state':'failed','error':code[:220]}
+   with self.lock:
+    previous=self.checks.get(sid,{})
+    if result.get('state')=='models-listed' and previous.get('state')=='ready':self.checks[sid]={**previous,'models':result['models']}
+    else:self.checks[sid]=result
+    self.busy.discard(sid)
+   notify('status','Model list '+sid+': '+self.checks[sid].get('state','failed'))
   t=threading.Thread(target=work,daemon=True);t.start();return t
  def prewarm(self,consent=False,notify=lambda *a:None):
   """Fixed local greeting only. No cloud, history, keys, or implicit launch call."""
