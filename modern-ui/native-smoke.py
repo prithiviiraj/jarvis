@@ -136,6 +136,8 @@ try:
   if 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text:break
   time.sleep(.2)
  assert 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text, 'Connection check must discover actual current loopback model'
+ # Bring the account card into the native accessibility viewport by keyboard.
+ button('Warm local model').wrapper_object().set_focus();window.type_keys('{TAB}{TAB}{TAB}{TAB}{TAB}');time.sleep(.3)
  window.child_window(title='slot1 API key',control_type='Edit').wait('exists',timeout=10)
  accounts=window.descendants(control_type='Button');tests=[x for x in accounts if x.window_text()=='Save & test this account'];assert tests and all(not x.is_enabled()for x in tests)
  window.child_window(title='slot1 API key',control_type='Edit').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-empty-key-onboarding.png')
