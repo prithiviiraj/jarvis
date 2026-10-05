@@ -31,3 +31,9 @@ is still reviewed; changed pending command or command text invalidates its
 review. Stop browser clears review. No typing/sending/payment/upload action.
 Native acceptance tests permission and command cancellation without navigation;
 frozen connector acceptance retains actual isolated Edge observed-link proof.
+
+Build80 gives the selected voice engine a visible download review: Kitten
+about28MB voice assets plus shared recognition if missing, Kokoro roughly500MB
+total. Exact reviewed_engine is checked by the bridge; engine selection is
+locked during setup. Review/Cancel starts no mic or download. Native acceptance
+cancels both engine reviews, restores Kokoro, captures native browser reviews.
