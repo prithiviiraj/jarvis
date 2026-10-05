@@ -10,7 +10,7 @@ class PoolTests(unittest.TestCase):
   p=ProviderPool([Slot('slot1','gemini','model')],{'NOVA':['slot1']})
   with self.assertRaises(ValueError):p.router('NOVA',Mock(),['slot1'],[])
  def test_key_targets_and_profile_fallback(self):
-  slots=[Slot('slot1','groq','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'DEX':['slot2','slot1']});keys=Mock();keys.get.return_value='synthetic';t=Mock();t.complete.side_effect=[ProviderFailure('http-429'),'ok'];r=p.router('DEX',keys,['slot1','slot2'],['slot1','slot2'],t);a=r.ask([{}],cloud_consent=True);self.assertEqual(a['provider'],'slot1');self.assertEqual([c.args[0] for c in keys.get.call_args_list],['nim/slot2','groq/slot1'])
+  slots=[Slot('slot1','groq','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'DEX':['slot2','slot1']});keys=Mock();keys.get.return_value='synthetic';t=Mock();t.complete.side_effect=[ProviderFailure('http-429'),'ok'];r=p.router('DEX',keys,['slot1','slot2'],['slot1','slot2'],t);a=r.ask([{}],cloud_consent=True);self.assertEqual(a['provider'],'groq');self.assertEqual(a['slot'],'slot1');self.assertEqual([c.args[0] for c in keys.get.call_args_list],['nim/slot2','groq/slot1'])
  def test_local_no_key(self):
   p=ProviderPool([Slot('slot1','local','model')],{'JARVIS':['slot1']});keys=Mock();t=Mock();t.complete.return_value='ok';p.router('JARVIS',keys,transport=t).ask([{}]);keys.get.assert_not_called()
  def test_invalid(self):
