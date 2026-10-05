@@ -31,3 +31,10 @@ callbacks show Not measured. Pause all clears the session result. No conversatio
 text/audio is added to these numeric diagnostics and they are not stored on disk.
 The frozen five-voice acceptance uses real STT/Kokoro synthesis with test input
 and output adapters; real hardware, owner accent and real-model speed stay open.
+
+Build 77 exposes session-only end-of-utterance silence presets: Balanced800ms
+unchanged default, Fast480ms, Deliberate1216ms (32ms frame quantization).
+Change only while microphone/voice is stopped. Fast may split a natural pause;
+owner accent and hardware must be tested. These are silence thresholds, not
+response-time promises. Voice processing metrics begin after endpoint detection,
+so do not include this wait. No microphone starts or settings persist at launch.
