@@ -21,7 +21,7 @@ class VaultVoice(unittest.TestCase):
    b.execute({'command':'vault-connect','consent':True,'vault_folder':t})
    self.assertTrue(b.voice_action('obsidian search வணக்கம்'));self.assertEqual(b.vault_results[0]['name'],'n.md')
    self.assertTrue(b.voice_action('vault read n.md'));self.assertEqual(b.vault_note,'local private வணக்கம்')
-   self.assertTrue(b.voice_action('vault read ../other.md'));b.voice.send_text.assert_not_called();self.assertEqual((p/'n.md').read_text(),'local private வணக்கம்')
+   self.assertTrue(b.voice_action('vault read ../other.md'));b.voice.send_text.assert_not_called();self.assertEqual((p/'n.md').read_text(encoding='utf-8'),'local private வணக்கம்')
  def test_long_query_consumed_locally(self):
   b=self.bridge();self.assertTrue(b.voice_action('obsidian search '+'x'*101));b.voice.send_text.assert_not_called()
 
