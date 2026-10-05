@@ -23,3 +23,10 @@ class Dialogue(unittest.TestCase):
   def ask(*a,**kw):started.set();released.wait(1);return {'text':'A reply.'}
   router.ask.side_effect=ask;brains=Mock();brains.router.return_value=router
   worker=v.dialogue('Lyra and Dex talk to each other',brains);started.wait(1);v.pause();released.set();worker.join(2);self.assertFalse(any(x[0]=='answer'for x in list(v.events.queue)));v.close()
+
+ def test_natural_named_discussion_intents(self):
+  for t in ('JARVIS, can you discuss with NOVA about why humans have imagination?', 'Jarvis have a discussion with Nova about science', 'Lyra talk to Dex about coding'):
+   self.assertTrue(requested(t),t)
+  self.assertEqual(order('JARVIS, can you discuss with NOVA about humans?'),('JARVIS','NOVA','JARVIS','NOVA','JARVIS'))
+  for t in ("Jarvis don't discuss with Nova about this",'Stop the conversation with Nova','Do not talk to Nova about science','What does Nova do?','I talked with Nova yesterday','Talk to Nova','Lyra what is time now?'):
+   self.assertFalse(requested(t),t)
