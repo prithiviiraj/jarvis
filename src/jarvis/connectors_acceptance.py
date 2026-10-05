@@ -17,7 +17,7 @@ def run(core):
    r=call('vault-search',query='வணக்கம்');assert r['data']['vault']['results'][0]['name']=='seed.md';assert r['data']['vault']['search']['complete']and r['data']['vault']['search']['scanned']==1
    assert call('vault-read',note_name='seed.md')['data']['vault']['note']=='Tamil local fixture வணக்கம்'
    assert call('vault-preview',text='obsidian search வணக்கம்')['data']['vault']['results'][0]['name']=='seed.md'
-   assert call('vault-preview',text='obsidian read seed.md')['data']['vault']['note']=='Tamil local fixture வணக்கம்'
+   assert call('vault-preview',text='Lyra vault read seed.md')['data']['vault']['note']=='Tamil local fixture வணக்கம்'
    assert not call('vault-preview',text='obsidian read ../outside.md')['ok']
    assert not call('vault-preview',text='obsidian create new.md')['ok']
    assert not call('vault-read',note_name='../outside.md')['ok']
