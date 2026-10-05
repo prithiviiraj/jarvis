@@ -37,3 +37,8 @@ about28MB voice assets plus shared recognition if missing, Kokoro roughly500MB
 total. Exact reviewed_engine is checked by the bridge; engine selection is
 locked during setup. Review/Cancel starts no mic or download. Native acceptance
 cancels both engine reviews, restores Kokoro, captures native browser reviews.
+
+Build83 fixes stale speech readiness: changing engine invalidates previous
+Ready state without checking/downloading or starting mic. Explicit checks name
+the selected engine plus shared assets. Ready means checksum-verified assets,
+not physical playback or complete voice-runtime acceptance.
