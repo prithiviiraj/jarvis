@@ -23,7 +23,7 @@ class Bridge:
    self.voice.pool_config=(SettingsPool(self.brains),(),())
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.response_diagnostics=[];self.voice_metrics={};self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
-  self.laya_enabled=False;self.laya_generation=0;self.barge_in=False;self.laya_state={'busy':False,'status':'Off - inbuilt Laya model not loaded','error':''};self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
+  self.reo_log=[];self.reo_seq=0;self.reo_submitted=False;self.laya_enabled=False;self.laya_generation=0;self.barge_in=False;self.laya_state={'busy':False,'status':'Off - inbuilt Laya model not loaded','error':''};self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
   if self.history is None and voice is None:
    try:
     from .chat_history import ChatHistory
@@ -35,6 +35,10 @@ class Bridge:
     try:self.messages=self.history.load(self.chat_id);self.voice.memory.restore(self.messages)
     except Exception:self.history_error='Saved conversation could not be restored. Original archive preserved.';self.chat_id=self.history.new()
  def poll(self):
+  if self.reo_submitted and self.browser:
+   state=self.browser.snapshot()
+   if state.get('state') in ('ready','error','stopping'):
+    self.reo_submitted=False;self.reo_event('completed' if state.get('state')=='ready' else 'stopped','Browser reports '+state.get('state','unknown')+': '+str(state.get('url',''))[:200]+'. This verifies browser state, not the whole user goal.')
   if self.context.apps and time.monotonic()-self.last_app>=1:
    self.last_app=time.monotonic()
    try:self.context.app_event(foreground_app(self.titles))
@@ -43,7 +47,31 @@ class Bridge:
   if busy and self.judge.busy:self.judge.stop()
   self.judge.poll(busy)
   if self.voice.runtime is not None:self.voice.runtime.action_handler=self.voice_action
+ def reo_event(self,state,text):
+  with self.lock:
+   self.reo_seq+=1;self.reo_log.append({'id':self.reo_seq,'state':state,'text':str(text)[:400]});self.reo_log=self.reo_log[-30:]
+ def reo_action(self,text):
+  from .reo_commands import parse
+  goal=parse(text)
+  if goal is None:return False
+  self.reo_event('received','Reo goal: '+goal)
+  if not self.laya_enabled or not self.browser_enabled:
+   self.reo_event('blocked','Enable Reo + Laya and browser commands in Settings > Tools. Nothing executed.');self.browser_pending=None;return True
+  from .browser_control import parse_voice
+  direct=goal if goal.lower().startswith('browser ')else 'browser '+goal
+  try:
+   proposal=parse_voice(direct)
+   if proposal is not None:
+    self.execute({'command':'browser-preview','text':direct})
+    self.reo_event('review','Browser command prepared. Review the exact command in Settings > Tools; nothing executed.')
+   else:
+    if self.laya_engine.agent is None:raise ValueError('Load inbuilt Laya first')
+    self.start_laya(goal)
+  except (ValueError,RuntimeError,queue.Full)as error:
+   self.browser_pending=None;self.reo_event('blocked',str(error)+'. Nothing executed.')
+  return True
  def voice_action(self,text):
+  if self.reo_action(text):return True
   from .vault_voice import parse_voice as parse_vault
   try:vault_request=parse_vault(text)
   except ValueError as error:
@@ -100,7 +128,7 @@ class Bridge:
   from .laya_browser import fingerprint,prepare
   state=self.browser.snapshot();browser=self.browser;identity=fingerprint(state)
   if state.get('state')!='ready':raise ValueError('Wait for the page then read current links')
-  self.browser_pending=None;self.laya_generation+=1;ticket=self.laya_generation;self.laya_state={'busy':True,'status':'Asking local Laya, no action executing','error':''}
+  self.browser_pending=None;self.laya_generation+=1;ticket=self.laya_generation;self.laya_state={'busy':True,'status':'Asking local Laya, no action executing','error':''};self.reo_event('thinking','Laya is deciding one step locally. No action executing.')
   def run():
    try:
     proposal,status=prepare(state,goal,client=self.laya_engine)
@@ -108,10 +136,10 @@ class Bridge:
      if ticket!=self.laya_generation or not self.laya_enabled or not self.browser_enabled or self.browser is not browser or browser.cancel.is_set():return
      current=browser.snapshot()
      if current.get('state')!='ready' or fingerprint(current)!=identity:raise ValueError('Browser page or offered links changed; read links and ask again')
-     self.browser_pending=proposal;self.laya_state={'busy':False,'status':status,'error':''}
+     self.browser_pending=proposal;self.laya_state={'busy':False,'status':status,'error':''};self.reo_event('review'if proposal else 'no-action',status)
    except Exception as error:
     with self.lock:
-     if ticket==self.laya_generation:self.browser_pending=None;self.laya_state={'busy':False,'status':'No proposal accepted; nothing executed','error':type(error).__name__+'. Check the inbuilt Laya model setup/load and current page; no external server or automatic fallback.'}
+     if ticket==self.laya_generation:self.reo_event('blocked','Proposal unavailable or page changed; nothing executed.');self.browser_pending=None;self.laya_state={'busy':False,'status':'No proposal accepted; nothing executed','error':type(error).__name__+'. Check the inbuilt Laya model setup/load and current page; no external server or automatic fallback.'}
   threading.Thread(target=run,daemon=True).start()
  def stop(self):
   self.stop_laya()
@@ -176,7 +204,7 @@ class Bridge:
      from .browser_control import BrowserSession
      from .paths import data_root
      self.browser=BrowserSession(data_root()/'browser-profile')
-    self.browser.submit(**self.browser_pending,confirmed=True);self.browser_pending=None
+    self.reo_event('submitted','Reviewed '+self.browser_pending['command']+' command submitted to browser. Completion not yet verified.');self.browser.submit(**self.browser_pending,confirmed=True);self.reo_submitted=True;self.browser_pending=None
    self.error=''
   elif cmd.startswith('vault-'):
    if cmd=='vault-preview':
@@ -227,7 +255,10 @@ class Bridge:
   elif cmd=='brain-models':self.brains.list_models(request.get('slot'),self.voice.notify)
   elif cmd=='team-round':self.voice.parallel_round(request.get('text'),self.brains,request.get('audio') is True)
   elif cmd=='chat':
-   self.error='';self.response_diagnostics=[];text=request.get('text');self.voice.send_text(text,auto_pick=True)
+   self.error='';self.response_diagnostics=[];text=request.get('text')
+   if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice and wait for the current turn before typed chat')
+   if self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
+   else:self.voice.send_text(text,auto_pick=True)
   elif cmd=='select':self.judge.stop();self.voice.select(request.get('name'))
   elif cmd=='pause':self.stop()
   elif cmd=='voice-endpoint':
@@ -301,7 +332,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'laya':dict(self.laya_state,enabled=self.laya_enabled,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'reo_log':list(self.reo_log),'laya':dict(self.laya_state,enabled=self.laya_enabled,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
