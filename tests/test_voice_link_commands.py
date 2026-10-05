@@ -21,3 +21,11 @@ class VoiceLinks(unittest.TestCase):
  def test_text_preparation_link_command_uses_same_path(self):
   b=self.bridge();b.browser_enabled=True;b.browser=Mock();b.browser.cancel.is_set.return_value=False;b.browser.snapshot.return_value={'state':'ready','url':'https://example.com','links':[{'id':'1','url':'https://www.iana.org/domains/example','label':'Learn more'}]}
   b.execute({'command':'browser-preview','text':'browser choose link 1'});self.assertEqual(b.browser_pending['command'],'open');b.browser.submit.assert_not_called()
+
+ def test_off_and_unsupported_browser_commands_consumed_locally(self):
+  b=self.bridge()
+  self.assertTrue(b.voice_action('Nova browser open example.com'));self.assertIsNone(b.browser_pending);b.voice.send_text.assert_not_called()
+  b.browser_enabled=True
+  for text in ['browser choose link 21','Dex browser pay stranger','browser open']:
+   self.assertTrue(b.voice_action(text));self.assertIsNone(b.browser_pending);b.voice.send_text.assert_not_called()
+  self.assertFalse(b.voice_action('My browser feels slow'))
