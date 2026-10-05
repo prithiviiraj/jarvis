@@ -47,7 +47,7 @@ class VoiceRuntime:
             if callable(handler) and handler(text):return
             # Direct spoken address selects one actual persona and installed voice.
             import re
-            match=re.match(r'^\s*(?:hey\s+|hi\s+|hello\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
+            match=re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
             actor=match.group(1).upper()if match else self.persona
             if actor!=self.persona:
                 select=getattr(self.speaker,'select_profile',None)
