@@ -9,7 +9,7 @@ class VoiceSetup:
   with self.lock:return {'busy':self.busy,'status':self.status,'error':self.error,'ready':self.ready,'kitten_ready':self.kitten_ready}
  def start(self,consent=False,check=False,engine='kokoro'):
   if engine not in ('kokoro','kitten'):raise ValueError('Unsupported voice engine')
-  if not check and consent is not True:raise ValueError('Approve roughly500MB local speech model download first.')
+  if not check and consent is not True:raise ValueError('Review the selected engine and shared recognition download first.')
   with self.lock:
    if self.busy:raise ValueError('Voice setup is already running.')
    self.busy=True;self.cancel.clear();self.error='';self.status='checking verified speech assets'
