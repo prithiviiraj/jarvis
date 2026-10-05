@@ -186,7 +186,8 @@ try:
  click('Stop browser control');time.sleep(.5);checks.append('native visible browser permission review/cancel/enable and exact destination review/cancel; no navigation fired')
 
 
- click('Voice')
+ # Isolate real chat archive title from earlier explicit action-routing messages.
+ click('Voice');click('New chat');time.sleep(.5)
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
  click('Add local draft')
  deadline=time.monotonic()+8
