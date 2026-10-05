@@ -70,3 +70,12 @@ existing exact review, never autonomous execution. Stop and page/link changes
 reject late replies; deterministic commands override outstanding suggestions.
 Model DONE/WAIT/BLOCKED is not task completion. Typing/forms/payment/upload
 remain unavailable. Endpoint fixtures validate wiring, not actualmodelquality.
+
+Build90 prepared from laptop feedback: one-button account key/save/test remains;
+empty-unsaved-key or active mic/reply blocks test with visible prerequisite.
+Gemini Omni/video/audio IDs are refused for text greeting and excluded from
+Automatic. HTTP429 shows rate-limit OR quota, no daily-reset/billing inference.
+User0.5s first-audio goal remains unproven. Balanced endpoint800ms and Fast480ms
+precede telemetry's STT/model/PCM timings; PCM write is not sound heard.
+OptionalCPUruntime packaging removes only two upstreamNumPy test maps omitted
+by artifact uploader, then computes the actual shipped-file manifest.
