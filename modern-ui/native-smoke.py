@@ -65,9 +65,8 @@ try:
  main.capture_as_image().save('ui-evidence/workspace-floating-dock.png')
  checks.append('native floating visible reserves header space; actual face/header rectangles do not overlap')
 
- captions=Desktop(backend='uia').window(title='JARVIS / Live captions',visible_only=False);captions.wait('exists',timeout=10)
- time.sleep(.8);assert not ctypes.windll.user32.IsWindowVisible(captions.handle),'Duplicate captions must hide while workspace visible'
- style=ctypes.windll.user32.GetWindowLongW(captions.handle,-20)
+ time.sleep(.8);assert not ctypes.windll.user32.IsWindowVisible(auto_caption_handle),'Duplicate captions must hide while workspace visible'
+ style=ctypes.windll.user32.GetWindowLongW(auto_caption_handle,-20)
  assert style&0x20,'Captions must be mouse clickthrough'
  checks.append('captionwindow mouseclickthrough nativeWS_EX_TRANSPARENT')
  faces=Desktop(backend='uia').window(title='JARVIS / Floating faces');faces.wait('visible',timeout=30);faces.set_focus();time.sleep(1)
@@ -75,6 +74,8 @@ try:
  # Capture compact top-centred faces against a controlled desktop-colored background.
  import tkinter as tk
  bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.update();main_handle=main.handle;ctypes.windll.user32.ShowWindow(main_handle,0);bg.attributes('-topmost',True);bg.lift();bg.update();
+ ctypes.windll.user32.ShowWindow(auto_caption_handle,5)
+ captions=Desktop(backend='uia').window(handle=auto_caption_handle);captions.wait('visible',timeout=10)
  for overlay_window in (faces,captions):ctypes.windll.user32.SetWindowPos(overlay_window.handle,-1,0,0,0,0,0x0013)
  time.sleep(.8)
  ctypes.windll.user32.ShowWindow(captions.handle,5)
