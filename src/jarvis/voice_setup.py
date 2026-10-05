@@ -4,15 +4,20 @@ from .paths import ensure_layout
 from . import models,voice_assets
 class VoiceSetup:
  def __init__(self):
-  self.lock=threading.RLock();self.busy=False;self.status='not checked';self.error='';self.cancel=threading.Event();self.checked=False;self.ready=False;self.kitten_ready=False
+  self.lock=threading.RLock();self.busy=False;self.status='not checked';self.error='';self.cancel=threading.Event();self.checked=False;self.ready=False;self.kitten_ready=False;self.engine=None
  def snapshot(self):
-  with self.lock:return {'busy':self.busy,'status':self.status,'error':self.error,'ready':self.ready,'kitten_ready':self.kitten_ready}
+  with self.lock:return {'busy':self.busy,'status':self.status,'error':self.error,'ready':self.ready,'kitten_ready':self.kitten_ready,'checked':self.checked,'engine':self.engine}
+ def select(self,engine):
+  if engine not in ('kokoro','kitten'):raise ValueError('Unsupported voice engine')
+  with self.lock:
+   if self.busy:raise ValueError('Wait for model setup before changing speech engine')
+   self.engine=engine;self.checked=False;self.ready=False;self.error='';self.status=engine.title()+' assets not checked - choose Check local voice models'
  def start(self,consent=False,check=False,engine='kokoro'):
   if engine not in ('kokoro','kitten'):raise ValueError('Unsupported voice engine')
   if not check and consent is not True:raise ValueError('Review the selected engine and shared recognition download first.')
   with self.lock:
    if self.busy:raise ValueError('Voice setup is already running.')
-   self.busy=True;self.cancel.clear();self.error='';self.status='checking verified speech assets'
+   self.busy=True;self.cancel.clear();self.error='';self.engine=engine;self.ready=False;self.checked=False;self.status='Checking verified '+engine.title()+' and shared speech assets'
   def run():
    try:
     cache=ensure_layout()/'models'
@@ -27,7 +32,7 @@ class VoiceSetup:
     from . import kitten_assets
     self.kitten_ready=models.ready(cache)and kitten_assets.ready(cache/'kitten')
     ready=models.ready(cache) and (voice_assets.ready(cache/'voices')if engine=='kokoro'else self.kitten_ready)
-    with self.lock:self.ready=ready;self.checked=True;self.status='Ready - microphone OFF' if ready else 'Speech assets missing - choose Download local voice models'
+    with self.lock:self.ready=ready;self.checked=True;self.status=engine.title()+' assets ready - microphone OFF' if ready else engine.title()+' or shared speech assets missing - choose Download local voice models'
    except Exception as exc:
     with self.lock:self.error=str(exc)[:300];self.status='Setup stopped; existing models preserved'
    finally:
