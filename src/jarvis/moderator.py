@@ -12,6 +12,8 @@ def pick(text,selected='JARVIS'):
     # Only direct address at the start is an explicit persona request.
     m=re.match(r'^\s*(?:hey\s+|hi\s+)?(jarvis|nova|kai|lyra|dex)\b',text,re.I)
     if m:return m.group(1).upper(),'direct address'
+    m=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+(jarvis|nova|kai|lyra|dex)\b',text,re.I)
+    if m:return m.group(1).upper(),'direct address'
     matches=[n for n,pattern in KEYWORDS.items() if re.search(pattern,text,re.I)]
     if len(matches)==1:return matches[0],'topic match'
     return 'JARVIS','general or mixed topic'
