@@ -369,7 +369,8 @@ class Bridge:
     from .team_discussion import requested
     if requested(text):self.voice.dialogue(text,self.brains,request.get('audio')is True)
     else:self.voice.send_text(text,auto_pick=True)
-  elif cmd=='select':self.judge.stop();self.voice.select(request.get('name'))
+  elif cmd=='select':
+   self.judge.stop();self.voice.select(request.get('name'));self.voice.notify('status',self.voice.name+' selected. Mic OFF; press Talk to '+self.voice.name+' to start voice. Typed messages are text-only.')
   elif cmd=='pause':self.stop()
   elif cmd=='voice-endpoint':
    from .audio import ENDPOINT_FRAMES
