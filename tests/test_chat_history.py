@@ -25,7 +25,7 @@ class HistoryTests(unittest.TestCase):
   self.assertEqual(p.read_bytes(),b'corrupt original')
  def test_memory_restore(self):
   from jarvis.team_memory import TeamMemory
-  m=TeamMemory();m.restore([{'name':'You','text':'hello'},{'name':'NOVA','text':'Hi'},{'name':'You','text':'unanswered'}]);self.assertEqual(m.messages(),[{'role':'user','content':'hello'},{'role':'assistant','content':'[NOVA] Hi'}])
+  m=TeamMemory();m.restore([{'name':'You','text':'hello'},{'name':'NOVA','text':'Hi'},{'name':'You','text':'unanswered'}]);self.assertEqual(m.messages(),[{'role':'user','content':'hello'},{'role':'assistant','content':'[NOVA] Hi'},{'role':'user','content':'unanswered'}])
  def test_bridge_restart_browse_delete(self):
   from jarvis.ui_bridge import Bridge
   from jarvis.workspace_voice import WorkspaceVoice
