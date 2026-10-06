@@ -4,15 +4,17 @@ from .personas import prompt
 ORDER=('JARVIS','NOVA','LYRA','KAI','DEX','JARVIS')
 BANTER_ORDER=('JARVIS','NOVA','DEX','JARVIS','NOVA','LYRA','KAI','DEX','JARVIS')
 def banter(text):return bool(re.search(r'\b(?:argue|argument|bicker|banter)\b',text,re.I))
-def order(text):
- if re.search(r'\beach\s+other\b',text,re.I)or (requested(text)and not re.search(r'\b(?:among|amongst|between)\s+yourselves\b',text,re.I)):return participants(text)*2+('JARVIS',)
+def order(text,initiator="JARVIS"):
+ if re.search(r'\beach\s+other\b',text,re.I)or (requested(text)and not re.search(r'\b(?:among|amongst|between)\s+yourselves\b',text,re.I)):return participants(text,initiator)*2+('JARVIS',)
  return BANTER_ORDER if banter(text) else ORDER
 def requested(text):
  if not isinstance(text,str):return False
- if re.search(r"\b(?:do\s+not|don't|dont|never|stop|cancel)\b.{0,50}\b(?:discuss|talk|chat|conversation)\b",text,re.I):return False
- if re.search(r'\b(?:discuss|talk|chat)\s+(?:among|amongst|between)\s+yourselves\b|\b(?:discuss|talk|chat)\b.{0,100}\beach\s+other\b',text,re.I):return True
+ if re.search(r"\b(?:do\s+not|don't|dont|never|stop|cancel)\b.{0,50}\b(?:discuss|talk|chat|speak|conversation)\b",text,re.I):return False
+ if re.search(r'\b(?:discuss|talk|chat|speak)\s+(?:among|amongst|between)\s+yourselves\b|\b(?:discuss|talk|chat|speak)\b.{0,100}\beach\s+other\b',text,re.I):return True
  from .personas import ROLES
  names='|'.join(re.escape(n)for n in ROLES if n!='REO')
+ # Speaking together is discussion; speaking to one profile alone is not.
+ if re.search(r'\b(?:talk|chat|speak)\b.{0,70}\bwith\s+(?:the\s+)?(?:'+names+r')\b.{0,40}\btogether\b',text,re.I):return True
  # "discuss with Nova", "have a discussion with Dex", "talk to Nova about".
  verb=r'(?:discuss|discussion|conversation|talk|chat)'
  return bool(re.search(r'\b'+verb+r'\b.{0,45}\bwith\s+(?:the\s+)?(?:'+names+r')\b',text,re.I)or re.search(r'\b'+verb+r'\b.{0,45}\bto\s+(?:'+names+r')\b.{0,25}\babout\b',text,re.I))
@@ -31,7 +33,7 @@ def messages(actor,topic,context,index):
  instruction+=' Write only your own reply. Never narrate or write another profile dialogue, no inline speaker labels. Master has absolute priority. Stop or quiet ends this conversation. Do not interrupt master. Only fictional discussion-mode teammates may cut into each other.'
  return [{'role':'system','content':prompt(actor)}]+context[-12:]+[{'role':'user','content':'Master requested a SHORT team conversation: '+topic[:1000]+'. '+instruction}]
 
-def participants(text):
+def participants(text,initiator="JARVIS"):
  names=[]
  from .personas import ROLES
  pattern=r'\b('+'|'.join(re.escape(n)for n in ROLES if n!='REO')+r')\b'
@@ -39,6 +41,9 @@ def participants(text):
   name=m.group(1).upper()
   if name not in names:names.append(name)
  if len(names)>5:raise ValueError('Choose at most5profiles per discussion (maximum16turns)')
+ if len(names)==1:
+  partner=initiator if initiator in ROLES and initiator!='REO' and initiator!=names[0] else ('NOVA' if names[0]=='JARVIS' else 'JARVIS')
+  return (partner,names[0])
  return tuple(names) if len(names)>=2 else ('JARVIS','NOVA','LYRA','KAI','DEX')
 
 def clean_reply(text):
