@@ -58,6 +58,16 @@ try:
   sys.path.insert(0,str(root.parent/'src'))
   from jarvis.security import WindowsCredentials
   WindowsCredentials().delete('groq/slot5')
+ # Frozen real local-calendar review/save to isolated managed Downloads fixture.
+ import tempfile
+ # Redirect only the fixture's Windows known-folder provider in-process is not possible across EXE.
+ # Use actual runner Downloads managed vault; CI account is isolated, not owner files.
+ for req in [{'command':'obsidian-create','reviewed_name':'Brain of Brain','confirm':True},{'command':'calendar-preview','event':{'title':'CI local calendar fixture','start':'2026-10-07T18:00','end':'2026-10-07T19:00','place':'Synthetic place','notes':'Fixture, no appointment or external sync','timezone':'Asia/Kolkata'}}]:
+  p.stdin.write(json.dumps(req)+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply
+ proposal=reply['data']['calendar']['pending'];assert proposal['weekday']=='Wednesday'
+ p.stdin.write(json.dumps({'command':'calendar-save','reviewed':proposal,'confirm':False})+'\n');p.stdin.flush();assert not json.loads(lines.get(timeout=30))['ok']
+ p.stdin.write(json.dumps({'command':'calendar-save','reviewed':proposal,'confirm':True})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply;assert any(r['title']=='CI local calendar fixture'for r in reply['data']['calendar']['events'])
+ (root/'ui-evidence/frozen-local-calendar-checks.json').write_text(json.dumps({'scope':'Actual frozen Windows local note create/review/save/readback, no real event or external calendar','state':reply['data']['calendar']},indent=2),encoding='utf-8')
  for req in [{'command':'status'},{'command':'select','name':'DEX'},{'command':'apps','enabled':True},{'command':'judgment','enabled':True,'context_consent':True},{'command':'pause'},{'command':'shell'},{'command':'close'}]:
   p.stdin.write(json.dumps(req)+'\n');p.stdin.flush();
   line=lines.get(timeout=30)
