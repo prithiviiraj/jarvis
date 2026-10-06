@@ -111,6 +111,11 @@ class VoiceRuntime:
             stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
             messages=[{'role':'system','content':prompt(self.persona)}]+context+[{'role':'user','content':text}]
+            state_local=False
+            for source in (getattr(self,'teammate_awareness',None),getattr(self,'agent_nodes',None)):
+                if source is not None:
+                    messages,attached=source.attach(messages,self.persona);state_local=state_local or attached
+            if state_local:cloud=False
             if self.vision is not None:
                 try:messages=self.vision.attach(messages)
                 except Exception as vision_error:self.notify('error','Vision frame skipped: '+str(vision_error)[:140])
@@ -118,7 +123,7 @@ class VoiceRuntime:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
                 def chunks():
-                    options={}
+                    options={'local_only':True}if state_local else{}
                     providers=getattr(self.router,'providers',None)
                     if isinstance(providers,list)and len(providers)==1 and not providers[0].cloud and 'spark-x2.5' in providers[0].model.lower():
                         from .lmstudio_rest import NativeSparkTransport,SparkRecoveryTransport
@@ -148,7 +153,7 @@ class VoiceRuntime:
                 records=getattr(self.router,'last_diagnostics',[])
                 if isinstance(records,list):self.notify('response-diagnostics',records)
             else:
-                answer=self.router.ask(messages,cloud_consent=cloud)
+                answer=self.router.ask(messages,cloud_consent=cloud,**({'local_only':True}if state_local else{}))
                 answer['text']=strip_speaker_tag(answer['text'])
                 with self.lock:
                     if not self.valid(generation):return
