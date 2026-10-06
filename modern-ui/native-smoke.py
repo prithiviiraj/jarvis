@@ -215,7 +215,11 @@ try:
  with tempfile.TemporaryDirectory()as vault_tmp:
   vault_root=pathlib.Path(vault_tmp);(vault_root/'.obsidian').mkdir();(vault_root/'seed.md').write_text('native-vault-fixture',encoding='utf-8')
   click('Settings');click('Memory')
-  folder=window.child_window(title='Obsidian vault folder',control_type='Edit');folder.wait('exists',timeout=10);folder.wrapper_object().set_edit_text(vault_tmp)
+  folder=window.child_window(title='Obsidian vault folder',control_type='Edit');folder.wait('exists',timeout=10)
+  for _ in range(12):
+   if folder.wrapper_object().is_visible():break
+   mouse.scroll(coords=(760,450),wheel_dist=-3);time.sleep(.2)
+  folder.wait('visible',timeout=10);folder.wrapper_object().set_focus();window.capture_as_image().save('ui-evidence/native-manual-vault-input-visible.png');folder.wrapper_object().set_edit_text(vault_tmp)
   click('Connect local vault');button('Confirm vault connection').wait('exists',timeout=10)
   click('Cancel vault connection');window.child_window(title='Confirm vault connection',control_type='Button').wait_not('exists',timeout=10)
   click('Connect local vault');click('Confirm vault connection')
