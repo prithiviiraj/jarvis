@@ -45,7 +45,9 @@ with tempfile.TemporaryDirectory()as fixture:
    pathlib.Path('ui-evidence/actual-obsidian-canvas-checks.json').write_text(json.dumps({'scope':'Actual Obsidian1.9.14 Windows fixture host, not owner laptop','installer_url':url,'sha256':digest,'result':result},indent=2),encoding='utf-8')
    browser.close()
  finally:
-  p.terminate()
+  # Electron subprocesses can keep fixture Cookies locked after parent termination.
+  subprocess.run(['taskkill','/PID',str(p.pid),'/T','/F'],capture_output=True,timeout=15)
   try:p.wait(timeout=10)
   except subprocess.TimeoutExpired:p.kill();p.wait(timeout=10)
+  time.sleep(.5)
 print('Actual Windows Obsidian Canvas13nodes/12links gate passed')
