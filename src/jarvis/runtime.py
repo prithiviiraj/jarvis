@@ -55,20 +55,40 @@ class VoiceRuntime:
             from .persona_text import own_reply
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             if requested(text):
-                stage='team discussion';context=list(history[-6:]);answers=[]
-                for index,actor in enumerate(order(text,self.persona)):
+                stage='team discussion';context=list((self.shared_context() if callable(self.shared_context) else history)[-12:]);answers=[]
+                actors=order(text,self.persona)
+                for index,actor in enumerate(actors):
                     if not self.valid(generation)or self.cancel.is_set():return
                     choose=getattr(self.router,'select_persona',None)
                     if callable(choose):choose(actor)
                     select=getattr(self.speaker,'select_profile',None)
                     if callable(select):select(actor)
-                    self.persona=actor;self.notify('voice-actor',actor);self.notify('state','thinking')
-                    reply=self.router.ask(discussion_messages(actor,text,context,index),cloud_consent=cloud,cancel=self.cancel)
-                    answer_text=clean_reply(reply.get('text'))
-                    if not isinstance(answer_text,str)or not answer_text.strip()or len(answer_text)>1500:raise ValueError('Invalid discussion reply')
-                    if not self.valid(generation)or self.cancel.is_set():return
-                    self.notify('answer',dict(reply,text=answer_text,profile=actor));self.notify('state','speaking');spoken=spoken_text(answer_text)
-                    if spoken.strip():self.speaker.speak(spoken,generation=ticket)
+                    self.persona=actor;self.notify('voice-actor',actor);self.notify('state',actor+' thinking')
+                    request=discussion_messages(actor,text,context,index)
+                    if self.streaming:
+                        from .speech_queue import SpeechQueue
+                        pieces=[];last={};stream_id=str(generation)+'-voice-dialogue-'+str(index)
+                        def chunks():
+                            nonlocal last
+                            for delta in self.router.stream(request,cloud_consent=cloud,cancel=self.cancel):
+                                if not self.valid(generation)or self.cancel.is_set():return
+                                pieces.append(delta['text']);partial=strip_speaker_tag(''.join(pieces));own_reply(partial,actor,context)
+                                if len(partial)>1500:raise ValueError('Team reply too long')
+                                last=delta;metrics.setdefault('first_text_s',time.monotonic()-started)
+                                self.notify('answer',dict(delta,text=partial,profile=actor,stream_id=stream_id))
+                                yield delta['text']
+                        def clause(part):
+                            metrics.setdefault('first_clause_s',time.monotonic()-started);self.notify('state',actor+' speaking')
+                        SpeechQueue(self.speaker,self.cancel).play_stream(spoken_chunks(chunks()),ticket,clause)
+                        if not self.valid(generation)or self.cancel.is_set():return
+                        answer_text=clean_reply(strip_speaker_tag(''.join(pieces)));own_reply(answer_text,actor,context)
+                    else:
+                        reply=self.router.ask(request,cloud_consent=cloud,cancel=self.cancel)
+                        answer_text=clean_reply(reply.get('text'));own_reply(answer_text,actor,context)
+                        if len(answer_text)>1500:raise ValueError('Team reply too long')
+                        if not self.valid(generation)or self.cancel.is_set():return
+                        self.notify('answer',dict(reply,text=answer_text,profile=actor));self.notify('state',actor+' speaking');spoken=spoken_text(answer_text)
+                        if spoken.strip():self.speaker.speak(spoken,generation=ticket)
                     if not self.valid(generation)or self.cancel.is_set():return
                     context.append({'role':'assistant','content':'['+actor+'] '+answer_text});answers.append(answer_text)
                     if callable(self.record_turn):self.record_turn(text,answer_text)
