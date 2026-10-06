@@ -116,3 +116,22 @@ class BargeInTests(unittest.TestCase):
   self.v.speaker.speak.side_effect=speaking
   self.v.turn([0],self.v.generation,False,[])
   self.v.record_turn.assert_not_called();self.assertEqual(self.v.history,[])
+
+class VoiceTeamStreaming(unittest.TestCase):
+ def test_exact_voice_phrase_streams_clause_before_turn_complete(self):
+  import threading
+  v=VoiceRuntime(Mock(),Mock(),Mock(),Mock());v.mic=Mock();v.stt.transcribe.return_value='talk to each other about this';v.streaming=True
+  entered=threading.Event();release=threading.Event();calls=[];events=[];v.notify=lambda *a:events.append(a)
+  def stream(messages,**kw):
+   calls.append(messages);yield {'text':'First useful sentence.','provider':'fixture','model':'controlled'}
+   if len(calls)==1:entered.set();release.wait(2)
+   yield {'text':' Second thought.','provider':'fixture','model':'controlled'}
+  v.router.stream.side_effect=stream;v.speaker.speak.side_effect=lambda *a,**kw:release.set()
+  v.enable(True);thread=threading.Thread(target=v.turn,args=([0],v.generation,False,[]));thread.start();self.assertTrue(entered.wait(1));thread.join(3)
+  self.assertFalse(thread.is_alive());self.assertEqual(len(calls),11);v.router.ask.assert_not_called()
+  self.assertIn('[JARVIS] First useful sentence. Second thought.',str(calls[1]));self.assertTrue(any(k=='answer' and x.get('stream_id')for k,x in events));self.assertEqual(v.speaker.speak.call_args_list[0].args[0],'First useful sentence.');v.close()
+ def test_exact_voice_phrase_pause_drops_late_stream_and_next_actor(self):
+  v=VoiceRuntime(Mock(),Mock(),Mock(),Mock());v.mic=Mock();v.stt.transcribe.return_value='talk to each other about this';v.streaming=True
+  def stream(*a,**kw):v.pause();yield {'text':'late'}
+  v.router.stream.side_effect=stream;v.enable(True);v.turn([0],v.generation,False,[])
+  self.assertEqual(v.router.stream.call_count,1);v.speaker.speak.assert_not_called();self.assertEqual(v.history,[]);v.close()
