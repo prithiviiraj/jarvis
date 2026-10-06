@@ -56,7 +56,7 @@ class VoiceRuntime:
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             if requested(text):
                 stage='team discussion';context=list(history[-6:]);answers=[]
-                for index,actor in enumerate(order(text)):
+                for index,actor in enumerate(order(text,self.persona)):
                     if not self.valid(generation)or self.cancel.is_set():return
                     choose=getattr(self.router,'select_persona',None)
                     if callable(choose):choose(actor)
