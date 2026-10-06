@@ -49,14 +49,21 @@ class VoiceRuntime:
                 if getattr(self,'barge_in',False):
                     self.mic.on_onset=lambda:self.interrupt(generation)
                     self.mic.resume()
+            from .wake_address import ambiguous
+            from .workspace_voice import VOICES
+            if ambiguous(text,VOICES):
+                self.notify('error','Recognition contains two adjacent teammate names. I did not choose a persona or run the request. Say Hey Jarvis, Hey Kai, or type the intended name.')
+                return
             # Browser mode uses only explicit commands, not model decisions or page text.
             handler=getattr(self,'action_handler',None)
-            if callable(handler) and handler(text):return
+            if callable(handler) and handler(text):self.notify('action-handled',text);return
             from .persona_text import own_reply
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
-            if requested(text):
+            from .multi_address import addressed,request as addressed_request
+            direct=addressed(text)if not requested(text)else()
+            if direct or requested(text):
                 stage='team discussion';context=list((self.shared_context() if callable(self.shared_context) else history)[-12:]);answers=[]
-                actors=order(text,self.persona)
+                actors=direct or order(text,self.persona)
                 for index,actor in enumerate(actors):
                     if not self.valid(generation)or self.cancel.is_set():return
                     choose=getattr(self.router,'select_persona',None)
@@ -64,7 +71,7 @@ class VoiceRuntime:
                     select=getattr(self.speaker,'select_profile',None)
                     if callable(select):select(actor)
                     self.persona=actor;self.notify('voice-actor',actor);self.notify('state',actor+' thinking')
-                    request=discussion_messages(actor,text,context,index)
+                    request=addressed_request(actor,text,context)if direct else discussion_messages(actor,text,context,index)
                     if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(text)
                     if self.streaming:
                         from .speech_queue import SpeechQueue
