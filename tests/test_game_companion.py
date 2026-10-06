@@ -40,3 +40,8 @@ class MoreGuards(unittest.TestCase):
   b=Bridge(WorkspaceVoice())
   try:b.game.enabled=True;b.execute({'command':'conversation-interrupt'});self.assertFalse(b.game.enabled)
   finally:b.close()
+class CaptureRevocation(unittest.TestCase):
+ def test_stop_during_capture_never_sends_model(self):
+  gate=threading.Event();entered=threading.Event();model=Mock()
+  def source(target):entered.set();gate.wait(2);return b'jpeg'
+  c=GameCompanion(Mock(),source=source,clock=lambda:0);c.enable(TARGET,TARGET,model,True);w=c.poll();entered.wait(1);c.stop();gate.set();w.join();model.analyze.assert_not_called()
