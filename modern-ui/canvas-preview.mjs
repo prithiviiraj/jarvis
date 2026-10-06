@@ -1,0 +1,1 @@
+import {chromium} from 'playwright';import fs from'node:fs';const b=await chromium.launch();const p=await b.newPage({viewport:{width:1484,height:1210}});await p.setContent(fs.readFileSync('ui-evidence/canvas-geometry.html','utf8'));await p.screenshot({path:'ui-evidence/canvas-geometry.png'});await b.close();
