@@ -65,6 +65,7 @@ class VoiceRuntime:
                     if callable(select):select(actor)
                     self.persona=actor;self.notify('voice-actor',actor);self.notify('state',actor+' thinking')
                     request=discussion_messages(actor,text,context,index)
+                    if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(text)
                     if self.streaming:
                         from .speech_queue import SpeechQueue
                         pieces=[];last={};stream_id=str(generation)+'-voice-dialogue-'+str(index)
@@ -110,7 +111,7 @@ class VoiceRuntime:
             if hasattr(self.router,'reasoning_off'):self.router.reasoning_off=self.reasoning_off
             stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
-            messages=[{'role':'system','content':prompt(self.persona)}]+context+[{'role':'user','content':text}]
+            messages=[{'role':'system','content':prompt(self.persona)+(self.interface_context(text)if callable(getattr(self,'interface_context',None))else'')}]+context+[{'role':'user','content':text}]
             state_local=False
             for source in (getattr(self,'teammate_awareness',None),getattr(self,'agent_nodes',None)):
                 if source is not None:
