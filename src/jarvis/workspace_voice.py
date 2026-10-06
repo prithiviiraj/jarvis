@@ -55,7 +55,7 @@ class WorkspaceVoice:
                         detector=SmartTurn(data_root()/'models'/'smart-turn.onnx').complete
                     runtime.mic.endpointer=Endpointer(silence_frames=ENDPOINT_FRAMES[self.endpoint_mode],turn_complete=detector)
                     runtime.teammate_awareness=getattr(self,'teammate_awareness',None);runtime.agent_nodes=getattr(self,'agent_nodes',None);runtime.vision=self.vision;runtime.barge_in=barge_in is True
-                    self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
+                    runtime.interface_context=getattr(self,'interface_context',None);runtime.action_handler=getattr(self,'action_handler',None);self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
             except Exception as exc:
                 if runtime:runtime.close()
@@ -88,7 +88,7 @@ class WorkspaceVoice:
                 choose=getattr(router,'select_persona',None)
                 if callable(choose):choose(name)
                 pieces=[];answer={}
-                messages=[{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}]
+                messages=[{'role':'system','content':prompt(name)+(self.interface_context(text)if callable(getattr(self,'interface_context',None))else'')}]+context+[{'role':'user','content':text.strip()}]
                 awareness=getattr(self,'teammate_awareness',None);local_state=False
                 if awareness is not None:messages,local_state=awareness.attach(messages,name)
                 nodes=getattr(self,'agent_nodes',None)
@@ -158,7 +158,8 @@ class WorkspaceVoice:
                 actors=members*rounds+('JARVIS',);prefetched={}
                 import time
                 def make_request(index,name,context):
-                    request=messages(name,topic,context,0)
+                    request=messages(name,topic,context,index,final=index==len(actors)-1,addressees=members)
+                    if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(topic)
                     instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.'if index==len(actors)-1 else 'Round '+str(index//len(members)+1)+': reply only as '+name+' in1to2short sentences (at most45words). React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
                     request[-1]['content']+='\n'+instruction
                     if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. Begin your first turn with your own name and a short in-character presence greeting. In later turns react to a real preceding teammate instead of reintroducing yourself. Show lively involvement with one playful observation, brief affectionate LYRA/master greeting or friendly NOVA disagreement as your persona fits; no forced conflict, demands or invented facts. Never announce another profile as yourself. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
@@ -246,7 +247,7 @@ class WorkspaceVoice:
                 from .personas import prompt
                 def generate(name):
                     instructions='Team topic: '+topic+'\nGive your '+name+' perspective in one short useful sentence. These perspectives are generated in parallel; do not claim you have heard another response.'
-                    return brains.router(name).ask([{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':instructions}],cancel=cancel)
+                    return brains.router(name).ask([{'role':'system','content':prompt(name)+(self.interface_context(topic)if callable(getattr(self,'interface_context',None))else'')}]+context+[{'role':'user','content':instructions}],cancel=cancel)
                 pool=ThreadPoolExecutor(max_workers=5)
                 futures={pool.submit(generate,name):name for name in VOICES}
                 try:
@@ -273,7 +274,7 @@ class WorkspaceVoice:
                         self.notify('state','speaking');speaker.select_profile(name);spoken=spoken_text(answer['text'])
                         if spoken.strip():speaker.speak(spoken)
                 if cancel.is_set():return
-                conclusion=brains.router('JARVIS').ask([{'role':'system','content':prompt('JARVIS')}]+ordered+[{'role':'user','content':'Give a one or two sentence conclusion on '+topic+'. Use only the actual supplied perspectives.'}],cancel=cancel)
+                conclusion=brains.router('JARVIS').ask([{'role':'system','content':prompt('JARVIS')+(self.interface_context(topic)if callable(getattr(self,'interface_context',None))else'')}]+ordered+[{'role':'user','content':'Give a one or two sentence conclusion on '+topic+'. Use only the actual supplied perspectives.'}],cancel=cancel)
                 if cancel.is_set():return
                 conclusion['text']=strip_speaker_tag(conclusion['text'])
                 self.notify('answer',{**conclusion,'profile':'JARVIS','stream_id':str(ticket)+'-conclusion'});self.memory.append('JARVIS',topic,conclusion['text'])
@@ -403,11 +404,11 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
     from .audio import SileroVad
     from .speech import WhisperSTT
     from .runtime import VoiceRuntime
+    if tts_engine!='kokoro':raise ValueError('Only Kokoro is supported')
     cache=ensure_layout()/'models';assets=cache/'voices'
-    from . import kitten_assets,pocket_assets
-    if not models.ready(cache) or not (ready(assets)if tts_engine=='kokoro'else pocket_assets.ready(cache/'pocket')if tts_engine=='pocket'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
+    if not models.ready(cache) or not ready(assets):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
     from .native_frontend import verified_frontend
-    exe,data=verified_frontend()if tts_engine!='pocket'else(None,None)
+    exe,data=verified_frontend()
     if pool_config is not None:
         pool,consented,free_confirmed=pool_config
         router=pool.router(name,WindowsCredentials(),consented,free_confirmed)
@@ -427,21 +428,11 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
         from dataclasses import replace
         router=BrainRouter([replace(configured('local',ids[0]),timeout=30)])
-    g2p=NativeG2P(exe,data)if tts_engine!='pocket'else None
+    g2p=NativeG2P(exe,data)
     try:
-        if tts_engine=='pocket':
-            from .experimental.pocket_cpu import PocketCPU,PRESETS
-            engine=PocketCPU(cache/'pocket');profiles={n:engine.profile(n if n in PRESETS else 'JARVIS')for n in VOICES};speaker=KokoroSpeaker(profiles[name]);speaker.profiles=profiles
-        elif tts_engine=='kitten':
-            from .experimental.kitten_onnx import KittenONNX
-            kitten_map=dict(zip(('am_michael','af_heart','am_liam','af_sky','am_fenrir'),('Jasper','Luna','Bruno','Rosie','Hugo')))
-            names={n:kitten_map[v]for n,v in VOICES.items()}
-            profiles={actor:KittenONNX(cache/'kitten',g2p,voice)for actor,voice in names.items()}
-            speaker=KokoroSpeaker(profiles[name]);speaker.profiles=profiles
-        else:
-            synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
-            speaker=KokoroSpeaker(synth)
-            speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
+        synth=KokoroSynth(assets/'model.onnx',assets/(VOICES[name]+'.bin'),assets/'config.json',g2p)
+        speaker=KokoroSpeaker(synth)
+        speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
         speaker.select_profile(name)
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. KAI researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
@@ -468,19 +459,12 @@ def build_proactive_speaker(tts_engine='kokoro'):
     from .experimental.kokoro import NativeG2P,KokoroSynth
     from .experimental.kokoro_speaker import KokoroSpeaker
     from .native_frontend import verified_frontend
+    if tts_engine!='kokoro':raise ValueError('Only Kokoro is supported')
     cache=ensure_layout()/'models';assets=cache/'voices'
-    from . import kitten_assets,pocket_assets
-    if not (ready(assets)if tts_engine=='kokoro'else pocket_assets.ready(cache/'pocket')if tts_engine=='pocket'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified voice assets missing')
-    exe,data=verified_frontend()if tts_engine!='pocket'else(None,None);g2p=NativeG2P(exe,data)if tts_engine!='pocket'else None
+    if not ready(assets):raise RuntimeError('Verified voice assets missing')
+    exe,data=verified_frontend();g2p=NativeG2P(exe,data)
     try:
-        if tts_engine=='pocket':
-            from .experimental.pocket_cpu import PocketCPU,PRESETS
-            engine=PocketCPU(cache/'pocket');profiles={n:engine.profile(n if n in PRESETS else 'JARVIS')for n in VOICES}
-        elif tts_engine=='kitten':
-            from .experimental.kitten_onnx import KittenONNX
-            kitten_map=dict(zip(('am_michael','af_heart','am_liam','af_sky','am_fenrir'),('Jasper','Luna','Bruno','Rosie','Hugo')))
-            profiles={n:KittenONNX(cache/'kitten',g2p,kitten_map[v])for n,v in VOICES.items()}
-        else:profiles={n:KokoroSynth(assets/'model.onnx',assets/(v+'.bin'),assets/'config.json',g2p)for n,v in VOICES.items()}
+        profiles={n:KokoroSynth(assets/'model.onnx',assets/(v+'.bin'),assets/'config.json',g2p)for n,v in VOICES.items()}
         speaker=KokoroSpeaker(profiles['JARVIS']);speaker.profiles=profiles;speaker.select_profile('JARVIS')
         speaker.close=lambda:(speaker.stop(),g2p.close()if g2p else None)
         return speaker
