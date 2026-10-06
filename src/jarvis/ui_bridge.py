@@ -113,6 +113,12 @@ class Bridge:
   elif 'install'in text.lower():answer='No code is installed by the proposal tool. Source/tests are proposal text only, not executed.'
   else:answer=('Reply in progress.'if row['reply_in_progress']else'No reply in progress.')+' No independent background work. '+('Last actual reply: '+row['recent_actual_reply']if row['recent_actual_reply']else'No actual recent reply recorded.')
   self.messages.append({'name':name,'text':answer,'provider':'verified-app-state','cloud':False});self.archive_dirty=True;return True
+ def calendar_action(self,text):
+  import re
+  if not isinstance(text,str):return False
+  if not (re.search(r'\b(?:tomorrow|today|calendar|appointment)\b',text,re.I)and re.search(r'\b(?:go|open|plan|appointment|calendar|meeting)\b',text,re.I)):return False
+  if not self.obsidian.enabled:raise ValueError('Create Brain of Brain local calendar first')
+  self.calendar_open_pending=True;self.reo_event('review','Review local calendar area open. Fill exact title/date/start/end/timezone/place before saving; relative words are not an event.');return True
  def planning_action(self,text):
   import re
   if not isinstance(text,str)or not re.fullmatch(r"\s*(?:jarvis[,.:]?\s+)?(?:what(?:'s| is)\s+(?:the |my )?plan(?:s)?(?: for)? today|open (?:the )?(?:planning area|today plan))[?.!]*\s*",text,re.I):return False
@@ -141,6 +147,7 @@ class Bridge:
   if self.stop_intent(text):self.game.stop();self.idle.stop();self.interrupt_conversation();return True
   if self.teammate_query(text):return True
   if self.planning_action(text):return True
+  if self.calendar_action(text):return True
   if self.desktop_action(text):return True
   if self.shared_action(text):return True
   if self.reo_action(text):return True
@@ -505,7 +512,7 @@ class Bridge:
    action=bool(prepare(text)or parse_action(text)or parse_goal(text))
    if not isinstance(text,str)or not text.strip()or len(text)>2000:raise ValueError('Enter a message up to2000characters')
    if not action and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
-   if self.teammate_query(text)or self.planning_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
+   if self.teammate_query(text)or self.planning_action(text)or self.calendar_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
    else:
     from .team_discussion import requested
     if requested(text):self.voice.dialogue(text,self.brains,request.get('audio')is True)
