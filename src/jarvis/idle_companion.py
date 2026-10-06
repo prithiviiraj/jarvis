@@ -30,14 +30,14 @@ class IdleCompanion:
   if self.voice.runtime is not None or self.voice.busy:return 'Paused for microphone or conversation'
   if 0<=self.hour()<7:return 'Quiet hours 00:00-07:00'
   if self.busy:return 'Deciding whether a short team conversation fits'
-  if self.clock()-self.last_activity<(60 if self.strong else 120):return 'Waiting for'+str(60 if self.strong else 120)+'seconds without workspace interaction'
+  if self.clock()-self.last_activity<(20 if self.strong else 120):return 'Waiting for'+str(20 if self.strong else 120)+'seconds without workspace interaction'
   if self.clock()-self.last<(180 if self.strong else 600):return 'Cooldown - '+str(3 if self.strong else 10)+'minutes between decisions'
   if sum(self.clock()-t<3600 for t in self.requests)>=(12 if self.strong else 6):return 'Hourly decision limit'
   return 'Ready for model-chosen silence or bounded conversation'
  def poll(self):
   with self.lock:
    now=self.clock()
-   if not self.enabled or self.gaming or self.busy or self.voice.busy or self.voice.runtime is not None or 0<=self.hour()<7 or now-self.last_activity<(60 if self.strong else 120)or now-self.last<(180 if self.strong else 600):return None
+   if not self.enabled or self.gaming or self.busy or self.voice.busy or self.voice.runtime is not None or 0<=self.hour()<7 or now-self.last_activity<(20 if self.strong else 120)or now-self.last<(180 if self.strong else 600):return None
    while self.requests and now-self.requests[0]>=3600:self.requests.popleft()
    if len(self.requests)>=(12 if self.strong else 6):return None
    self.busy=True;self.last=now;self.requests.append(now);ticket=self.generation;self.cancel=threading.Event();cancel=self.cancel;audio=self.audio
@@ -45,7 +45,8 @@ class IdleCompanion:
    try:
     from .workspace_voice import VOICES
     context=self.voice.memory.messages();payload={'allowed_profiles':[n for n in VOICES if n!='JARVIS'],'recent_conversation':context[-8:],'recent_idle_topics':list(self.topics)}
-    result=self.brains.router('JARVIS').ask([{'role':'system','content':SYSTEM},{'role':'user','content':json.dumps(payload,ensure_ascii=False)}],cancel=cancel,local_only=True)
+    style=SYSTEM+(' Strong opt-in: favour lively short playful exchanges when the actual chat supports one; distinct voices, warm presence and friendly disagreement, not generic status reports. Silence is still valid.'if self.strong else '')
+    result=self.brains.router('JARVIS').ask([{'role':'system','content':style},{'role':'user','content':json.dumps(payload,ensure_ascii=False)}],cancel=cancel,local_only=True)
     choice=decision(result.get('text'))
     with self.lock:
      if cancel.is_set()or ticket!=self.generation or not self.enabled or self.gaming or self.voice.busy or self.voice.runtime is not None or 0<=self.hour()<7:return
@@ -55,10 +56,10 @@ class IdleCompanion:
       available=[n for n in VOICES if n!='JARVIS'];start=self.rotation%len(available);names=tuple(available[(start+i)%len(available)]for i in range(2));self.rotation+=2
      if topic in self.topics:return
      self.topics.append(topic)
-     self.notify('status','Idle team: short fictional conversation, no tools')
-     self.voice.dialogue(' and '.join(names)+' talk to each other about '+topic,self.brains,audio=audio,rounds=1,origin='idle')
+     self.notify('status','Present for this conversation: '+', '.join(names)+', JARVIS. Other profiles rotate on later cycles; no background work.')
+     self.voice.dialogue(' and '.join(names)+' talk to each other about '+topic+' with lively friendly banter',self.brains,audio=audio,rounds=2 if self.strong else 1,origin='idle')
    except Exception:self.notify('status','Idle conversation unavailable or invalid; quiet, no invented replacement')
    finally:
     with self.lock:self.busy=False
   worker=threading.Thread(target=run,daemon=True);worker.start();return worker
- def snapshot(self):return {'enabled':self.enabled,'audio':self.audio,'strong':self.strong,'busy':self.busy,'waiting_reason':self.waiting(),'scope':'Actual chat only, local-only, no sensors/tools, bounded team replies and Jarvis conclusion. Quiet00-07. Default120s/10min/6perhour; strong60s/3min/12perhour. Mic OFF cannot hear stop.'}
+ def snapshot(self):return {'enabled':self.enabled,'audio':self.audio,'strong':self.strong,'busy':self.busy,'waiting_reason':self.waiting(),'scope':'Actual chat only, local-only, no sensors/tools, bounded team replies and Jarvis conclusion. Quiet00-07. Default120s/10min/6perhour; strong20s/3min/12perhour. Mic OFF cannot hear stop.'}
