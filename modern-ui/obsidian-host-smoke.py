@@ -12,7 +12,12 @@ subprocess.run([str(installer),'/S','/D='+str(install)],check=True,timeout=120)
 exe=install/'Obsidian.exe';assert exe.is_file()
 with tempfile.TemporaryDirectory()as fixture:
  base=pathlib.Path(fixture);vault=Vault(base/'config.json',lambda:base);vault.create(NAME,True);vault.sync([],{'agents':[]},{},force=True);root=base/NAME
- profile=base/'profile';profile.mkdir();(profile/'obsidian.json').write_text(json.dumps({'vaults':{'fixture':{'path':str(root),'ts':int(time.time()*1000),'open':True}}}),encoding='utf-8')
+ profile=base/'profile';profile.mkdir();(profile/'obsidian.json').write_text(json.dumps({'preservedFixture':'keep','vaults':{'other':{'path':str(base/'OtherVault'),'open':False}}}),encoding='utf-8')
+ from jarvis.obsidian_registry import register,uri
+ ident,_=register(root,profile/'obsidian.json',lambda:False)
+ registry=json.loads((profile/'obsidian.json').read_text());assert registry['preservedFixture']=='keep' and 'other'in registry['vaults']
+ registry['vaults'][ident]['open']=True;(profile/'obsidian.json').write_text(json.dumps(registry),encoding='utf-8')
+ verified_uri=uri(root,'Brain of Brain.canvas',profile/'obsidian.json')
  (root/'.obsidian').mkdir(exist_ok=True);(root/'.obsidian/app.json').write_text(json.dumps({'alwaysUpdateLinks':False}),encoding='utf-8')
  p=subprocess.Popen([str(exe),'--user-data-dir='+str(profile),'--remote-debugging-port=9229','--disable-gpu','--no-sandbox'])
  try:
@@ -34,18 +39,18 @@ with tempfile.TemporaryDirectory()as fixture:
     page.screenshot(path='ui-evidence/actual-obsidian-readiness-failure.png')
     pathlib.Path('ui-evidence/actual-obsidian-readiness-failure.json').write_text(json.dumps(page.evaluate("()=>({url:location.href,path:app.vault.adapter.getBasePath?.(),files:app.vault.getFiles().map(f=>f.path),text:document.body.innerText.slice(0,6000)})"),indent=2),encoding='utf-8')
     raise
-   # Test-owned fixture navigation only; no note edits or external plugins.
-   page.evaluate("async()=>{const f=app.vault.getAbstractFileByPath('Brain of Brain.canvas');if(!f)throw Error('Fixture canvas missing');await app.workspace.getLeaf(false).openFile(f);}")
+   # Actual Obsidian protocol parser, registered fixture ID and note. No owner profile.
+   subprocess.Popen([str(exe),'--user-data-dir='+str(profile),verified_uri],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
    page.wait_for_function("app.workspace.activeLeaf?.view?.getViewType()==='canvas'",timeout=15000)
    page.wait_for_selector('.canvas-node',timeout=15000)
    result=page.evaluate("()=>({version:app.getVersion?.(),type:app.workspace.activeLeaf.view.getViewType(),nodes:document.querySelectorAll('.canvas-node').length,canvas:app.workspace.activeLeaf.view.getData?.()})")
-   assert result['nodes']==13,result
+   assert result['nodes']==16,result
    fixture_canvas=json.loads((root/'Brain of Brain.canvas').read_text(encoding='utf-8'))
-   assert len(fixture_canvas['nodes'])==13 and len(fixture_canvas['edges'])==12
+   assert len(fixture_canvas['nodes'])==16 and len(fixture_canvas['edges'])==12
    result['source_edges']=len(fixture_canvas['edges'])
-   if result.get('canvas'):assert len(result['canvas']['nodes'])==13 and len(result['canvas']['edges'])==12
+   if result.get('canvas'):assert len(result['canvas']['nodes'])==16 and len(result['canvas']['edges'])==12
    page.screenshot(path='ui-evidence/actual-obsidian-canvas.png',full_page=False)
-   pathlib.Path('ui-evidence/actual-obsidian-canvas-checks.json').write_text(json.dumps({'scope':'Actual Obsidian1.9.14 Windows fixture host, not owner laptop','installer_url':url,'sha256':digest,'result':result},indent=2),encoding='utf-8')
+   pathlib.Path('ui-evidence/actual-obsidian-canvas-checks.json').write_text(json.dumps({'scope':'Actual Obsidian1.9.14 Windows fixture host, not owner laptop','installer_url':url,'sha256':digest,'registry_id':ident,'verified_uri':verified_uri,'preserved_other_entry':True,'result':result},indent=2),encoding='utf-8')
    browser.close()
  finally:
   # Electron subprocesses can keep fixture Cookies locked after parent termination.
@@ -53,4 +58,4 @@ with tempfile.TemporaryDirectory()as fixture:
   try:p.wait(timeout=10)
   except subprocess.TimeoutExpired:p.kill();p.wait(timeout=10)
   time.sleep(.5)
-print('Actual Windows Obsidian Canvas13nodes/12links gate passed')
+print('Actual Windows Obsidian Canvas16nodes/12links gate passed')
