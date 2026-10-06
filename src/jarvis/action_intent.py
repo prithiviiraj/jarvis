@@ -2,8 +2,13 @@
 import re
 from .browser_control import parse_voice
 
+def normalize(text):
+ # Whisper/typing may spell the leader as J.A.R.V.I.S.; only normalize the name.
+ return re.sub(r'\bj\s*\.\s*a\s*\.\s*r\s*\.\s*v\s*\.\s*i\s*\.\s*s\s*\.?', 'Jarvis',text,flags=re.I)
+
 def parse(text):
  if not isinstance(text,str):return None
+ text=normalize(text)
  t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|reo)[,:!]?\s+)?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
  t=re.sub(r'\s+please[.!?]*$','',t,flags=re.I).strip().rstrip('.!?')
@@ -21,6 +26,7 @@ def parse(text):
 
 def goal(text):
  if not isinstance(text,str):return None
+ text=normalize(text)
  from .reo_commands import parse as reo_parse
  normalized=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|reo)[,:!]?\s+)?','',text,flags=re.I).strip()
  normalized=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',normalized,flags=re.I)
