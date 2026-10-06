@@ -28,3 +28,11 @@ class ObsidianVault(unittest.TestCase):
  def test_data_centre_plan_preserved(self):
   with tempfile.TemporaryDirectory()as d:
    base=pathlib.Path(d);v=Vault(base/'config.json',lambda:base);v.create(NAME,True);p=base/NAME/'Planning/Today.md';self.assertTrue((base/NAME/'Data Centre/Home.md').is_file());p.write_text('My real plan');v.create(NAME,True);self.assertEqual(p.read_text(),'My real plan')
+ def test_visual_map_areas_and_preserve_edits(self):
+  import json
+  with tempfile.TemporaryDirectory()as d:
+   base=pathlib.Path(d);v=Vault(base/'c.json',lambda:base);v.create(NAME,True);root=base/NAME;c=root/'Brain of Brain.canvas';j=json.loads(c.read_text());self.assertEqual(len(j['nodes']),13);self.assertEqual(len(j['edges']),12)
+   for row in j['nodes']:
+    if row['file']=='Agents index.md':continue
+    self.assertTrue((root/row['file']).is_file())
+   c.write_text('owner-edited canvas');v.create(NAME,True);self.assertEqual(c.read_text(),'owner-edited canvas')
