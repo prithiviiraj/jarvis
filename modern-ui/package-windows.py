@@ -62,6 +62,12 @@ try:
  # Use actual runner Downloads managed vault; CI account is isolated, not owner files.
  for req in [{'command':'obsidian-create','reviewed_name':'Brain of Brain','confirm':True},{'command':'calendar-preview','event':{'title':'CI local calendar fixture','start':'2026-10-07T18:00','end':'2026-10-07T19:00','place':'Synthetic place','notes':'Fixture, no appointment or external sync','timezone':'Asia/Kolkata'}}]:
   p.stdin.write(json.dumps(req)+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply
+  if req['command']=='obsidian-create':
+   import time
+   for _ in range(100):
+    if not reply['data']['obsidian'].get('busy'):break
+    time.sleep(.1);p.stdin.write(json.dumps({'command':'status'})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30))
+   assert reply['data']['obsidian']['enabled'],reply
  proposal=reply['data']['calendar']['pending'];assert proposal['weekday']=='Wednesday'
  p.stdin.write(json.dumps({'command':'calendar-save','reviewed':proposal,'confirm':False})+'\n');p.stdin.flush();assert not json.loads(lines.get(timeout=30))['ok']
  p.stdin.write(json.dumps({'command':'calendar-save','reviewed':proposal,'confirm':True})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply;assert any(r['title']=='CI local calendar fixture'for r in reply['data']['calendar']['events'])
