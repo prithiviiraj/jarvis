@@ -51,7 +51,7 @@ class Bridge:
   self.evolution=Proposal();self.evolution_busy=False;self.evolution_cancel=threading.Event();self.evolution_result='';self.evolution_error=''
   self.specialists=Specialists(gate=self.brains.local_gate);self.specialist_models=[];self.specialist_result=None
   self.titles=False;self.last_app=0;self.closed=False;self.messages=[];self.status='off';self.error='';self.warning='';self.response_diagnostics=[];self.voice_metrics={};self.dialogue_metrics=[];self.caption={'active':False,'name':'','text':''};self.lock=threading.RLock()
-  self.laya_support=None;self.capability_notices=set();self.laya_active=False;self.intent_generation=0;self.intent_cancel=threading.Event();self.intent_busy=False;self.intent_status='';self.plan_pending=None;self.desktop_enabled=False;self.desktop_pending=None;self.desktop_result={};self.control_generation=0;self.control_busy=False;self.reo_log=[];self.reo_seq=0;self.reo_submitted=False;self.laya_enabled=False;self.laya_generation=0;self.barge_in=False;self.laya_state={'busy':False,'status':'Off - inbuilt Laya model not loaded','error':''};self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
+  self.laya_support=None;self.capability_notices=set();self.failure_notices=set();self.reply_wait=None;self.failure_guard=False;self.export_busy=False;self.export_worker=None;self.export_status='';self.export_cancel=threading.Event();self.laya_active=False;self.intent_generation=0;self.intent_cancel=threading.Event();self.intent_busy=False;self.intent_status='';self.plan_pending=None;self.desktop_enabled=False;self.desktop_pending=None;self.desktop_result={};self.control_generation=0;self.control_busy=False;self.reo_log=[];self.reo_seq=0;self.reo_submitted=False;self.laya_enabled=False;self.laya_generation=0;self.barge_in=False;self.laya_state={'busy':False,'status':'Off - inbuilt Laya model not loaded','error':''};self.browser=None;self.browser_enabled=False;self.browser_pending=None;self.vault=None;self.vault_results=[];self.vault_search={};self.vault_note='';self.history=history;self.history_error='';self.chat_id=None;self.archive_dirty=False;self.archive_saved_at=0
   if self.history is None and voice is None:
    try:
     from .chat_history import ChatHistory
@@ -84,8 +84,48 @@ class Bridge:
   if not self.judge.busy and not self.judge.gaming:self.idle.poll()
   if not self.idle.busy:self.judge.poll(self.voice.busy or self.voice.runtime is not None)
   if self.voice.runtime is not None:self.voice.runtime.action_handler=self.voice_action
-  self.obsidian.sync(self.messages,self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'turn_mode':self.voice.turn_mode,'endpoint_mode':self.voice.endpoint_mode,'selected':self.voice.name},self.chat_id)
+  self.obsidian.start('sync',list(self.messages),self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'turn_mode':self.voice.turn_mode,'endpoint_mode':self.voice.endpoint_mode,'selected':self.voice.name},self.chat_id,force=False)if not self.obsidian.closed and self.obsidian.enabled and not self.obsidian.busy and time.monotonic()-self.obsidian.last>=5 else None
+ def explain_failure(self,surface,reason,propose=True):
+  # Error text is local diagnostic data, never code or instruction authority.
+  import re
+  reason=re.sub(r'(?i)\b(?:sk-|gsk_|AIza)[A-Za-z0-9_-]{15,}','[redacted credential-like value]',str(reason))[:300]
+  key=(surface,reason)
+  if key in self.failure_notices:return
+  self.failure_notices.add(key)
+  self.messages.append({'name':'KAI','text':surface+': '+reason+' No successful completion is verified.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
+  if propose and not self.failure_guard:
+   self.failure_guard=True
+   try:
+    if self.evolution_busy:self.messages.append({'name':'DEX','text':'An existing local proposal is still running; no second proposal or live fix was started.','provider':'verified-app-state','cloud':False})
+    else:self._execute({'command':'evolution-generate','goal':'Prepare a local source/tests/risks proposal for this observed issue: '+surface+'. Diagnostic data: '+reason+'. Do not install or run generated code. Unknown causes need investigation, not assumptions.','consent':True})
+   except Exception as error:
+    self.messages.append({'name':'DEX','text':'Local proposal could not start: '+str(error)[:200]+'. Nothing installed.','provider':'verified-app-state','cloud':False})
+   finally:self.failure_guard=False
+ def time_action(self,text,spoken=False):
+  import re,datetime
+  from zoneinfo import ZoneInfo
+  if not isinstance(text,str)or not re.fullmatch(r"\s*(?:(?:hey\s+)?(?:jarvis|nova|kai|lyra|dex)[,.:]?\s+)?(?:what(?:'s| is) (?:the )?(?:time|current time)(?: now)?|tell me (?:the )?(?:time|current time)|time now|time)[.!?]*\s*",text,re.I):return False
+  current=datetime.datetime.now(ZoneInfo('Asia/Kolkata'));answer='Master, it is '+current.strftime('%I:%M %p').lstrip('0')+' IST.'
+  target=re.search(r'\b(jarvis|nova|kai|lyra|dex)\b',text,re.I)
+  actor=target.group(1).upper()if target else self.voice.name
+  self.messages.append({'name':actor,'text':answer,'provider':'system-clock','cloud':False});self.archive_dirty=True
+  if spoken and self.voice.runtime is not None:
+   runtime=self.voice.runtime
+   try:runtime.speaker.speak(answer,generation=runtime.speaker.generation)
+   except Exception as error:self.explain_failure('Time speech',error,propose=False)
+  return True
+ def data_centre_action(self,text):
+  import re
+  if not isinstance(text,str)or not re.fullmatch(r'\s*(?:(?:hey\s+)?jarvis[,.:]?\s+)?(?:open|show)\s+(?:the\s+)?(?:data\s+cent(?:er|re)|brain of brain|obsidian(?:\s+vault)?)[.!?]*\s*',text,re.I):return False
+  try:
+   if not self.obsidian.enabled:raise ValueError('Brain of Brain is not connected. Review AUTO vault setup in Settings > Memory first.')
+   self.obsidian.open('Brain of Brain.canvas')
+   self.messages.append({'name':'JARVIS','text':self.obsidian.status,'provider':'verified-app-state','cloud':False});self.archive_dirty=True
+  except Exception as error:self.explain_failure('Data centre open',error)
+  return True
  def reo_event(self,state,text):
+  if state in ('blocked','stopped','error'):self.explain_failure('Local action',text)
+  elif state=='review':self.messages.append({'name':'JARVIS','text':str(text)[:400],'provider':'verified-app-state','cloud':False});self.archive_dirty=True
   with self.lock:
    self.reo_seq+=1;self.reo_log.append({'id':self.reo_seq,'state':state,'text':str(text)[:400]});self.reo_log=self.reo_log[-30:]
  def reo_action(self,text):
@@ -156,7 +196,7 @@ class Bridge:
    elif isinstance(text,str)and re.search(pattern,text,re.I)and key not in self.capability_notices:
     self.capability_notices.add(key);hints.append(hint)
   once=' Relevant first-use OFF notice to mention once in this answer: '+' '.join(hints)if hints else ' Do not repeat unsolicited OFF-toggle reminders. Answer explicit capability questions from the current state.'
-  return 'Actual app interface state for this turn (facts, not permission to execute): '+json.dumps(state)+once+'. Explain the exact relevant OFF/setup reason and its fix. Do not say generic no access when a supported toggle is off. Never invent capability or successful execution.'
+  return 'Conversation continuity: use the supplied recent user messages and actual teammate replies. If a prior request failed, was silent, or remains unverified, acknowledge it on a follow-up such as can you hear me. Do not claim success or ask what the user needs as though the prior request never happened. '+ 'Actual app interface state for this turn (facts, not permission to execute): '+json.dumps(state)+once+'. Explain the exact relevant OFF/setup reason and its fix. Do not say generic no access when a supported toggle is off. Never invent capability or successful execution.'
  def support_owner_action(self,text):
   import re
   if not self.laya_active or not self.laya_support or not isinstance(text,str):return False
@@ -238,7 +278,10 @@ class Bridge:
   except ValueError as error:self.browser_pending=None;self.reo_event('blocked',str(error)+'. Nothing executed.')
   return True
  def voice_action(self,text):
+  self.voice.memory.restore(self.messages)
   self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
+  if self.time_action(text,spoken=True):return True
+  if self.data_centre_action(text):return True
   if self.activation_action(text):return True
   if self.support_owner_action(text):return True
   if self.stop_intent(text):
@@ -360,6 +403,7 @@ class Bridge:
   if hasattr(self,'evolution'):states['DEX']['code_proposal']={'busy':self.evolution_busy,'status':self.evolution.status,'installed':False,'tests_executed':False}
   return {'teammates':states,'permitted_local_sensors':{k:sensors[k]for k in ('camera','presence','app_monitor','foreground')},'game':{'enabled':self.game.enabled,'status':self.game.status},'scope':'Actual app state only. No independent autonomous jobs or awareness when sensor permission is off. No raw camera frame or credentials.'}
  def stop(self):
+  self.export_cancel.set()
   self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
   self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
   self.idle.stop();self.turn_setup.stop()
@@ -379,13 +423,20 @@ class Bridge:
   self.status='Current reply and Mic stopped for your change. Camera and app permissions unchanged.'
   self.error='';self.caption={'active':False,'text':'','name':'JARVIS'}
  def execute(self,request):
+  try:return self._execute(request)
+  except Exception as error:
+   if isinstance(request,dict)and request.get('command')not in ('status','close'):
+    self.reply_wait=None;self.explain_failure('Command '+str(request.get('command')),error)
+   raise
+ def _execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
   cmd=request.get('command')
+  if cmd in ('pause','close','conversation-interrupt','history-new','history-open','select'):self.reply_wait=None
   if cmd in ('pause','close','browser-stop','laya-stop','laya-cancel','conversation-interrupt'):self.laya_active=False
   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open','pause','conversation-interrupt','close','browser-stop','desktop-cancel'):
    self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
-  allowed={'news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+  allowed={'awareness-mode','presence-mode','news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):self.warning=''
   if cmd=='team-dialogue':self.dialogue_metrics=[]
@@ -399,11 +450,26 @@ class Bridge:
   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open'):self.news_speech.stop()
   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open'):self.voice.pause()if getattr(self.voice,'dialogue_origin','user')=='idle'and self.voice.busy else None
   if cmd=='conversation-interrupt':self.interrupt_conversation()
+  elif cmd=='presence-mode':
+   if request.get('enabled')is False:self.idle.stop();self.voice.idle_configured=False
+   else:
+    if request.get('consent')is not True:raise ValueError('Review spoken presence and configured chat disclosure first')
+    if request.get('audio')is True and not self.setup.ready:raise ValueError('Verify speech assets before spoken presence')
+    self.idle.enable(True,request.get('audio')is True,strong=True,night_session=True,configured=True)
+    self.voice.idle_configured=True
+    self.status='Spoken presence ON: first check after20s,60s cooldown,max12 decisions/hour. Chat-only configured routes; sensors never shared.'
+  elif cmd=='awareness-mode':
+   if request.get('enabled')is False:self.judge.stop();self.camera.stop();self.vision.disable();self.context.set_apps(False)
+   else:
+    if request.get('consent')is not True:raise ValueError('Review local camera, app-name awareness and presence speech')
+    if request.get('audio')is True and not self.setup.ready:raise ValueError('Verify local speech assets before presence audio')
+    if self.context.camera=='off':self.camera.start(True)
+    self.context.set_apps(True);self.judge.night_session=True;self.judge.enable(True,request.get('audio')is True)
+    self.status='Local camera presence and app-name awareness enabled. Any frontal face, not identity/sleep. Screen pixels require separate exact window review.'
   elif cmd=='obsidian-create':
-   self.obsidian.create(request.get('reviewed_name'),request.get('confirm')is True)
-   self.obsidian.sync(self.messages,self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'turn_mode':self.voice.turn_mode,'endpoint_mode':self.voice.endpoint_mode,'selected':self.voice.name},self.chat_id,force=True)
-  elif cmd=='obsidian-open':self.obsidian.open()
-  elif cmd=='obsidian-sync':self.obsidian.sync(self.messages,self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'turn_mode':self.voice.turn_mode,'endpoint_mode':self.voice.endpoint_mode,'selected':self.voice.name},self.chat_id,force=True)
+   self.obsidian.start('connect',list(self.messages),self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'selected':self.voice.name},self.chat_id,reviewed=request.get('reviewed_name'),confirm=request.get('confirm')is True)
+  elif cmd=='obsidian-open':self.obsidian.open('Brain of Brain.canvas')
+  elif cmd=='obsidian-sync':self.obsidian.start('sync',list(self.messages),self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'selected':self.voice.name},self.chat_id)
   elif cmd=='obsidian-disable':self.obsidian.disable()
   elif cmd=='desktop-mode':
    if type(request.get('enabled'))is not bool:raise ValueError('Invalid app permission')
@@ -598,6 +664,8 @@ class Bridge:
     finally:
      self.evolution_busy=False
      with self.lock:
+      if not cancel.is_set()and (not self.laya_support or self.laya_support.get('goal')!=goal):
+       self.messages.append({'name':'DEX','text':'Local source/tests/risks proposal ready for owner review; not installed.'if self.evolution.pending else'Local proposal unavailable; no code installed. '+self.evolution_error,'provider':'verified-app-state','cloud':False});self.archive_dirty=True
       if not cancel.is_set()and self.laya_support and self.laya_support.get('goal')==goal:
        ready=self.evolution.pending is not None;self.laya_support['status']='Local proposal ready for source/tests/risk review; not installed'if ready else 'Local proposal unavailable. Load one local chat model in LM Studio for this workflow. Source unchanged. '+self.evolution_error
        self.messages.append({'name':'DEX','text':self.laya_support['status'],'provider':'verified-app-state','cloud':False});self.archive_dirty=True
@@ -606,9 +674,24 @@ class Bridge:
   elif cmd=='evolution-export':
    text=self.evolution.export_reviewed(request.get('reviewed'),request.get('confirm')is True)
    if not self.obsidian.enabled:raise ValueError('Create and review Brain of Brain vault first')
-   p=self.obsidian.safe('Proposals/'+request['reviewed']['sha256']+'.md');p.parent.mkdir(parents=True,exist_ok=True)
-   if p.exists()and p.read_text(encoding='utf-8')!=text:raise ValueError('Edited proposal preserved; no overwrite')
-   p.write_text(text,encoding='utf-8');self.evolution_result=str(p)
+   if self.export_busy:raise ValueError('Local proposal export is already running')
+   p=self.obsidian.safe('Proposals/'+request['reviewed']['sha256']+'.md')
+   self.export_busy=True;self.export_status='Writing reviewed local Markdown proposal';self.export_cancel=threading.Event();cancel=self.export_cancel
+   def export():
+    try:
+     if cancel.is_set():return
+     p.parent.mkdir(parents=True,exist_ok=True)
+     if cancel.is_set():return
+     if p.exists():
+      if p.read_text(encoding='utf-8')!=text:raise ValueError('Edited proposal preserved; no overwrite')
+     else:
+      # exclusive write: a concurrent owner-created note is never overwritten
+      with p.open('x',encoding='utf-8')as stream:stream.write(text)
+     self.evolution_result=str(p);self.export_status='Reviewed proposal exported; not installed'
+    except Exception as error:
+     self.export_status='Export stopped; existing notes preserved';self.explain_failure('Local proposal export',error,propose=False)
+    finally:self.export_busy=False
+   self.export_worker=threading.Thread(target=export,daemon=True);self.export_worker.start()
   elif cmd=='specialist-models':self.specialist_models=self.specialists.metadata()
   elif cmd=='specialist-configure':self.specialists.configure(request.get('assignments'),request.get('reviewed'),request.get('consent')is True)
   elif cmd=='specialist-run':self.specialist_result=self.specialists.run(request.get('task'),request.get('text'))
@@ -638,6 +721,11 @@ class Bridge:
   elif cmd=='team-round':self.voice.parallel_round(request.get('text'),self.brains,request.get('audio') is True)
   elif cmd=='chat':
    self.error='';self.warning='';self.response_diagnostics=[];text=request.get('text')
+   self.failure_notices.clear();self.reply_wait=None
+   if self.time_action(text):self.messages.insert(max(0,len(self.messages)-1),{'name':'You','text':text});return self.execute({'command':'status'})
+   import re
+   if isinstance(text,str)and re.fullmatch(r'\s*(?:(?:hey\s+)?jarvis[,.:]?\s+)?(?:open|show)\s+(?:the\s+)?(?:data\s+cent(?:er|re)|brain of brain|obsidian(?:\s+vault)?)[.!?]*\s*',text,re.I):
+    self.messages.append({'name':'You','text':text});self.data_centre_action(text);return self.execute({'command':'status'})
    if self.support_owner_action(text):self.messages.append({'name':'You','text':text});return self.execute({'command':'status'})
    if self.activation_action(text):self.messages.append({'name':'You','text':text});return self.execute({'command':'status'})
    if self.stop_intent(text):self.execute({'command':'browser-stop'});self.idle.stop();self.interrupt_conversation();return self.execute({'command':'status'})
@@ -648,9 +736,12 @@ class Bridge:
    if not action and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
    if self.news.request(text)or self.teammate_query(text)or self.planning_action(text)or self.calendar_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text)or self.understand_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
    else:
+    self.voice.memory.restore(self.messages)
     from .team_discussion import requested
-    if requested(text):self.voice.dialogue(text,self.brains,request.get('audio')is True)
+    from .multi_address import addressed
+    if addressed(text)or requested(text):self.voice.dialogue(text,self.brains,request.get('audio')is True)
     else:self.voice.send_text(text,auto_pick=True)
+    self.reply_wait={'started':time.monotonic(),'chat':self.chat_id}
   elif cmd=='select':
    self.judge.stop();self.voice.select(request.get('name'));self.voice.notify('status',self.voice.name+' selected. Mic OFF; press Talk to '+self.voice.name+' to start voice. Typed messages are text-only.')
   elif cmd=='pause':self.stop()
@@ -697,7 +788,7 @@ class Bridge:
    if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
    self.judge.stop();self.judge.gaming=request.get('gaming',False);self.idle.gaming=self.judge.gaming
    if request['enabled']:self.judge.enable(True,request.get('audio',False))
-  elif cmd=='close':self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.voice.close();self.closed=True
+  elif cmd=='close':self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.voice.close();self.closed=True
   self.poll()
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
@@ -713,21 +804,33 @@ class Bridge:
     if metrics.get('turn_s')is not None:self.dialogue_metrics=(self.dialogue_metrics+[dict(metrics,profile=value['profile'][:40],audio=value.get('audio')is True,scope='Software turn timings; prefetched text may already be queued. Not audible latency.')])[-12:]
    elif kind=='response-diagnostics':self.response_diagnostics=value[-2:]
    elif kind=='error':
+    if value and not str(value).startswith('Reply reached the completion limit'):
+     self.reply_wait=None;self.explain_failure('Reply/voice runtime',value)
     if str(value).startswith('Reply reached the completion limit'):self.warning=str(value)[:300]
     else:self.error=str(value)[:300]
+   elif kind=='action-handled':self.reply_wait=None
    elif kind=='voice-actor':self.voice.reply_actor=str(value)
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
-   elif kind=='transcript':self.warning='';self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
+   elif kind=='transcript':
+    self.warning='';self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
+    if self.reply_wait is None:self.reply_wait={'started':time.monotonic(),'chat':self.chat_id}
    elif kind=='game-comment':
     if value.get('generation')!=self.game.generation or not self.game.enabled:continue
     self.game_speech.play(value,self.voice.busy or self.voice.runtime is not None or self.judge.busy or self.idle.busy)
     self.messages.append({'name':'JARVIS','text':'Recent game frame: '+value['observed']+'\n'+value['comment'],'provider':'local','model':getattr(self.game.model,'model','local vision'),'cloud':False});self.archive_dirty=True
    elif kind in ('answer','proactive-answer'):
+    self.reply_wait=None
+    if not isinstance(value,dict)or not isinstance(value.get('text'),str)or not value['text'].strip():
+     self.explain_failure('Reply','The configured route returned an empty answer. The underlying cause is not yet known.');continue
     self.archive_dirty=True
     row={'name':value.get('profile',self.voice.name),'text':value['text'][:4000],**{k:value[k]for k in ('provider','model','cloud','slot')if k in value}}
     if 'stream_id' in value:row['stream_id']=value['stream_id']
     if self.messages and self.messages[-1]['name']==row['name'] and (self.voice.runtime is not None or ('stream_id' in row and self.messages[-1].get('stream_id')==row['stream_id'])):self.messages[-1]=row
     else:self.messages.append(row)
+  if self.reply_wait and self.reply_wait['chat']==self.chat_id and time.monotonic()-self.reply_wait['started']>=90:
+   self.reply_wait=None;self.voice.pause();self.explain_failure('Reply timeout','No reply reached the interface within 90 seconds. The route cause is not yet known; the reply was stopped, not completed.')
+  obs_error=self.obsidian.snapshot().get('error')
+  if obs_error:self.explain_failure('Obsidian operation',obs_error)
   self.messages=self.messages[-200:]
   self.save_history()
   # Runtime activity, not decorative preview. Reserved visemes can be added by an audio clock.
@@ -736,13 +839,16 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
   try:self.history.save(self.chat_id,self.messages);self.archive_dirty=False;self.archive_saved_at=time.monotonic()
   except Exception:self.history_error='Chat could not be saved. Current session remains available; original archive preserved.'
- def close(self):self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.voice.close()
+ def close(self):
+  self.export_cancel.set()
+  if self.export_worker and self.export_worker is not threading.current_thread():self.export_worker.join(10)
+  self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.voice.close()
 def main():
  bridge=Bridge()
  try:
