@@ -89,3 +89,30 @@ class StreamingDialogue(unittest.TestCase):
   with patch('jarvis.workspace_voice.build_proactive_speaker',return_value=Speaker()):
    w=v.dialogue('Nova and Lyra talk to each other',brains,audio=True,rounds=1);self.assertTrue(spoken.wait(1));self.assertTrue(w.is_alive());v.pause();release.set();w.join(3)
   self.assertEqual(said,[('NOVA','First useful sentence.')]);v.close()
+
+class PrefetchedDialogue(unittest.TestCase):
+ def test_next_real_request_during_previous_audio_no_overlap(self):
+  from unittest.mock import patch
+  v=WorkspaceVoice();audio_started=threading.Event();next_started=threading.Event();release=threading.Event();calls=[];said=[];active=0
+  class Speaker:
+   generation=0;synth=Mock()
+   def select_profile(self,name):self.profile=name
+   def speak(self,text,generation=None):
+    nonlocal active
+    active+=1
+    if active!=1:raise RuntimeError('overlapping audio')
+    said.append(self.profile)
+    if len(said)==1:audio_started.set();release.wait(2)
+    active-=1
+   def stop(self):self.generation+=1
+  class Router:
+   def __init__(self,name):self.name=name
+   def stream(self,messages,**kw):
+    calls.append((self.name,messages))
+    if len(calls)==2:next_started.set()
+    yield {'text':'Useful reply.','provider':'fixture'}
+  brains=Mock();brains.router.side_effect=lambda name:Router(name)
+  with patch('jarvis.workspace_voice.build_proactive_speaker',return_value=Speaker()):
+   w=v.dialogue('Nova and Lyra talk to each other about art',brains,audio=True,rounds=1)
+   self.assertTrue(audio_started.wait(1));self.assertTrue(next_started.wait(1));self.assertEqual(said,['NOVA']);self.assertIn('[NOVA] Useful reply.',str(calls[1][1]));release.set();w.join(3)
+  self.assertFalse(w.is_alive());self.assertEqual(said,['NOVA','LYRA','JARVIS']);self.assertTrue(any(k=='dialogue-metrics'for k,x in list(v.events.queue)));v.close()
