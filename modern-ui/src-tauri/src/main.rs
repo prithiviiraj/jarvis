@@ -49,12 +49,8 @@ fn ensure_captions(app:&tauri::AppHandle)->Result<(),String>{
 }
 fn ensure_pill(app:&tauri::AppHandle)->Result<(),String>{
  if app.get_webview_window("pill").is_none(){
-  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;let scale=monitor.scale_factor();let screen=monitor.size();let origin=monitor.position();let width=560.;let height=96.;
-  let default=(origin.x as f64/scale+(screen.width as f64/scale-width)/2.,origin.y as f64/scale+30.);
-  let path=app.path().app_config_dir().map_err(|e|e.to_string())?.join("pill-position.json");
-  let saved=std::fs::read_to_string(path).ok().and_then(|s|serde_json::from_str::<Value>(&s).ok()).and_then(|v|Some((v.get("x")?.as_f64()?,v.get("y")?.as_f64()?)));
-  let monitors=app.available_monitors().map_err(|e|e.to_string())?;
-  let pos=saved.filter(|(x,y)|x.is_finite()&&y.is_finite()&&monitors.iter().any(|m|{let sc=m.scale_factor();let p=m.position();let z=m.size();*x>=p.x as f64/sc&&*y>=p.y as f64/sc&&*x+width<= (p.x as f64+z.width as f64)/sc&&*y+height<=(p.y as f64+z.height as f64)/sc})).unwrap_or(default);
+  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;let scale=monitor.scale_factor();let screen=monitor.size();let origin=monitor.position();let width=240.;let height=40.;
+  let pos=(origin.x as f64/scale+(screen.width as f64/scale-width)/2.,origin.y as f64/scale+2.);
   WebviewWindowBuilder::new(app,"pill",WebviewUrl::App("index.html?pill".into())).initialization_script("document.documentElement.classList.add('pill-root');").title("JARVIS / Compact voice bar").inner_size(width,height).position(pos.0,pos.1).decorations(false).shadow(false).no_redirection_bitmap(true).resizable(false).transparent(true).always_on_top(true).focused(false).visible(false).build().map_err(|e|e.to_string())?;
  }Ok(())
 }
