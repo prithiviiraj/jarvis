@@ -162,3 +162,13 @@ class GameSpeechPriority(unittest.TestCase):
    b.execute({'command':'chat','text':'hello'})
    self.assertEqual(order,['game-stop','text-start'])
   finally:b.close()
+
+class GameEngineReset(unittest.TestCase):
+ def test_engine_change_discards_cached_game_speaker(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   speaker=Mock(generation=1);b.game_speech.speaker=speaker
+   b.execute({'command':'voice-engine','engine':'kitten'})
+   speaker.stop.assert_called();speaker.close.assert_called_once()
+   self.assertIsNone(b.game_speech.speaker);self.assertEqual(b.voice.tts_engine,'kitten')
+  finally:b.close()
