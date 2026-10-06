@@ -122,11 +122,23 @@ try:
   if 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text:break
   time.sleep(.2)
  assert 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text, 'Connection check must discover actual current loopback model'
- # Bring the account card into the native accessibility viewport by keyboard.
- button('Warm local model').wrapper_object().set_focus();window.type_keys('{TAB}{TAB}{TAB}{TAB}{TAB}');time.sleep(.3)
- window.child_window(title='slot1 API key',control_type='Edit').wait('exists',timeout=10)
+ # Re-read the account field after async local discovery refresh; no fixed TAB path.
+ keyfield=window.child_window(title='slot1 API key',control_type='Edit')
+ for attempt in range(3):
+  keyfield.wait('exists',timeout=15)
+  for _ in range(16):
+   try:
+    if keyfield.wrapper_object().is_visible():break
+   except Exception:pass
+   mouse.scroll(coords=(760,450),wheel_dist=-3);time.sleep(.2)
+  try:
+   keyfield.wait('visible',timeout=10);keyfield.wrapper_object().set_focus();break
+  except Exception:
+   if attempt==2:
+    window.capture_as_image().save('ui-evidence/native-account-key-lookup-failure.png');raise
+   click('Brain & APIs');time.sleep(.5)
  accounts=window.descendants(control_type='Button');tests=[x for x in accounts if x.window_text()=='Save & test this account'];assert tests and all(not x.is_enabled()for x in tests)
- window.child_window(title='slot1 API key',control_type='Edit').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-empty-key-onboarding.png')
+ window.capture_as_image().save('ui-evidence/native-empty-key-onboarding.png')
  checks.append('actual backend local model discovery ready; API key entry present; cloud remains off')
  before_warmup=len(requests)
  button('Warm local model').wait('exists',timeout=10)
