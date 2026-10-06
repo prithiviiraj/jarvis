@@ -7,7 +7,7 @@ from .personas import ROLES
 
 def banter_wait(stop,interval):return stop.wait(interval)
 
-VOICES = {'JARVIS':'am_michael','NOVA':'af_heart','KAI':'am_liam','LYRA':'af_sky','DEX':'am_fenrir'}
+VOICES = {'JARVIS':'am_michael','NOVA':'af_sky','KAI':'am_liam','LYRA':'af_heart','DEX':'am_fenrir'}
 
 class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
@@ -149,26 +149,34 @@ class WorkspaceVoice:
                 if audio:
                     speaker=build_proactive_speaker(self.tts_engine);self.round_speaker=speaker
                     speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
-                actors=members*rounds+('JARVIS',)
+                actors=members*rounds+('JARVIS',);prefetched={}
+                import time
+                def make_request(index,name,context):
+                    request=messages(name,topic,context,0)
+                    instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.'if index==len(actors)-1 else 'Round '+str(index//len(members)+1)+': reply only as '+name+' in1to2short sentences (at most45words). React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
+                    request[-1]['content']+='\n'+instruction
+                    if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
+                    return request
                 for index,name in enumerate(actors):
                     if cancel.is_set()or self.closed or ticket!=self.generation:return
                     self.reply_actor=name;self.notify('state',name+' thinking')
-                    request=messages(name,topic,context,0)
-                    instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.' if index==len(actors)-1 else 'Round '+str(index//len(members)+1)+': reply only as '+name+' in1to2short sentences (at most45words). React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
-                    request[-1]['content']+='\n'+instruction
-                    if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
+                    request=make_request(index,name,context)
                     router=brains.router(name)
                     stream_id=str(ticket)+'-dialogue-'+str(index)
+                    started=time.monotonic();first_text=None;generation_done=None
                     answer={};pieces=[]
                     streaming=callable(getattr(type(router),'stream',None))
                     if streaming:
                         def chunks():
-                            nonlocal answer
-                            for delta in router.stream(request,cancel=cancel):
+                            nonlocal answer,first_text,generation_done
+                            pending=prefetched.pop(index,None)
+                            source=pending.stream()if pending is not None else router.stream(request,cancel=cancel,**({'local_only':True}if origin=='idle'else{}))
+                            for delta in source:
                                 with self.lock:
                                     if cancel.is_set()or self.closed or ticket!=self.generation:return
                                     piece=delta.get('text')
                                     if not isinstance(piece,str):raise ValueError('Invalid stream delta')
+                                    if piece and first_text is None:first_text=time.monotonic()-started
                                     pieces.append(piece)
                                     text=strip_speaker_tag(''.join(pieces))
                                     if len(text)>3000:raise ValueError('Team reply too long')
@@ -176,6 +184,13 @@ class WorkspaceVoice:
                                     answer={**delta,'text':text}
                                     self.notify('answer',{**answer,'profile':name,'stream_id':stream_id})
                                 yield piece
+                            generation_done=time.monotonic()-started
+                            if speaker and index+1<len(actors)and not cancel.is_set():
+                                actual=clean_reply(answer.get('text'));own_reply(actual,name,context)
+                                next_name=actors[index+1];next_router=brains.router(next_name)
+                                if callable(getattr(type(next_router),'stream',None)):
+                                    from .dialogue_prefetch import Prefetch
+                                    prefetched[index+1]=Prefetch(next_router,make_request(index+1,next_name,context+[{'role':'assistant','content':'['+name+'] '+actual}]),cancel,local_only=origin=='idle')
                         if speaker:
                             from .speech_queue import SpeechQueue
                             from .persona_text import spoken_chunks
@@ -186,22 +201,24 @@ class WorkspaceVoice:
                         if cancel.is_set()or self.closed or ticket!=self.generation:return
                         text=clean_reply(answer.get('text'));own_reply(text,name,context)
                     else:
-                        answer=router.ask(request,cancel=cancel)
+                        answer=router.ask(request,cancel=cancel,**({'local_only':True}if origin=='idle'else{}))
                         try:text=clean_reply(answer.get('text'));own_reply(text,name,context)
                         except ValueError:
                             if cancel.is_set():return
-                            answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel)
+                            answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel,**({'local_only':True}if origin=='idle'else{}))
                             text=clean_reply(answer.get('text'));own_reply(text,name,context)
                         if cancel.is_set()or self.closed or ticket!=self.generation:return
                         self.notify('answer',{**answer,'text':text,'profile':name,'stream_id':stream_id})
                         if speaker:
                             speaker.select_profile(name);spoken=spoken_text(text)
                             if spoken.strip():speaker.speak(spoken)
+                    self.notify('dialogue-metrics',{'profile':name,'first_text_s':first_text,'generation_s':generation_done,'turn_s':time.monotonic()-started,'audio':audio,'scope':'Software timings include queued prefetched text; not sound heard or provider-only latency.'})
                     self.memory.append(name,topic,text);context.append({'role':'assistant','content':'['+name+'] '+text})
                 self.notify('status','Team discussion complete; each shown reply came from its named profile route.')
             except Exception as error:
                 if not cancel.is_set():self.notify('error','Team discussion stopped: '+str(error)[:160]+'. Earlier actual replies remain; no invented replacement.')
             finally:
+                cancel.set()
                 if speaker:
                     speaker.stop();speaker.synth.g2p.close()
                     if self.round_speaker is speaker:self.round_speaker=None
