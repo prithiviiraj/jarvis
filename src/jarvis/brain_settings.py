@@ -1,11 +1,36 @@
 """Functional account routing. Secrets never enter settings files or status output."""
-import json,threading,time,urllib.request,urllib.error
+import json,threading,time,ssl,urllib.request,urllib.error
 from pathlib import Path
 from dataclasses import replace
 from .provider_pool import Slot,ProviderPool,SLOT_IDS,KINDS
 from .personas import ROLES
 from .router import BrainRouter,NoRedirect,RouterError,ProviderFailure
 from .providers import configured,ENDPOINTS,local_models
+def account_models(kind,key):
+ """No redirects, bounded list, certificate recovery, and safe errors for every slot."""
+ from .groq_models import error_code,APP_UA
+ def load(context=None):
+  handlers=[urllib.request.ProxyHandler({}),NoRedirect()]
+  if context is not None:handlers.append(urllib.request.HTTPSHandler(context=context))
+  http=urllib.request.build_opener(*handlers)
+  req=urllib.request.Request(ENDPOINTS[kind]+'/models',headers={'Authorization':'Bearer '+key,'Accept':'application/json','User-Agent':APP_UA})
+  with http.open(req,timeout=12)as r:
+   raw=r.read(262145)
+   if len(raw)>262144:raise ValueError('Model list too large')
+   data=json.loads(raw).get('data',[])
+   if not isinstance(data,list):raise ValueError('Invalid model list')
+   return [x['id']for x in data if isinstance(x,dict)and isinstance(x.get('id'),str)and x.get('active',True)is True]
+ try:
+  try:return load()
+  except Exception as exc:
+   if not error_code(exc).startswith('TLS_'):raise
+   import certifi
+   return load(ssl.create_default_context(cafile=certifi.where()))
+ except Exception as exc:
+  code=error_code(exc)
+  hint=' For Gemini HTTP400, the saved key may be invalid or expired.'if kind=='gemini'and code.startswith('HTTP_400')else ''
+  raise ValueError('Account model lookup failed ('+code+'). No greeting sent. Check this slot key and provider account.'+hint)from None
+
 class BrainSettings:
  def __init__(self,store=None,path=None):
   self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.local_gate=threading.Lock();self.warmup_cancel=threading.Event()
@@ -67,12 +92,7 @@ class BrainSettings:
      if s.id not in self.consent or s.id not in self.free:raise ValueError('Confirm share-context consent and a free/no-billing account for this session')
      key=self.keys().get(s.key_target)
      if not key:raise ValueError('Save this slot key first')
-     http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
-     req=urllib.request.Request(ENDPOINTS[s.provider]+'/models',headers={'Authorization':'Bearer '+key,'Accept':'application/json'})
-     with http.open(req,timeout=12)as r:
-      raw=r.read(262145)
-      if len(raw)>262144:raise ValueError('Model list too large')
-      ids=[x['id']for x in json.loads(raw).get('data',[])if isinstance(x,dict)and isinstance(x.get('id'),str)]
+     ids=account_models(s.provider,key)
      greeted=None
      if s.model=='automatic':
       if s.provider=='groq':
@@ -122,12 +142,7 @@ class BrainSettings:
     if s.id not in self.consent or s.id not in self.free:raise ValueError('Confirm share-context consent and a free/no-billing account for this session')
     key=self.keys().get(s.key_target)
     if not key:raise ValueError('Save this slot key first')
-    http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
-    req=urllib.request.Request(ENDPOINTS[s.provider]+'/models',headers={'Authorization':'Bearer '+key,'Accept':'application/json'})
-    with http.open(req,timeout=12)as r:
-     raw=r.read(262145)
-     if len(raw)>262144:raise ValueError('Model list too large')
-     ids=[x['id']for x in json.loads(raw).get('data',[])if isinstance(x,dict)and isinstance(x.get('id'),str)]
+    ids=account_models(s.provider,key)
     if not ids:raise ValueError('Provider returned an empty model list')
     result={'state':'models-listed','models':ids[:100],'scope':'model list only; no test reply sent. Listing does not confirm free quota or that a model answers.'}
    except Exception as e:
