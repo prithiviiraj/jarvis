@@ -202,7 +202,13 @@ try:
  engine=window.child_window(title='Speech engine',control_type='ComboBox')
  def choose_engine(label,key):
   for attempt in range(3):
-   mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.3)
+   engine.wait('exists',timeout=10)
+   for scroll_attempt in range(18):
+    control=engine.wrapper_object();rect=control.rectangle();bounds=window.rectangle()
+    if rect.top>bounds.top+120 and rect.bottom<bounds.bottom-65:break
+    mouse.scroll(coords=(760,450),wheel_dist=-2 if rect.bottom>=bounds.bottom-65 else 2);time.sleep(.2)
+   else:
+    window.capture_as_image().save('ui-evidence/native-engine-viewport-failure.png');raise RuntimeError('Speech engine not in viewport')
    control=engine.wrapper_object()
    # WebView2 UIA select() may return without firing React's change event.
    # Use the actual native dropdown keyboard path, then verify its visible value.
