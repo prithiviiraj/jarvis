@@ -155,7 +155,7 @@ class WorkspaceVoice:
                     request=messages(name,topic,context,0)
                     instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.'if index==len(actors)-1 else 'Round '+str(index//len(members)+1)+': reply only as '+name+' in1to2short sentences (at most45words). React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
                     request[-1]['content']+='\n'+instruction
-                    if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
+                    if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. Briefly signal your own presence without claiming background work. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
                     return request
                 for index,name in enumerate(actors):
                     if cancel.is_set()or self.closed or ticket!=self.generation:return
