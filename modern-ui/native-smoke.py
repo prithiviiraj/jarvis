@@ -231,6 +231,12 @@ try:
 
 
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
+ field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft')
+ button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
+ assert 'open-window'in' '.join(x.window_text()for x in window.descendants())
+ window.capture_as_image().save('ui-evidence/native-dotted-jarvis-browser-review.png');click('Cancel Team browser action')
+ checks.append('exact dotted J.A.R.V.I.S. laptop phrase prepares browser-open review; cancel leaves browser unopened')
+
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft')
  button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'https://www.youtube.com/'in' '.join(x.window_text()for x in window.descendants())
