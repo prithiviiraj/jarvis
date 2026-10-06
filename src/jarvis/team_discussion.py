@@ -30,7 +30,7 @@ def messages(actor,topic,context,index):
   elif actor=='DEX':instruction='One short reply that calmly ends the debate. Practical and matured; the others are wary of you.'
   else:instruction='One short playful in-character disagreement or response to the actual preceding team words. No insults to master, no threats, no real feelings/conflict claims.'
  else:instruction='One short in-character reply to the actual preceding team words. Address teammates, not a fresh introduction. Advance the discussion toward a useful conclusion. No threats or real actions.'
- instruction+=' Write only your own reply. Never narrate or write another profile dialogue, no inline speaker labels. Master has absolute priority. Stop or quiet ends this conversation. Do not interrupt master. Only fictional discussion-mode teammates may cut into each other.'
+ instruction+=' Keep your turn to1or2short sentences, at most45words. Write only your own reply. Never narrate or write another profile dialogue, no inline speaker labels. Master has absolute priority. Stop or quiet ends this conversation. Do not interrupt master. Only fictional discussion-mode teammates may cut into each other.'
  return [{'role':'system','content':prompt(actor)}]+context[-12:]+[{'role':'user','content':'Master requested a SHORT team conversation: '+topic[:1000]+'. '+instruction}]
 
 def participants(text,initiator="JARVIS"):
