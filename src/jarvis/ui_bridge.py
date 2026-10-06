@@ -282,6 +282,9 @@ class Bridge:
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):self.warning=''
   if cmd=='team-dialogue':self.dialogue_metrics=[]
+  if cmd in ('chat','select','team-dialogue','team-round','voice-on','voice-engine','history-new','history-open'):
+   # User conversation takes priority even when background game speech already started.
+   self.game_speech.stop()
   if cmd not in ('status','idle-mode'):self.idle.activity()
   scoped_changes={'conversation-interrupt','brain-save','voice-engine','voice-endpoint','turn-mode','team-dialogue','team-round','history-new','history-open','history-delete','history-clear'}
   if cmd in scoped_changes and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
