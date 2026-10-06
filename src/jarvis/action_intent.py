@@ -4,7 +4,9 @@ from .browser_control import parse_voice
 
 def normalize(text):
  # Whisper/typing may spell the leader as J.A.R.V.I.S.; only normalize the name.
- return re.sub(r'\bj\s*\.\s*a\s*\.\s*r\s*\.\s*v\s*\.\s*i\s*\.\s*s\s*\.?', 'Jarvis',text,flags=re.I)
+ text=re.sub(r'\bj\s*\.\s*a\s*\.\s*r\s*\.\s*v\s*\.\s*i\s*\.\s*s\s*\.?', 'Jarvis',text,flags=re.I)
+ # Only normalize dots between a bounded imperative's known words. Do not rewrite URLs.
+ return re.sub(r'\b(open|the|a)\.\s+(?=(?:the[.\s]|a[.\s]|browser\b|youtube\b))',r'\1 ',text,flags=re.I)
 
 def parse(text):
  if not isinstance(text,str):return None
