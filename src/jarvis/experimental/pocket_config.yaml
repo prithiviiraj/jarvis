@@ -1,0 +1,55 @@
+default_temperature: 0.3
+flow_lm:
+  dtype: float32
+  flow:
+    depth: 6
+    dim: 512
+  insert_bos_before_voice: true
+  lookup_table:
+    dim: 1024
+    n_bins: 4000
+    tokenizer: tokenizers
+    tokenizer_path: tokenizer.json
+  transformer:
+    d_model: 1024
+    hidden_scale: 4
+    max_period: 10000
+    num_heads: 16
+    num_layers: 6
+mimi:
+  channels: 1
+  dtype: float32
+  frame_rate: 12.5
+  inner_dim: 32
+  outer_dim: 512
+  quantizer:
+    dimension: 32
+    output_dimension: 512
+  sample_rate: 24000
+  seanet:
+    channels: 1
+    compress: 2
+    dilation_base: 2
+    dimension: 512
+    kernel_size: 7
+    last_kernel_size: 3
+    n_filters: 64
+    n_residual_layers: 1
+    pad_mode: constant
+    ratios:
+    - 6
+    - 5
+    - 4
+    residual_kernel_size: 3
+  transformer:
+    context: 250
+    d_model: 512
+    dim_feedforward: 2048
+    input_dimension: 512
+    layer_scale: 0.01
+    num_heads: 8
+    num_layers: 2
+    output_dimensions:
+    - 512
+weights_path: model.safetensors
+weights_path_without_voice_cloning: model.safetensors
