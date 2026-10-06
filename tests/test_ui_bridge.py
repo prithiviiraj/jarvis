@@ -144,3 +144,21 @@ class LaptopTeamTrigger(unittest.TestCase):
    b.voice.dialogue.assert_called_once_with(text,b.brains,False);b.voice.send_text.assert_not_called()
    self.assertFalse(state['idle']['enabled']);self.assertFalse(state['voice_active'])
   finally:b.close()
+
+class GameSpeechPriority(unittest.TestCase):
+ def test_user_voice_stops_current_game_output_first(self):
+  b=Bridge(WorkspaceVoice());order=[]
+  try:
+   b.game_speech.stop=Mock(side_effect=lambda:order.append('game-stop'))
+   b.voice.start=Mock(side_effect=lambda **kw:order.append('voice-start'))
+   b.execute({'command':'voice-on','consent':True})
+   self.assertEqual(order,['game-stop','voice-start'])
+  finally:b.close()
+ def test_user_chat_stops_game_before_text_dispatch(self):
+  b=Bridge(WorkspaceVoice());order=[]
+  try:
+   b.game_speech.stop=Mock(side_effect=lambda:order.append('game-stop'))
+   b.voice.send_text=Mock(side_effect=lambda *a,**kw:order.append('text-start'))
+   b.execute({'command':'chat','text':'hello'})
+   self.assertEqual(order,['game-stop','text-start'])
+  finally:b.close()
