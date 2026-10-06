@@ -65,10 +65,16 @@ try:
  assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists()
  pill=Desktop(backend='uia').window(title='JARVIS / Compact voice bar');pill.wait('visible',timeout=15);pill_handle=pill.handle
  assert ctypes.windll.user32.GetWindowLongW(pill_handle,-20)&8,'Pill must be always on top'
- pill.child_window(title='Toggle compact microphone',control_type='Button').wait('exists',timeout=15)
- assert 'Mic OFF' in ' '.join(pill.texts()+[x.window_text()for x in pill.descendants()]),'Minimize must not start mic'
+ pill.child_window(title='Stop JARVIS',control_type='Button').wait('exists',timeout=15)
+ pill.child_window(title='Open JARVIS workspace',control_type='Button').wait('exists',timeout=15)
+ assert 'Listening' not in ' '.join(pill.texts()+[x.window_text()for x in pill.descendants()]),'Inactive pill must not claim listening'
+ ctypes.windll.user32.GetDpiForWindow.argtypes=[ctypes.c_void_p];ctypes.windll.user32.GetDpiForWindow.restype=ctypes.c_uint
+ pr=pill.rectangle();scale=ctypes.windll.user32.GetDpiForWindow(pill_handle)/96
+ assert scale>0,'Window DPI unavailable'
+ assert abs(pr.width()-240*scale)<=3 and abs(pr.height()-40*scale)<=3,('Slim pill size',pr,scale)
+ assert -3<=pr.top<=int(4*scale),('Pill must sit at top edge',pr.top)
  pill.capture_as_image().save('ui-evidence/native-compact-pill-mic-off.png')
- pill.child_window(title='Restore workspace',control_type='Button').wrapper_object().invoke();main.wait('visible',timeout=10);time.sleep(.5)
+ pill.child_window(title='Open JARVIS workspace',control_type='Button').wrapper_object().invoke();main.wait('visible',timeout=10);time.sleep(.5)
  assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Pill must hide on restore'
  main.minimize();pill.wait('visible',timeout=10)
  ImageGrab.grab().save('ui-evidence/native-minimize-transcript-and-pill.png')
@@ -104,10 +110,17 @@ try:
  notes.capture_as_image().save('ui-evidence/native-reviewed-notepad-window.png');notes.close();window.set_focus()
  click('Disable app launch');click('Memory');click('AUTO · Create Brain of Brain vault')
  window.capture_as_image().save('ui-evidence/native-obsidian-auto-review.png')
- click('Confirm AUTO vault setup');time.sleep(1)
+ click('Confirm AUTO vault setup')
  import winreg
  with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders')as key:download_path=winreg.QueryValueEx(key,'{374DE290-123F-4565-9164-39C4925E467B}')[0]
- auto_root=pathlib.Path(os.path.expandvars(download_path))/'Brain of Brain';assert (auto_root/'Team/LYRA.md').is_file();assert (auto_root/'Active Work.md').is_file();assert (auto_root/'Modes/Current settings.md').is_file()
+ auto_root=pathlib.Path(os.path.expandvars(download_path))/'Brain of Brain'
+ deadline=time.monotonic()+30
+ while time.monotonic()<deadline:
+  content=' '.join(x.window_text()for x in window.descendants())
+  if all((auto_root/f).is_file() for f in ['Team/LYRA.md','Active Work.md','Modes/Current settings.md','Brain of Brain.canvas']) and 'Setting up your data centre' not in content and 'Local vault ready; auto-sync ON.' in content:break
+  time.sleep(.2)
+ else:raise RuntimeError('Async AUTO vault setup did not settle')
+ assert (auto_root/'Team/LYRA.md').is_file();assert (auto_root/'Active Work.md').is_file();assert (auto_root/'Modes/Current settings.md').is_file()
  click('Stop vault sync');click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
 
  time.sleep(2)
@@ -229,16 +242,12 @@ try:
     time.sleep(.2)
   window.capture_as_image().save('ui-evidence/native-engine-selection-failure.png')
   raise RuntimeError('Native speech engine option not selected: '+label)
- choose_engine('Kitten nano int8 - optional English, small download','{HOME}{DOWN}')
- assert engine.wrapper_object().selected_text().startswith('Kitten')
- assert 'Kitten assets not checked'in' '.join(x.window_text()for x in window.descendants())
- click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
- assert 'About 28MB'in' '.join(x.window_text()for x in window.descendants())
- button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
- window.capture_as_image().save('ui-evidence/native-kitten-download-review.png');click('Cancel voice download review');window.child_window(title='Confirm voice download',control_type='Button').wait_not('exists',timeout=10);mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.5);choose_engine('Kokoro - default','{HOME}')
+ choose_engine('Kokoro - default','{HOME}')
+ assert engine.wrapper_object().selected_text().startswith('Kokoro')
+ assert 'Kitten nano int8' not in ' '.join(x.window_text()for x in window.descendants())
  assert 'Downloading 'not in' '.join(x.window_text()for x in window.descendants())
  button('Mic ON / start local voice').wait('exists',timeout=10)
- checks.append('native exact Kokoro/Kitten download reviews canceled; no download or microphone start; engine restored')
+ checks.append('native Kokoro-only speech option; exact download review canceled; no download or microphone start')
  # Actual temporary-vault UI flow, no owner's files. Reviews must fire nothing.
  import tempfile
  with tempfile.TemporaryDirectory()as vault_tmp:
