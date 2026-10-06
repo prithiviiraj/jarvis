@@ -29,3 +29,19 @@ class GamingSuppression(unittest.TestCase):
   voice=Mock();voice.busy=False;voice.runtime=None;brains=Mock()
   c=IdleCompanion(voice,brains,Mock(),clock=lambda:1000,hour=lambda:12);c.enable(True);c.last_activity=0;c.gaming=True
   self.assertIsNone(c.poll());brains.router.assert_not_called();self.assertIn('gaming',c.waiting())
+
+class StrongIdle(unittest.TestCase):
+ def test_sixty_seconds_explicit_only_rotates_bounded_pair(self):
+  from jarvis.idle_companion import IdleCompanion
+  now=[0];voice=Mock();voice.busy=False;voice.runtime=None;voice.memory.messages.return_value=[];brains=Mock();brains.router.return_value.ask.side_effect=[{'text':'{"speak":true,"profiles":["NOVA","LYRA"],"topic":"A greeting"}'},{'text':'{"speak":true,"profiles":["NOVA","LYRA"],"topic":"A fresh idea"}'}]
+  c=IdleCompanion(voice,brains,Mock(),clock=lambda:now[0],hour=lambda:12);c.enable(True,True,strong=True);now[0]=59;self.assertIsNone(c.poll());now[0]=61;c.poll().join(2)
+  self.assertTrue(brains.router.return_value.ask.call_args.kwargs['local_only']);self.assertIn('NOVA and KAI',voice.dialogue.call_args.args[0]);self.assertEqual(voice.dialogue.call_args.kwargs['rounds'],1)
+  now[0]=200;self.assertIsNone(c.poll());now[0]=242;c.poll().join(2);self.assertIn('LYRA and DEX',voice.dialogue.call_args.args[0]);c.stop();self.assertFalse(c.enabled)
+ def test_typed_stop_never_goes_to_model(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  v=WorkspaceVoice();v.send_text=Mock();b=Bridge(voice=v)
+  try:
+   b.idle.enable(True,strong=True);b.execute({'command':'chat','text':'Jarvis, stop talking.'});self.assertFalse(b.idle.enabled);v.send_text.assert_not_called()
+   self.assertFalse(b.stop_intent('How do I stop a loop?'))
+  finally:b.close()
