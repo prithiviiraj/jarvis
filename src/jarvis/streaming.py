@@ -1,7 +1,7 @@
 """Bounded OpenAI-style SSE parsing. No tools or side effects, text deltas only."""
 import json,time,urllib.request,urllib.error
 from .chat_payload import payload,answer_text,reply_metadata
-from .router import NoRedirect,ProviderFailure,local_http,HttpTransport
+from .router import NoRedirect,ProviderFailure,local_http,HttpTransport,cloud_http
 
 def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None,diagnostic=None):
     from .final_text import FinalTextFilter
@@ -53,7 +53,7 @@ class StreamTransport:
     def __init__(self):self.http=local_http();self.cloud_http=None;self.last_diagnostics=[]
     def opener(self,provider):
         if not provider.cloud:return self.http
-        if self.cloud_http is None:self.cloud_http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+        if self.cloud_http is None:self.cloud_http=cloud_http()
         return self.cloud_http
     def stream(self,provider,messages,key=None,cancel=None):
         from .response_diagnostics import ResponseDiagnostics
