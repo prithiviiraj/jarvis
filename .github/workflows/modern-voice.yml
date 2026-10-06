@@ -94,7 +94,7 @@ jobs:
           python -m pip install -r ../optional-laya/requirements.txt
           python -m pip install model2vec==0.9.0
           if ($LASTEXITCODE -ne 0) { throw 'Inbuilt Laya runtime dependencies failed' }
-          python -m pip install pocket-tts==3.3.0 scipy==1.15.3 PyYAML==6.0.3
+          python -m pip install pocket-tts==3.3.0 scipy==1.15.3 PyYAML==6.0.3 tzdata==2025.2
           if ($LASTEXITCODE -ne 0) { throw 'Pocket CPU runtime dependencies failed' }
           python pocket-acceptance.py
           if ($LASTEXITCODE -ne 0) { throw 'Pocket preset CPU acceptance failed' }
