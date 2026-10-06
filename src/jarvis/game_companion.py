@@ -9,6 +9,7 @@ def windows():
  import ctypes
  from ctypes import wintypes
  u=ctypes.windll.user32;rows=[]
+ u.IsWindowVisible.argtypes=[wintypes.HWND];u.GetWindowTextLengthW.argtypes=[wintypes.HWND];u.GetWindowTextW.argtypes=[wintypes.HWND,wintypes.LPWSTR,ctypes.c_int]
  def each(hwnd,_):
   if u.IsWindowVisible(hwnd) and u.GetWindowTextLengthW(hwnd):
    title=ctypes.create_unicode_buffer(512);u.GetWindowTextW(hwnd,title,512);rows.append({'id':int(hwnd),'title':title.value[:160]})
