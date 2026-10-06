@@ -22,3 +22,7 @@ class Pocket(unittest.TestCase):
   from jarvis.voice_setup import VoiceSetup
   s=VoiceSetup();s.select('pocket');self.assertEqual(s.engine,'pocket')
   with self.assertRaises(Exception):s.start(engine='pocket')
+ def test_team_cleanup_has_no_kokoro_specific_g2p(self):
+  from jarvis.workspace_voice import WorkspaceVoice
+  import inspect
+  for method in (WorkspaceVoice.dialogue,WorkspaceVoice.parallel_round):self.assertNotIn('speaker.synth.g2p.close',inspect.getsource(method))
