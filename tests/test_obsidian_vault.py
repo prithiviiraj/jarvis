@@ -20,3 +20,11 @@ class ObsidianVault(unittest.TestCase):
   with tempfile.TemporaryDirectory()as d:
    base=pathlib.Path(d);out=base/'outside';out.mkdir();v=Vault(base/'config.json',lambda:base);v.create(NAME,True);(base/NAME/'Team').symlink_to(out,target_is_directory=True)
    v.sync([],{'agents':[]},{},force=True);self.assertIn('redirected',v.error);self.assertFalse(list(out.iterdir()))
+ def test_separate_nodes_links_and_local_exact_knowledge(self):
+  with tempfile.TemporaryDirectory()as d:
+   base=pathlib.Path(d);v=Vault(base/'config.json',lambda:base);v.create(NAME,True);v.sync([{'name':'DEX','text':'Actual code reply'}],{'agents':[{'name':'LUNA','voice':'JARVIS','personality':'Friendly'}]},{},force=True);root=base/NAME
+   self.assertIn('Agents/LYRA/Node',(root/'Agents index.md').read_text());self.assertTrue((root/'Agents/LUNA/Node.md').is_file());self.assertIn('Actual code reply',(root/'Agents/DEX/Recent replies.md').read_text());self.assertNotIn('Actual code reply',(root/'Agents/LYRA/Recent replies.md').read_text())
+   p=root/'Agents/DEX/Knowledge.md';p.write_text('Real helper facts');v.sync([],{'agents':[]},{},force=True);self.assertEqual(p.read_text(),'Real helper facts');m=[{'role':'system','content':'DEX'},{'role':'user','content':'what facts'}];self.assertEqual(v.attach(m,'DEX'),(m,False));v.connect_nodes(True);out,local=v.attach(m,'DEX');self.assertTrue(local);self.assertIn('Real helper facts',out[1]['content']);self.assertNotIn('Real helper facts',v.attach(m,'LYRA')[0][1]['content']);v.disable();self.assertEqual(v.attach(m,'DEX'),(m,False))
+ def test_data_centre_plan_preserved(self):
+  with tempfile.TemporaryDirectory()as d:
+   base=pathlib.Path(d);v=Vault(base/'config.json',lambda:base);v.create(NAME,True);p=base/NAME/'Planning/Today.md';self.assertTrue((base/NAME/'Data Centre/Home.md').is_file());p.write_text('My real plan');v.create(NAME,True);self.assertEqual(p.read_text(),'My real plan')
