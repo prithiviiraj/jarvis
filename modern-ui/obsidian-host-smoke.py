@@ -25,6 +25,15 @@ with tempfile.TemporaryDirectory()as fixture:
   else:raise RuntimeError('Obsidian debugging endpoint unavailable')
   with sync_playwright()as pw:
    browser=pw.chromium.connect_over_cdp('http://127.0.0.1:9229');pages=[page for context in browser.contexts for page in context.pages];page=next((x for x in pages if x.url.startswith('app://')),pages[0]);page.wait_for_function('window.app && app.vault && app.workspace',timeout=40000)
+   # App exists before its vault index is ready. Confirm actual fixture path and file.
+   try:
+    page.wait_for_function("()=>app.vault.getAbstractFileByPath('Brain of Brain.canvas') && app.vault.getFiles().length>=13",timeout=35000)
+    actual=page.evaluate("()=>app.vault.adapter.getBasePath()")
+    assert pathlib.Path(actual).resolve()==root.resolve(),('Wrong fixture vault',actual,str(root))
+   except Exception:
+    page.screenshot(path='ui-evidence/actual-obsidian-readiness-failure.png')
+    pathlib.Path('ui-evidence/actual-obsidian-readiness-failure.json').write_text(json.dumps(page.evaluate("()=>({url:location.href,path:app.vault.adapter.getBasePath?.(),files:app.vault.getFiles().map(f=>f.path),text:document.body.innerText.slice(0,6000)})"),indent=2),encoding='utf-8')
+    raise
    # Test-owned fixture navigation only; no note edits or external plugins.
    page.evaluate("async()=>{const f=app.vault.getAbstractFileByPath('Brain of Brain.canvas');if(!f)throw Error('Fixture canvas missing');await app.workspace.getLeaf(false).openFile(f);}")
    page.wait_for_function("app.workspace.activeLeaf?.view?.getViewType()==='canvas'",timeout=15000)
