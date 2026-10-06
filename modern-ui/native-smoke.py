@@ -161,8 +161,16 @@ try:
  click('Agents')
  def fill_named(name,text):
   control=window.child_window(title=name,control_type='Edit');control.wait('exists',timeout=10)
-  wrapper=control.wrapper_object();wrapper.set_edit_text(text)
-  assert wrapper.get_value()==text,('Native field value mismatch',name,wrapper.get_value())
+  for attempt in range(3):
+   wrapper=control.wrapper_object();wrapper.set_focus();time.sleep(.2)
+   wrapper.type_keys('^a',pause=.1);wrapper.type_keys('{BACKSPACE}',pause=.1);time.sleep(.2)
+   wrapper.type_keys(text,with_spaces=True,pause=.12)
+   deadline=time.monotonic()+3
+   while time.monotonic()<deadline:
+    if control.wrapper_object().get_value()==text:return
+    time.sleep(.1)
+  window.capture_as_image().save('ui-evidence/native-agent-field-failure.png')
+  raise AssertionError(('Native field value mismatch',name,control.wrapper_object().get_value()))
  fill_named('New agent name','MIRA');fill_named('New agent personality','Curious patient tutor.')
  click('Review new agent');button('Confirm create agent').wait('exists',timeout=10);click('Cancel agent review')
  assert not window.child_window(title='Confirm create agent',control_type='Button').exists(),'Creator cancel failed'
