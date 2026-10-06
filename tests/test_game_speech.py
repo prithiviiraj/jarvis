@@ -12,4 +12,4 @@ class Speech(unittest.TestCase):
  def test_stop_during_load_discards(self):
   s=self.make();gate=threading.Event();entered=threading.Event()
   def load():entered.set();gate.wait(2);return self.speaker
-  s.factory=load;t=s.play(self.row());entered.wait(1);s.stop();gate.set();t.join();self.speaker.speak.assert_not_called();self.assertFalse(s.busy)
+  s.factory=load;t=s.play(self.row());entered.wait(1);s.stop();gate.set();t.join();self.speaker.speak.assert_not_called();self.speaker.close.assert_called_once();self.assertFalse(s.busy)
