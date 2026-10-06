@@ -215,7 +215,7 @@ try:
   click('Disconnect vault');time.sleep(.5)
   click('Review English search download');button('Confirm English search download').wait('exists',timeout=10);click('Cancel English search download');window.child_window(title='Confirm English search download',control_type='Button').wait_not('exists',timeout=10);checks.append('native optional English search model download review canceled; no download')
   checks.append('native vault connect review/cancel/confirm, local search, exact note review/cancel/create, no overwrite, disconnect')
- click('Tools');click('Download Laya model');button('Confirm Laya model download').wait('exists',timeout=10);button('Confirm Laya model download').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-managed-laya-download-review.png');click('Cancel Laya model download');window.child_window(title='Confirm Laya model download',control_type='Button').wait_not('exists',timeout=10);assert 'Laya model missing; review Download Laya model'in' '.join(x.window_text()for x in window.descendants());assert not button('Load inbuilt Laya').wrapper_object().is_enabled();click('Stop Laya setup / engine');checks.append('native inbuilt Laya exact pinned download review/cancel and stop; no model download or engine loading')
+ click('Tools');window.child_window(title='Advanced browser controls').wrapper_object().click_input();click('Download Laya model');button('Confirm Laya model download').wait('exists',timeout=10);button('Confirm Laya model download').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-managed-laya-download-review.png');click('Cancel Laya model download');window.child_window(title='Confirm Laya model download',control_type='Button').wait_not('exists',timeout=10);assert 'Laya model missing; review Download Laya model'in' '.join(x.window_text()for x in window.descendants());assert not button('Load inbuilt Laya').wrapper_object().is_enabled();click('Stop Laya setup / engine');checks.append('native inbuilt Laya exact pinned download review/cancel and stop; no model download or engine loading')
  click('Enable shared Laya');button('Confirm Laya permission').wait('exists',timeout=10);button('Confirm Laya permission').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-laya-permission-review.png');click('Cancel Laya permission');window.child_window(title='Confirm Laya permission',control_type='Button').wait_not('exists',timeout=10);click('Enable shared Laya');click('Confirm Laya permission');time.sleep(.3);assert 'load the inbuilt Laya engine'in' '.join(x.window_text()for x in window.descendants());click('Stop Laya proposals');assert 'Silent shared action log'in' '.join(x.window_text()for x in window.descendants());click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
  button('Confirm browser permission').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-browser-permission-review.png')
@@ -236,6 +236,17 @@ try:
  assert 'open-window'in' '.join(x.window_text()for x in window.descendants())
  window.capture_as_image().save('ui-evidence/native-dotted-jarvis-browser-review.png');click('Cancel Team browser action')
  checks.append('exact dotted J.A.R.V.I.S. laptop phrase prepares browser-open review; cancel leaves browser unopened')
+ field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Review proposed browser action');click('Confirm Team browser action')
+ deadline=time.monotonic()+30
+ while time.monotonic()<deadline:
+  content=' '.join(x.window_text()for x in window.descendants())
+  if 'Browser reports ready: about:blank'in content:break
+  if 'Browser reports error' in content:raise RuntimeError('Actual isolated Edge startup failed: '+content)
+  time.sleep(.3)
+ else:raise RuntimeError('Actual reviewed isolated Edge open did not become ready')
+ window.set_focus();window.capture_as_image().save('ui-evidence/native-reviewed-edge-ready.png')
+ checks.append('actual bundled Playwright starts isolated installed Edge after exact Confirm, reports about:blank ready; no external site or Laya inferred action')
+
 
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft')
  button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
