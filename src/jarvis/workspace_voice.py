@@ -54,7 +54,7 @@ class WorkspaceVoice:
                         from .paths import data_root
                         detector=SmartTurn(data_root()/'models'/'smart-turn.onnx').complete
                     runtime.mic.endpointer=Endpointer(silence_frames=ENDPOINT_FRAMES[self.endpoint_mode],turn_complete=detector)
-                    runtime.vision=self.vision;runtime.barge_in=barge_in is True
+                    runtime.teammate_awareness=getattr(self,'teammate_awareness',None);runtime.agent_nodes=getattr(self,'agent_nodes',None);runtime.vision=self.vision;runtime.barge_in=barge_in is True
                     self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
             except Exception as exc:
@@ -89,16 +89,22 @@ class WorkspaceVoice:
                 if callable(choose):choose(name)
                 pieces=[];answer={}
                 messages=[{'role':'system','content':prompt(name)}]+context+[{'role':'user','content':text.strip()}]
+                awareness=getattr(self,'teammate_awareness',None);local_state=False
+                if awareness is not None:messages,local_state=awareness.attach(messages,name)
+                nodes=getattr(self,'agent_nodes',None)
+                if nodes is not None:
+                    messages,node_state=nodes.attach(messages,name);local_state=local_state or node_state
+                scope={'local_only':True}if local_state else{}
                 if self.vision is not None:
                     try:messages=self.vision.attach(messages)
                     except Exception as vision_error:self.notify('error','Vision frame skipped: '+str(vision_error)[:140])
-                for delta in router.stream(messages,cloud_consent=False,cancel=cancel):
+                for delta in router.stream(messages,cloud_consent=False,cancel=cancel,**scope):
                     with self.lock:
                         if self.closed or ticket!=self.generation:return
                         pieces.append(delta['text']);answer={**delta,'text':strip_speaker_tag(''.join(pieces))}
                         try:own_reply(answer['text'],name,context)
                         except ValueError:
-                            retry=router.ask(messages+[{'role':'user','content':'Reply only as '+name+'. Do not attribute speech, thoughts or arguments to another profile. One short direct answer.'}],cloud_consent=False,cancel=cancel)
+                            retry=router.ask(messages+[{'role':'user','content':'Reply only as '+name+'. Do not attribute speech, thoughts or arguments to another profile. One short direct answer.'}],cloud_consent=False,cancel=cancel,**scope)
                             answer={**retry,'text':strip_speaker_tag(retry.get('text'))};own_reply(answer['text'],name,context)
                             pieces[:]=[answer['text']]
                             self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
