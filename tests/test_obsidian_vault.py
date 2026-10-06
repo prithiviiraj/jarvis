@@ -31,8 +31,8 @@ class ObsidianVault(unittest.TestCase):
  def test_visual_map_areas_and_preserve_edits(self):
   import json
   with tempfile.TemporaryDirectory()as d:
-   base=pathlib.Path(d);v=Vault(base/'c.json',lambda:base);v.create(NAME,True);root=base/NAME;c=root/'Brain of Brain.canvas';j=json.loads(c.read_text());self.assertEqual(len(j['nodes']),13);self.assertEqual(len(j['edges']),12)
+   base=pathlib.Path(d);v=Vault(base/'c.json',lambda:base);v.create(NAME,True);root=base/NAME;c=root/'Brain of Brain.canvas';j=json.loads(c.read_text());self.assertEqual(len(j['nodes']),16);self.assertEqual(len(j['edges']),12)
    for row in j['nodes']:
-    if row['file']=='Agents index.md':continue
+    if row.get('type')!='file' or row['file']=='Agents index.md':continue
     self.assertTrue((root/row['file']).is_file())
    c.write_text('owner-edited canvas');v.create(NAME,True);self.assertEqual(c.read_text(),'owner-edited canvas')
