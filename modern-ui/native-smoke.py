@@ -16,6 +16,12 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
   text=user_texts[-2] if user_texts[-1].startswith('Your previous response did not include a final answer.') else user_texts[-1]
   if text=='Say ready in one word.':
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers();self.wfile.write(b'data: {"choices":[{"delta":{"content":"Ready"}}]}\n\ndata: [DONE]\n\n');return
+  if 'Can you speak with NOVA together? Speak about why politics is important?' in text:
+   actor='NOVA' if body['messages'][0]['content'].startswith('Your current speaker is NOVA.') else 'JARVIS'
+   before=sum('Can you speak with NOVA together?'in str(r.get('body','')) for r in requests)
+   reply=actor+' actual politics discussion turn '+str(before)+'.'
+   self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
+   self.wfile.write(('data: '+json.dumps({'choices':[{'delta':{'content':reply}}]})+'\n\ndata: [DONE]\n\n').encode());return
   if 'scaffold-probe' in text:
    self.send_response(200)
    if body['stream']:
@@ -231,6 +237,21 @@ try:
  window.capture_as_image().save('ui-evidence/native-team-browser-review.png');click('Cancel Team browser action')
  checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Stop browser control')
 
+ # The owner's exact live-test sentence must invoke actual multi-round IPC, not solo chat.
+ click('Team room');click('New chat');time.sleep(.5)
+ phrase='Can you speak with NOVA together? Speak about why politics is important?'
+ before=len(requests);field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text(phrase);click('Add local draft')
+ deadline=time.monotonic()+20
+ while time.monotonic()<deadline:
+  turns=[r for r in requests[before:] if phrase in str(r.get('body',''))]
+  if len(turns)>=5 and 'JARVIS actual politics discussion turn' in ' '.join(x.window_text()for x in window.descendants()):break
+  time.sleep(.2)
+ else:raise RuntimeError('Exact laptop sentence failed to start five actual team turns')
+ actors=['NOVA' if r['body']['messages'][0]['content'].startswith('Your current speaker is NOVA.') else 'JARVIS' for r in turns]
+ assert actors==['JARVIS','NOVA','JARVIS','NOVA','JARVIS'],actors
+ assert any('[NOVA]'in str(m)for m in turns[2]['body']['messages']),'Prior teammate reply missing from next actual request'
+ window.capture_as_image().save('ui-evidence/native-laptop-phrase-dialogue.png')
+ checks.append('exact laptop speak-with-NOVA-together sentence starts five actual routed turns; previous teammate reply included, no audio/microphone starts')
  # Isolate real chat archive title from earlier explicit action-routing messages.
  click('Agents');click('New chat');time.sleep(.5)
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
