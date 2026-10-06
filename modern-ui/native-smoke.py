@@ -232,11 +232,11 @@ try:
 
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
  button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Talk to LYRA · Mic ON').wait('exists',timeout=10);window.child_window(title='Mic OFF. Selecting a profile stops the previous voice session. Press Talk to LYRA to start; typed chat stays text-only.',control_type='Text').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
- field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft')
+ field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS. OPEN. BROWSER.');click('Add local draft')
  button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'open-window'in' '.join(x.window_text()for x in window.descendants())
  window.capture_as_image().save('ui-evidence/native-dotted-jarvis-browser-review.png');click('Cancel Team browser action')
- checks.append('exact dotted J.A.R.V.I.S. laptop phrase prepares browser-open review; cancel leaves browser unopened')
+ checks.append('exact JARVIS. OPEN. BROWSER. punctuation phrase prepares browser-open review; cancel leaves browser unopened')
  field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Review proposed browser action');click('Confirm Team browser action')
  deadline=time.monotonic()+30
  while time.monotonic()<deadline:
