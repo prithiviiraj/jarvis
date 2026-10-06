@@ -11,9 +11,12 @@ def normalize(text):
 def parse(text):
  if not isinstance(text,str):return None
  text=normalize(text)
- t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)[.,:!]?\s+)?','',text,flags=re.I).strip()
+ t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
- t=re.sub(r'\s+please[.!?]*$','',t,flags=re.I).strip().rstrip('.!?')
+ t=t.strip().rstrip('.!?')
+ # Bounded politeness only; do not remove arbitrary suffixes or URL text.
+ if re.fullmatch(r'open (?:this |the |a )?browser(?: (?:for me|now|please)){1,2}',t,re.I):t=re.sub(r'(?: (?:for me|now|please)){1,2}$','',t,flags=re.I)
+ t=re.sub(r'\s+please$','',t,flags=re.I).strip()
  if re.fullmatch(r'(?:open (?:this |the |a )?browser and )?open (?:the )?youtube',t,re.I):return {'command':'open','value':'https://www.youtube.com/'}
  if re.fullmatch(r'open (?:this |the |a )?browser',t,re.I):return {'command':'open-window','value':''}
  m=re.fullmatch(r'scroll\s+(?:(slightly|a little)\s*)?(up|down)?(?:\s+(slightly|a little))?',t,re.I)
@@ -30,7 +33,7 @@ def goal(text):
  if not isinstance(text,str):return None
  text=normalize(text)
  from .reo_commands import parse as reo_parse
- normalized=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)[.,:!]?\s+)?','',text,flags=re.I).strip()
+ normalized=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
  normalized=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',normalized,flags=re.I)
  if re.match(r'^(?:what|when|why|how|is|are|do|does)\b',normalized,re.I):return None
  if normalized.lower()in ('browser read links',)or re.fullmatch(r'browser (?:choose|select) link \d+[.!]?',normalized,re.I):return None
