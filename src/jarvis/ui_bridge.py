@@ -102,6 +102,17 @@ class Bridge:
  def stop_intent(text):
   import re
   return isinstance(text,str)and bool(re.fullmatch(r'\s*(?:(?:jarvis|nova|kai|lyra|dex)[,.:]?\s+)?(?:stop|stop talking|stop team conversation|quiet|be quiet|cancel conversation)[.!?]*\s*',text,re.I))
+ def teammate_query(self,text):
+  import re
+  if not self.teammate_awareness.enabled or not isinstance(text,str):return False
+  m=re.fullmatch(r'\s*(DEX|KAI)[,.:]?\s+(?:what(?: are you doing| is your status| did you install| code did you install| app am I using)|status)[?!.]*\s*',text,re.I)
+  if not m:return False
+  name=m.group(1).upper();state=self.teammate_state();row=state['teammates'][name]
+  if 'app'in text.lower():
+   sensors=state['permitted_local_sensors'];app=sensors['foreground'];answer='App monitoring is off; I do not know your current app.'if not sensors['app_monitor']else'Foreground app is '+str(app.get('process'))if app else'Foreground app is unknown.'
+  elif 'install'in text.lower():answer='No code is installed by the proposal tool. Source/tests are proposal text only, not executed.'
+  else:answer=('Reply in progress.'if row['reply_in_progress']else'No reply in progress.')+' No independent background work. '+('Last actual reply: '+row['recent_actual_reply']if row['recent_actual_reply']else'No actual recent reply recorded.')
+  self.messages.append({'name':name,'text':answer,'provider':'verified-app-state','cloud':False});self.archive_dirty=True;return True
  def planning_action(self,text):
   import re
   if not isinstance(text,str)or not re.fullmatch(r"\s*(?:jarvis[,.:]?\s+)?(?:what(?:'s| is)\s+(?:the |my )?plan(?:s)?(?: for)? today|open (?:the )?(?:planning area|today plan))[?.!]*\s*",text,re.I):return False
@@ -128,6 +139,7 @@ class Bridge:
   return True
  def voice_action(self,text):
   if self.stop_intent(text):self.game.stop();self.idle.stop();self.interrupt_conversation();return True
+  if self.teammate_query(text):return True
   if self.planning_action(text):return True
   if self.desktop_action(text):return True
   if self.shared_action(text):return True
@@ -493,7 +505,7 @@ class Bridge:
    action=bool(prepare(text)or parse_action(text)or parse_goal(text))
    if not isinstance(text,str)or not text.strip()or len(text)>2000:raise ValueError('Enter a message up to2000characters')
    if not action and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
-   if self.planning_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
+   if self.teammate_query(text)or self.planning_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
    else:
     from .team_discussion import requested
     if requested(text):self.voice.dialogue(text,self.brains,request.get('audio')is True)
