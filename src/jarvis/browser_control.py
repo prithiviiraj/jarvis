@@ -112,8 +112,14 @@ class BrowserSession:
       if command=='open':result['requested_url']=value
       elif command=='search':result['requested_url']='https://www.google.com/search?'+urlencode({'q':value})
      with self.lock:self.state.update(state='ready',error='',**result)
-    except Exception:
-     with self.lock:self.state.update(state='error',error='Browser control failed. Microsoft Edge and bundled automation runtime are required. No task completion is claimed.')
+    except Exception as error:
+     category=type(error).__name__
+     detail=str(error).lower()
+     if 'executable' in detail or 'browser distribution' in detail:reason='Installed Microsoft Edge or bundled automation executable was not found.'
+     elif 'timeout' in detail:reason='Browser startup or navigation timed out.'
+     elif isinstance(error,ValueError):reason='Reviewed command or current page no longer matches.'
+     else:reason='Browser startup or navigation failed ('+category+').'
+     with self.lock:self.state.update(state='error',error=reason+' Nothing completed. Check Settings > Tools. Your ordinary browser is unchanged.')
   finally:
    if context:
     try:context.close()
