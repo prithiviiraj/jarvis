@@ -398,10 +398,10 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
     from .speech import WhisperSTT
     from .runtime import VoiceRuntime
     cache=ensure_layout()/'models';assets=cache/'voices'
-    from . import kitten_assets
-    if not models.ready(cache) or not (ready(assets)if tts_engine=='kokoro'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
+    from . import kitten_assets,pocket_assets
+    if not models.ready(cache) or not (ready(assets)if tts_engine=='kokoro'else pocket_assets.ready(cache/'pocket')if tts_engine=='pocket'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified speech assets missing. Download models and install the native voice frontend first.')
     from .native_frontend import verified_frontend
-    exe,data=verified_frontend()
+    exe,data=verified_frontend()if tts_engine!='pocket'else(None,None)
     if pool_config is not None:
         pool,consented,free_confirmed=pool_config
         router=pool.router(name,WindowsCredentials(),consented,free_confirmed)
@@ -421,9 +421,12 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         if len(ids)!=1:raise RuntimeError('Load exactly one chat model in LM Studio.')
         from dataclasses import replace
         router=BrainRouter([replace(configured('local',ids[0]),timeout=30)])
-    g2p=NativeG2P(exe,data)
+    g2p=NativeG2P(exe,data)if tts_engine!='pocket'else None
     try:
-        if tts_engine=='kitten':
+        if tts_engine=='pocket':
+            from .experimental.pocket_cpu import PocketCPU,PRESETS
+            engine=PocketCPU(cache/'pocket');profiles={n:engine.profile(n if n in PRESETS else 'JARVIS')for n in VOICES};speaker=KokoroSpeaker(profiles[name]);speaker.profiles=profiles
+        elif tts_engine=='kitten':
             from .experimental.kitten_onnx import KittenONNX
             kitten_map=dict(zip(('am_michael','af_heart','am_liam','af_sky','am_fenrir'),('Jasper','Luna','Bruno','Rosie','Hugo')))
             names={n:kitten_map[v]for n,v in VOICES.items()}
@@ -437,9 +440,11 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. KAI researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
         # No closure over runtime.close: that cycle delays native engine disposal.
-        runtime.close_hook=g2p.close
+        runtime.close_hook=g2p.close if g2p else lambda:None
         return runtime
-    except Exception:g2p.close();raise
+    except Exception:
+        if g2p:g2p.close()
+        raise
 
 def build_text_router():
     """Local-only text: no microphone, speech assets, keys or cloud fallback."""
@@ -458,16 +463,21 @@ def build_proactive_speaker(tts_engine='kokoro'):
     from .experimental.kokoro_speaker import KokoroSpeaker
     from .native_frontend import verified_frontend
     cache=ensure_layout()/'models';assets=cache/'voices'
-    from . import kitten_assets
-    if not (ready(assets)if tts_engine=='kokoro'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified voice assets missing')
-    exe,data=verified_frontend();g2p=NativeG2P(exe,data)
+    from . import kitten_assets,pocket_assets
+    if not (ready(assets)if tts_engine=='kokoro'else pocket_assets.ready(cache/'pocket')if tts_engine=='pocket'else kitten_assets.ready(cache/'kitten')):raise RuntimeError('Verified voice assets missing')
+    exe,data=verified_frontend()if tts_engine!='pocket'else(None,None);g2p=NativeG2P(exe,data)if tts_engine!='pocket'else None
     try:
-        if tts_engine=='kitten':
+        if tts_engine=='pocket':
+            from .experimental.pocket_cpu import PocketCPU,PRESETS
+            engine=PocketCPU(cache/'pocket');profiles={n:engine.profile(n if n in PRESETS else 'JARVIS')for n in VOICES}
+        elif tts_engine=='kitten':
             from .experimental.kitten_onnx import KittenONNX
             kitten_map=dict(zip(('am_michael','af_heart','am_liam','af_sky','am_fenrir'),('Jasper','Luna','Bruno','Rosie','Hugo')))
             profiles={n:KittenONNX(cache/'kitten',g2p,kitten_map[v])for n,v in VOICES.items()}
         else:profiles={n:KokoroSynth(assets/'model.onnx',assets/(v+'.bin'),assets/'config.json',g2p)for n,v in VOICES.items()}
         speaker=KokoroSpeaker(profiles['JARVIS']);speaker.profiles=profiles;speaker.select_profile('JARVIS')
-        speaker.close=lambda:(speaker.stop(),g2p.close())
+        speaker.close=lambda:(speaker.stop(),g2p.close()if g2p else None)
         return speaker
-    except Exception:g2p.close();raise
+    except Exception:
+        if g2p:g2p.close()
+        raise
