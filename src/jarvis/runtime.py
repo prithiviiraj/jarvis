@@ -100,7 +100,7 @@ class VoiceRuntime:
             names='|'.join(re.escape(n)for n in VOICES)
             match=re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?('+names+r')\b',text,re.I)
             if not match:match=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+(jarvis|nova|kai|lyra|dex)\b',text,re.I)
-            actor=match.group(1).upper()if match else self.persona
+            actor=match.group(1).upper()if match else ('JARVIS'if re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?laya\b',text,re.I)else self.persona)
             if actor!=self.persona:
                 select=getattr(self.speaker,'select_profile',None)
                 if callable(select):select(actor);self.persona=actor
