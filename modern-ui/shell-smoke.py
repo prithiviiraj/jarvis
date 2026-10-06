@@ -1,4 +1,4 @@
-"""Actual Tauri2/WebView2 host, IPC and separate native overlay acceptance."""
+"""Actual Tauri2/WebView2 host, IPC and workspace rendering acceptance."""
 import subprocess,time,pathlib,ctypes,json,os
 from PIL import ImageGrab
 # Test-only loopback debugging. Production launches never set this environment.
@@ -21,7 +21,7 @@ try:
  image=ImageGrab.grab(bbox=(rect.left,rect.top,rect.right,rect.bottom));image.save('ui-evidence/tauri-shell-actual.png')
  dark=sum(1 for pixel in image.crop((100,120,900,650)).resize((80,53)).convert('RGB').getdata() if max(pixel)<90)
  if dark<500:raise RuntimeError('Actual Tauri content blank or not rendered')
- pathlib.Path('ui-evidence/shell-checks.json').write_text(json.dumps({'actual_windows_shell_launched':True,'webview2_host':'Tauri2','backend_connected':True,'blank_pixel_check':True,'unrun':['physical laptop resources','physical sensors/audio']},indent=2))
+ pathlib.Path('ui-evidence/shell-checks.json').write_text(json.dumps({'actual_windows_shell_launched':True,'webview2_host':'Tauri2','cdp_contract_passed':True,'blank_pixel_check':True,'unrun':['physical laptop resources','physical sensors/audio']},indent=2))
 finally:
  # Native WM_CLOSE exercises application exit teardown, then hard-stop only if stuck.
  if found:ctypes.windll.user32.PostMessageW(found[0],0x0010,0,0)
