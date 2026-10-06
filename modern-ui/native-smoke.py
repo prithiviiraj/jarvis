@@ -63,8 +63,17 @@ try:
  main.minimize()
  captions=Desktop(backend='uia').window(title='JARVIS / Live captions');captions.wait('visible',timeout=15);caption_handle=captions.handle
  assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists()
- ImageGrab.grab().save('ui-evidence/native-minimize-transcript-only.png')
+ pill=Desktop(backend='uia').window(title='JARVIS / Compact voice bar');pill.wait('visible',timeout=15);pill_handle=pill.handle
+ assert ctypes.windll.user32.GetWindowLongW(pill_handle,-20)&8,'Pill must be always on top'
+ pill.child_window(title='Toggle compact microphone',control_type='Button').wait('exists',timeout=15)
+ assert 'Mic OFF' in ' '.join(pill.texts()+[x.window_text()for x in pill.descendants()]),'Minimize must not start mic'
+ pill.capture_as_image().save('ui-evidence/native-compact-pill-mic-off.png')
+ pill.child_window(title='Restore workspace',control_type='Button').wrapper_object().invoke();main.wait('visible',timeout=10);time.sleep(.5)
+ assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Pill must hide on restore'
+ main.minimize();pill.wait('visible',timeout=10)
+ ImageGrab.grab().save('ui-evidence/native-minimize-transcript-and-pill.png')
  main.restore();main.set_focus();time.sleep(.8)
+ assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Duplicate pill should hide while workspace visible'
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'Duplicate transcript should hide while workspace visible'
  main.child_window(title='Transcript OFF',control_type='Button').wrapper_object().invoke();main.minimize();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must survive minimization'
@@ -85,6 +94,22 @@ try:
  def button(name,root=None):
   item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
+ # Actual fixed Windows app launch: review before execution, window observed.
+ click('Settings');click('Tools');click('Review app launch permission');click('Confirm app permission')
+ window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
+ click('Prepare app launch');click('Review exact app launch')
+ window.capture_as_image().save('ui-evidence/native-notepad-exact-review.png')
+ click('Cancel app launch');click('Prepare app launch');click('Review exact app launch');click('Confirm app launch')
+ notes=Desktop(backend='uia').window(class_name='Notepad');notes.wait('visible',timeout=15)
+ notes.capture_as_image().save('ui-evidence/native-reviewed-notepad-window.png');notes.close();window.set_focus()
+ click('Disable app launch');click('Memory');click('AUTO · Create Brain of Brain vault')
+ window.capture_as_image().save('ui-evidence/native-obsidian-auto-review.png')
+ click('Confirm AUTO vault setup');time.sleep(1)
+ import winreg
+ with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders')as key:download_path=winreg.QueryValueEx(key,'{374DE290-123F-4565-9164-39C4925E467B}')[0]
+ auto_root=pathlib.Path(os.path.expandvars(download_path))/'Brain of Brain';assert (auto_root/'Team/LYRA.md').is_file();assert (auto_root/'Active Work.md').is_file();assert (auto_root/'Modes/Current settings.md').is_file()
+ click('Stop vault sync');click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
+
  time.sleep(2)
  assert not requests,'Bundled core launch must not probe LM Studio or send inference'
  click('Review proactive team ON');click('Cancel proactive team review');checks.append('front proactive review canceled; permission remains OFF')
