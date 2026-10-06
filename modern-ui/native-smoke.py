@@ -17,7 +17,7 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
   if text=='Say ready in one word.':
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers();self.wfile.write(b'data: {"choices":[{"delta":{"content":"Ready"}}]}\n\ndata: [DONE]\n\n');return
   if 'Can you speak with NOVA together? Speak about why politics is important?' in text:
-   actor='NOVA' if body['messages'][0]['content'].startswith('Your current speaker is NOVA.') else 'JARVIS'
+   actor=__import__('re').match(r'Your current speaker is ([A-Z0-9_-]+)\.',body['messages'][0]['content']).group(1)
    before=sum('Can you speak with NOVA together?'in str(r.get('body','')) for r in requests)
    reply=actor+' actual politics discussion turn '+str(before)+'.'
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
@@ -231,6 +231,7 @@ try:
 
 
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
+ button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Talk to LYRA · Mic ON').wait('exists',timeout=10);assert 'LYRA selected. Mic OFF' in ' '.join(x.window_text()for x in window.descendants());window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft')
  button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'open-window'in' '.join(x.window_text()for x in window.descendants())
@@ -255,7 +256,7 @@ try:
  checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Stop browser control')
 
  # The owner's exact live-test sentence must invoke actual multi-round IPC, not solo chat.
- click('Team room');click('New chat');time.sleep(.5)
+ click('Team room');click('JARVIS Team leader');click('New chat');time.sleep(.5)
  phrase='Can you speak with NOVA together? Speak about why politics is important?'
  before=len(requests);field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text(phrase);click('Add local draft')
  deadline=time.monotonic()+20
@@ -264,7 +265,7 @@ try:
   if len(turns)>=5 and 'JARVIS actual politics discussion turn' in ' '.join(x.window_text()for x in window.descendants()):break
   time.sleep(.2)
  else:raise RuntimeError('Exact laptop sentence failed to start five actual team turns')
- actors=['NOVA' if r['body']['messages'][0]['content'].startswith('Your current speaker is NOVA.') else 'JARVIS' for r in turns]
+ actors=[__import__('re').match(r'Your current speaker is ([A-Z0-9_-]+)\.',r['body']['messages'][0]['content']).group(1) for r in turns]
  assert actors==['JARVIS','NOVA','JARVIS','NOVA','JARVIS'],actors
  assert any('[NOVA]'in str(m)for m in turns[2]['body']['messages']),'Prior teammate reply missing from next actual request'
  window.capture_as_image().save('ui-evidence/native-laptop-phrase-dialogue.png')
