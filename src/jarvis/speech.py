@@ -41,6 +41,7 @@ class WhisperSTT:
                 close=getattr(iterator,'close',None)
                 if callable(close):close()
         check();text=' '.join(parts).strip()
+        if self.language=='en' and any('\u3040'<=c<='\u30ff' or '\u3400'<=c<='\u9fff' or '\uac00'<=c<='\ud7af' for c in text):raise UnclearSpeech('English recognition produced unexpected script. Please repeat clearly or type the command. Nothing was sent to a model.')
         if not text:raise UnclearSpeech('Speech was unclear. Please repeat.')
         return text
 
