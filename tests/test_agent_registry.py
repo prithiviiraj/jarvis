@@ -92,3 +92,14 @@ class Registry(unittest.TestCase):
    self.assertEqual(b.execute({'command':'turn-mode','mode':'vad'})['turn_mode'],'vad');self.assertFalse(b.voice.busy)
    b.voice.busy=False
   finally:b.close()
+
+class RemovedDefaultReo(unittest.TestCase):
+ def test_reo_absent_but_user_can_create_voiced_replacement(self):
+  from jarvis.personas import ROLES
+  from jarvis.workspace_voice import VOICES
+  with tempfile.TemporaryDirectory()as temp:
+   registry=AgentRegistry(Path(temp)/'agents.json');registry.apply();self.assertNotIn('REO',ROLES)
+   row={'name':'REO','personality':'Practical quiet helper.','voice':'am_liam'}
+   registry.create(row,row,True);registry.apply()
+   try:self.assertEqual(VOICES['REO'],'am_liam');self.assertEqual(ROLES['REO'],'custom teammate')
+   finally:AgentRegistry(Path(temp)/'empty.json').apply()
