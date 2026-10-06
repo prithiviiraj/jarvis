@@ -14,7 +14,7 @@ class Bridge:
   from .obsidian_vault import Vault
   self.obsidian=Vault(data_root()/'obsidian-connect.json')
   from .local_calendar import LocalCalendar
-  self.calendar=LocalCalendar(self.obsidian);self.calendar_open_pending=False
+  self.calendar=LocalCalendar(self.obsidian);self.calendar_open_pending=False;self.calendar_draft=None
   self.brains=brains or BrainSettings(path=data_root()/'brain-routes.json')
   self.voice=voice or WorkspaceVoice();self.voice_preferences=None
   if voice is None:
@@ -38,6 +38,10 @@ class Bridge:
   self.judge=ProactiveJudge(self.context,build_text_router,self.voice.notify,lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   from .game_companion import GameCompanion
   self.game=GameCompanion(self.voice.notify);self.game_windows=[]
+  from .news_conductor import NewsConductor
+  self.news=NewsConductor()
+  from .news_speech import NewsSpeech
+  self.news_speech=NewsSpeech(lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   from .game_speech import GameSpeech
   self.game_speech=GameSpeech(self.game,lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')),self.voice.notify)
   from .tiny_specialists import Specialists
@@ -59,9 +63,16 @@ class Bridge:
     try:self.messages=self.history.load(self.chat_id);self.voice.memory.restore(self.messages)
     except Exception:self.history_error='Saved conversation could not be restored. Original archive preserved.';self.chat_id=self.history.new()
  def poll(self):
-  if self.reo_submitted and self.browser:
+  if self.browser:
    state=self.browser.snapshot()
-   if state.get('state') in ('ready','error','stopping'):
+   try:self.news.observe(state)
+   except ValueError:self.news.cancel()
+   if self.news_speech.busy and (state.get('state')!='ready' or state.get('url')!=self.news.observed_url):self.news_speech.stop()
+   captured=state.get('news_text')
+   if self.news.requested and state.get('state')=='ready' and state.get('url')==self.news.observed_url and captured and captured.get('url')==self.news.observed_url and captured!=self.news.text_preview:
+    try:self.news.accept_text(captured)
+    except ValueError:self.news.text_preview=None;self.news.status='Page text changed; capture and review again'
+   if self.reo_submitted and state.get('state') in ('ready','error','stopping'):
     self.reo_submitted=False;self.reo_event('completed' if state.get('state')=='ready' else 'stopped','Browser reports '+state.get('state','unknown')+': '+str(state.get('url',''))[:200]+'. '+(state.get('error','')or'This verifies browser state, not the whole user goal.'))
   if self.context.apps and time.monotonic()-self.last_app>=1:
    self.last_app=time.monotonic()
@@ -118,6 +129,8 @@ class Bridge:
   if not isinstance(text,str):return False
   if not (re.search(r'\b(?:tomorrow|today|calendar|appointment)\b',text,re.I)and re.search(r'\b(?:go|open|plan|appointment|calendar|meeting)\b',text,re.I)):return False
   if not self.obsidian.enabled:raise ValueError('Create Brain of Brain local calendar first')
+  from .calendar_handoff import draft
+  self.calendar_draft=draft(text)
   self.calendar_open_pending=True;self.reo_event('review','Review local calendar area open. Fill exact title/date/start/end/timezone/place before saving; relative words are not an event.');return True
  def planning_action(self,text):
   import re
@@ -144,8 +157,9 @@ class Bridge:
   except ValueError as error:self.browser_pending=None;self.reo_event('blocked',str(error)+'. Nothing executed.')
   return True
  def voice_action(self,text):
-  if self.stop_intent(text):self.game.stop();self.idle.stop();self.interrupt_conversation();return True
+  if self.stop_intent(text):self.news_speech.stop();self.game.stop();self.idle.stop();self.interrupt_conversation();return True
   if self.teammate_query(text):return True
+  if self.news.request(text):return True
   if self.planning_action(text):return True
   if self.calendar_action(text):return True
   if self.desktop_action(text):return True
@@ -259,7 +273,7 @@ class Bridge:
   if hasattr(self,'evolution'):states['DEX']['code_proposal']={'busy':self.evolution_busy,'status':self.evolution.status,'installed':False,'tests_executed':False}
   return {'teammates':states,'permitted_local_sensors':{k:sensors[k]for k in ('camera','presence','app_monitor','foreground')},'game':{'enabled':self.game.enabled,'status':self.game.status},'scope':'Actual app state only. No independent autonomous jobs or awareness when sensor permission is off. No raw camera frame or credentials.'}
  def stop(self):
-  self.calendar.cancel();self.calendar_open_pending=False;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
+  self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
   self.idle.stop();self.turn_setup.stop()
   self.stop_laya()
   self.local_speed.stop();self.brains.stop_warmup()
@@ -268,6 +282,7 @@ class Bridge:
   self.search_setup.stop();self.semantic_search.stop();self.setup.stop();self.judge.stop();self.camera.stop();self.context.clear();self.titles=False;self.voice.pause();self.status='off';self.error='';self.response_diagnostics=[];self.voice_metrics={};self.caption={'active':False,'name':'','text':''}
   if not self.camera.stopped():self.context.camera_state('stopping')
  def interrupt_conversation(self):
+  self.news_speech.stop()
   """User changes supersede current reply/mic, without global sensor/tool shutdown."""
   self.game_speech.stop();self.game.stop();self.voice.pause();self.barge_in=False
   while True:
@@ -278,7 +293,7 @@ class Bridge:
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+  cmd=request.get('command');allowed={'news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):self.warning=''
   if cmd=='team-dialogue':self.dialogue_metrics=[]
@@ -289,6 +304,7 @@ class Bridge:
   scoped_changes={'conversation-interrupt','brain-save','voice-engine','voice-endpoint','turn-mode','team-dialogue','team-round','history-new','history-open','history-delete','history-clear'}
   if cmd in scoped_changes and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
 
+  if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open'):self.news_speech.stop()
   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open'):self.voice.pause()if getattr(self.voice,'dialogue_origin','user')=='idle'and self.voice.busy else None
   if cmd=='conversation-interrupt':self.interrupt_conversation()
   elif cmd=='obsidian-create':
@@ -327,6 +343,7 @@ class Bridge:
    self.laya_generation+=1
    if self.laya_state['busy']:self.laya_state={'busy':False,'status':'Proposal superseded by a browser command; nothing executed','error':''}
    if cmd=='browser-stop':
+    self.news_speech.stop();self.news.cancel()
     self.stop_laya()
     self.browser_enabled=False;self.browser_pending=None
     if self.browser:self.browser.close()
@@ -435,13 +452,28 @@ class Bridge:
     if request.get('consent')is not True or not ready(data_root()/'models'/'smart-turn.onnx'):raise ValueError('Review and verify Smart Turn first')
    self.voice.turn_mode=request['mode']
   elif cmd=='idle-activity':self.idle.activity()
+  elif cmd=='news-speak':
+   if not self.news.requested or not self.browser_enabled or not self.news.text_preview or not self.browser or self.browser.snapshot().get('state')!='ready':raise ValueError('Review captured news text on the current page first')
+   if not self.setup.snapshot().get('ready'):raise ValueError('Install and verify local voice separately first')
+   self.news_speech.play(self.news.text_preview,request.get('reviewed'),lambda:self.browser.snapshot().get('url')if self.browser and self.browser.snapshot().get('state')=='ready'else'',request.get('confirm')is True,self.voice.busy or self.voice.runtime is not None or self.game_speech.busy)
+  elif cmd=='news-stop':self.news_speech.stop()
+  elif cmd=='news-text':
+   if not self.browser_enabled or not self.browser or not self.news.observed_url:raise ValueError('Open the reviewed news page first')
+   if request.get('confirm')is not True or request.get('observed_url')!=self.news.observed_url:raise ValueError('Review exact observed page before capture')
+   self.browser.submit('news-text',confirmed=True,expected_url=self.news.observed_url)
+  elif cmd=='news-preview':self.news_speech.stop();self.news.preview(request.get('source_url'))
+  elif cmd=='news-cancel':self.news_speech.stop();self.news.cancel()
+  elif cmd=='news-open':
+   if not self.browser_enabled or not self.browser:raise ValueError('Enable reviewed browser control first')
+   proposal=self.news.confirm(request.get('reviewed'),request.get('confirm')is True)
+   self.browser.submit('open',proposal['value'],confirmed=True)
   elif cmd=='canvas-open-preview':self.plan_pending={'note':'Brain of Brain.canvas','label':'Open visual multi-area Obsidian map','scope':'Visual open only, no external actions'}
   elif cmd=='canvas-open':
    if request.get('confirm')is not True or not self.plan_pending or request.get('reviewed')!=self.plan_pending or self.plan_pending['note']!='Brain of Brain.canvas':raise ValueError('Review exact canvas open')
    self.obsidian.open('Brain of Brain.canvas');self.plan_pending=None
   elif cmd=='calendar-preview':self.calendar.preview(request.get('event'))
-  elif cmd=='calendar-save':self.calendar.save(request.get('reviewed'),request.get('confirm')is True)
-  elif cmd=='calendar-cancel':self.calendar.cancel();self.calendar_open_pending=False
+  elif cmd=='calendar-save':self.calendar.save(request.get('reviewed'),request.get('confirm')is True);self.calendar_draft=None
+  elif cmd=='calendar-cancel':self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None
   elif cmd=='calendar-open-preview':self.calendar_open_pending=True
   elif cmd=='calendar-open':
    if request.get('confirm')is not True or not self.calendar_open_pending:raise ValueError('Review local Obsidian calendar open')
@@ -515,7 +547,7 @@ class Bridge:
    action=bool(prepare(text)or parse_action(text)or parse_goal(text))
    if not isinstance(text,str)or not text.strip()or len(text)>2000:raise ValueError('Enter a message up to2000characters')
    if not action and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
-   if self.teammate_query(text)or self.planning_action(text)or self.calendar_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
+   if self.news.request(text)or self.teammate_query(text)or self.planning_action(text)or self.calendar_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
    else:
     from .team_discussion import requested
     if requested(text):self.voice.dialogue(text,self.brains,request.get('audio')is True)
@@ -565,7 +597,7 @@ class Bridge:
    if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
    self.judge.stop();self.judge.gaming=request.get('gaming',False);self.idle.gaming=self.judge.gaming
    if request['enabled']:self.judge.enable(True,request.get('audio',False))
-  elif cmd=='close':self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.voice.close();self.closed=True
+  elif cmd=='close':self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.voice.close();self.closed=True
   self.poll()
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
@@ -604,13 +636,13 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
   try:self.history.save(self.chat_id,self.messages);self.archive_dirty=False;self.archive_saved_at=time.monotonic()
   except Exception:self.history_error='Chat could not be saved. Current session remains available; original archive preserved.'
- def close(self):self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.voice.close()
+ def close(self):self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.voice.close()
 def main():
  bridge=Bridge()
  try:
