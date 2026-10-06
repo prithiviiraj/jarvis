@@ -29,3 +29,6 @@ LiveKit v3 is parked as a separate review-only experiment with unresolved cancel
 
 ## Release state
 Delivery HOLD remains. Main review and a new candidate CI are needed before any source promotion or artifact delivery decision. No artifact has been deleted, no app published, and no hardware claim is made by this README. Older source137 README is preserved as README-original137.md for review.
+
+## Isolated laptop-feedback candidate
+Kokoro is the only selectable speech engine. Existing optional model caches are not deleted. Type or say activate laya for direct isolated Edge browser actions this session; deactivate laya or Stop revokes it. Active Laya mode also opens Notepad, Calculator and Paint directly. Outside it app launches require exact review. Brave is not controlled. A bounded model-assisted intent broker interprets unmatched action requests; unknown targets ask for clarification. Generated proposals are not installed code. Interface answers use current app toggles and relevant OFF reminders once per session. This candidate has not passed Windows/laptop acceptance.
