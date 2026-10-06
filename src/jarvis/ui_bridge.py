@@ -532,7 +532,7 @@ class Bridge:
    if self.voice.busy or self.voice.runtime is not None or self.setup.busy:raise ValueError('Stop voice and wait for model setup before changing speech engine')
    if request.get('engine')not in ('kokoro','kitten','pocket'):raise ValueError('Unknown speech engine')
    if self.voice_preferences:self.voice_preferences.save(request['engine'])
-   self.judge.close();self.voice.tts_engine=request['engine'];self.setup.select(request['engine'])
+   self.game_speech.close();self.judge.close();self.voice.tts_engine=request['engine'];self.setup.select(request['engine'])
   elif cmd=='voice-setup':
    engine=getattr(self.voice,'tts_engine','kokoro')
    if request.get('reviewed_engine')!=engine:raise ValueError('Speech engine changed; review the download again')
