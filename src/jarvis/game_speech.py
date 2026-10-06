@@ -20,7 +20,10 @@ class GameSpeech:
    try:
     candidate=self.speaker or self.factory()
     with self.lock:
-     if not valid():candidate.stop();return
+     if not valid():
+      candidate.stop()
+      if candidate is not self.speaker and hasattr(candidate,'close'):candidate.close()
+      return
      self.speaker=candidate;voice_ticket=candidate.generation;self.status='Game speech output only'
      candidate.playback_event=lambda event,text,actor,sr,n:self.notify('speech-caption',{'active':event=='start','name':'JARVIS','text':text,'duration_s':n/sr if sr else 0,'at':__import__('time').monotonic()})
     from .persona_text import spoken_text
