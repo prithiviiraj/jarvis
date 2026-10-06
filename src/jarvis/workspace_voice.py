@@ -137,7 +137,7 @@ class WorkspaceVoice:
         if type(rounds)is not int or not 1<=rounds<=3:raise ValueError('Choose1to3conversation rounds')
         if origin not in ('user','idle'):raise ValueError('Invalid conversation origin')
         self.dialogue_origin=origin
-        members=participants(topic)
+        members=participants(topic,self.name)
         with self.lock:
             if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Stop voice and wait for the current reply first')
             self.busy=True;self.generation+=1;ticket=self.generation;context=self.memory.messages();self.text_cancel=threading.Event();cancel=self.text_cancel
