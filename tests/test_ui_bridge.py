@@ -134,3 +134,13 @@ class SemanticBridgeTests(unittest.TestCase):
    self.b.semantic_search.start.assert_not_called();self.b.execute({'command':'vault-semantic','query':'dinner','consent':True,'reviewed':{'vault_folder':str(root.resolve()),'query':'dinner'}});self.b.semantic_search.start.assert_called_once()
  def test_stop_unloads_and_clears(self):
   self.b.search_setup.model=object();self.b.semantic_search.results=[{'name':'old'}];s=self.b.execute({'command':'embedding-stop'});self.assertFalse(s['embedding_setup']['ready']);self.assertEqual(s['semantic_search']['results'],[])
+
+class LaptopTeamTrigger(unittest.TestCase):
+ def test_exact_typed_phrase_dispatches_dialogue_not_solo(self):
+  b=Bridge(WorkspaceVoice());b.voice.dialogue=Mock();b.voice.send_text=Mock()
+  text='Can you speak with NOVA together? Speak about why politics is important?'
+  try:
+   state=b.execute({'command':'chat','text':text})
+   b.voice.dialogue.assert_called_once_with(text,b.brains,False);b.voice.send_text.assert_not_called()
+   self.assertFalse(state['idle']['enabled']);self.assertFalse(state['voice_active'])
+  finally:b.close()
