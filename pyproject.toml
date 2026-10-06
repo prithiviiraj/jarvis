@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 name = "jarvis-foundation"
 version = "0.4.0.dev0"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["certifi==2026.7.22"]
 [project.scripts]
 jarvis-foundation = "jarvis.__main__:main"
 [tool.setuptools.packages.find]
