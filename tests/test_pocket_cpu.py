@@ -17,10 +17,13 @@ class Pocket(unittest.TestCase):
  def test_preference_and_review(self):
   from jarvis.voice_preferences import VoicePreferences
   with tempfile.TemporaryDirectory()as d:
-   v=VoicePreferences(pathlib.Path(d)/'p.json');v.save('pocket');self.assertEqual(v.load(),'pocket')
+   v=VoicePreferences(pathlib.Path(d)/'p.json')
+   with self.assertRaises(ValueError):v.save('pocket')
+   self.assertEqual(v.load(),'kokoro')
  def test_setup_requires_review(self):
   from jarvis.voice_setup import VoiceSetup
-  s=VoiceSetup();s.select('pocket');self.assertEqual(s.engine,'pocket')
+  s=VoiceSetup()
+  with self.assertRaises(ValueError):s.select('pocket')
   with self.assertRaises(Exception):s.start(engine='pocket')
  def test_team_cleanup_has_no_kokoro_specific_g2p(self):
   from jarvis.workspace_voice import WorkspaceVoice
