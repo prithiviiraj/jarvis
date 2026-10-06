@@ -85,6 +85,10 @@ class Bridge:
   except (ValueError,RuntimeError,queue.Full)as error:
    self.browser_pending=None;self.reo_event('blocked',str(error)+'. Nothing executed.')
   return True
+ @staticmethod
+ def stop_intent(text):
+  import re
+  return isinstance(text,str)and bool(re.fullmatch(r'\s*(?:(?:jarvis|nova|kai|lyra|dex)[,.:]?\s+)?(?:stop|stop talking|stop team conversation|quiet|be quiet|cancel conversation)[.!?]*\s*',text,re.I))
  def desktop_action(self,text):
   from .desktop_actions import prepare
   proposal=prepare(text)
@@ -106,6 +110,7 @@ class Bridge:
   except ValueError as error:self.browser_pending=None;self.reo_event('blocked',str(error)+'. Nothing executed.')
   return True
  def voice_action(self,text):
+  if self.stop_intent(text):self.idle.stop();self.interrupt_conversation();return True
   if self.desktop_action(text):return True
   if self.shared_action(text):return True
   if self.reo_action(text):return True
@@ -228,7 +233,7 @@ class Bridge:
  def execute(self,request):
   if not isinstance(request,dict):raise ValueError('Invalid command')
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
-  cmd=request.get('command');allowed={'obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+  cmd=request.get('command');allowed={'obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):self.warning=''
   if cmd=='team-dialogue':self.dialogue_metrics=[]
@@ -241,6 +246,7 @@ class Bridge:
   elif cmd=='obsidian-create':
    self.obsidian.create(request.get('reviewed_name'),request.get('confirm')is True)
    self.obsidian.sync(self.messages,self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'turn_mode':self.voice.turn_mode,'endpoint_mode':self.voice.endpoint_mode,'selected':self.voice.name},self.chat_id,force=True)
+  elif cmd=='obsidian-open':self.obsidian.open()
   elif cmd=='obsidian-sync':self.obsidian.sync(self.messages,self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'turn_mode':self.voice.turn_mode,'endpoint_mode':self.voice.endpoint_mode,'selected':self.voice.name},self.chat_id,force=True)
   elif cmd=='obsidian-disable':self.obsidian.disable()
   elif cmd=='desktop-mode':
@@ -384,7 +390,7 @@ class Bridge:
   elif cmd=='idle-mode':
    if type(request.get('enabled'))is not bool or type(request.get('audio',False))is not bool:raise ValueError('Invalid idle options')
    self.idle.stop()
-   if request['enabled']:self.idle.enable(request.get('consent')is True,request.get('audio',False))
+   if request['enabled']:self.idle.enable(request.get('consent')is True,request.get('audio',False),request.get('strong',False))
   elif cmd=='agent-create':
    if self.voice.busy or self.voice.runtime is not None or self.judge.busy:raise ValueError('Stop voice and current work before creating an agent')
    row=self.agents.create(request.get('agent'),request.get('reviewed'),request.get('confirm')is True);self.agents.apply();self.voice.notify('status',row['name']+' joined the team. No microphone, model or tool started.')
@@ -392,6 +398,7 @@ class Bridge:
   elif cmd=='team-round':self.voice.parallel_round(request.get('text'),self.brains,request.get('audio') is True)
   elif cmd=='chat':
    self.error='';self.warning='';self.response_diagnostics=[];text=request.get('text')
+   if self.stop_intent(text):self.idle.stop();self.interrupt_conversation();return self.execute({'command':'status'})
    from .action_intent import parse as parse_action,goal as parse_goal
    from .desktop_actions import prepare
    action=bool(prepare(text)or parse_action(text)or parse_goal(text))
