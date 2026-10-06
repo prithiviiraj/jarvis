@@ -10,3 +10,7 @@ class PersonaTests(unittest.TestCase):
    for other in ROLES:self.assertIn(other,prompt(name))
  def test_lively_no_canned_hearing(self):
   self.assertIn('not proof you heard audio',prompt('LYRA'));self.assertIn('affectionate curious',prompt('LYRA'));self.assertNotIn('Let us settle this and help master',prompt('LYRA'));self.assertIn('concise but engaged',prompt('KAI'))
+
+ def test_short_sweet_all_default_and_custom_profiles(self):
+  for name in list(ROLES)+['CUSTOM']:
+   self.assertIn('short and sweet:1or2sentences by default',prompt(name));self.assertIn('longer answer only when the actual question genuinely needs depth',prompt(name))
