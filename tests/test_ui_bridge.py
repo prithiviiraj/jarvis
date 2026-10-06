@@ -83,15 +83,17 @@ class UiBridgeTests(unittest.TestCase):
   for reviewed in (None,'kitten'):
    with self.assertRaises(ValueError):self.b.execute({'command':'voice-setup','consent':True,'reviewed_engine':reviewed})
   self.b.setup.start.assert_not_called()
-  self.b.voice.tts_engine='kitten';self.b.execute({'command':'voice-setup','consent':True,'reviewed_engine':'kitten'});self.b.setup.start.assert_called_once_with(consent=True,engine='kitten')
+  self.b.voice.tts_engine='kitten'
+  with self.assertRaises(ValueError):self.b.execute({'command':'voice-setup','consent':True,'reviewed_engine':'kitten'})
+  self.b.setup.start.assert_not_called()
  def test_setup_busy_blocks_engine_switch(self):
   self.b.setup.busy=True
-  with self.assertRaises(ValueError):self.b.execute({'command':'voice-engine','engine':'kitten'})
+  with self.assertRaises(ValueError):self.b.execute({'command':'voice-engine','engine':'kokoro'})
   self.b.setup.busy=False
 
  def test_engine_change_invalidates_ready_without_start(self):
   self.b.setup.ready=True;self.b.setup.checked=True;self.b.setup.start=Mock();self.b.voice.start=Mock()
-  state=self.b.execute({'command':'voice-engine','engine':'kitten'});self.assertFalse(state['voice_setup']['ready']);self.assertFalse(state['voice_setup']['checked']);self.assertEqual(state['voice_setup']['engine'],'kitten');self.b.setup.start.assert_not_called();self.b.voice.start.assert_not_called()
+  state=self.b.execute({'command':'voice-engine','engine':'kokoro'});self.assertFalse(state['voice_setup']['ready']);self.assertFalse(state['voice_setup']['checked']);self.assertEqual(state['voice_setup']['engine'],'kokoro');self.b.setup.start.assert_not_called();self.b.voice.start.assert_not_called()
 
 class ScopedInterruption(unittest.TestCase):
  def test_change_keeps_sensor_and_tool_permissions(self):
@@ -168,7 +170,7 @@ class GameEngineReset(unittest.TestCase):
   b=Bridge(WorkspaceVoice())
   try:
    speaker=Mock(generation=1);b.game_speech.speaker=speaker
-   b.execute({'command':'voice-engine','engine':'kitten'})
+   b.execute({'command':'voice-engine','engine':'kokoro'})
    speaker.stop.assert_called();speaker.close.assert_called_once()
-   self.assertIsNone(b.game_speech.speaker);self.assertEqual(b.voice.tts_engine,'kitten')
+   self.assertIsNone(b.game_speech.speaker);self.assertEqual(b.voice.tts_engine,'kokoro')
   finally:b.close()
