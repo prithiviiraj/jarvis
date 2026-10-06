@@ -25,6 +25,7 @@ const[agentName,setAgentName]=useState(''),[agentPersonality,setAgentPersonality
 const[obsidianReview,setObsidianReview]=useState(false);const[controlReview,setControlReview]=useState(false);const[desktopReview,setDesktopReview]=useState(false),[appReview,setAppReview]=useState<NonNullable<Backend['desktop']>['pending']>(null),[appDraft,setAppDraft]=useState('');const[pillEnabled,setPillEnabled]=useState(()=>localStorage.getItem('jarvis-pill-enabled')!=='off');
 const[embeddingReview,setEmbeddingReview]=useState(false),[semanticReview,setSemanticReview]=useState<{vault_folder:string,query:string}|null>(null);
 const[turnReview,setTurnReview]=useState(false),[turnEnableReview,setTurnEnableReview]=useState(false);
+useEffect(()=>{if(backend?.planning?.pending||backend?.calendar?.open_pending){setView('Settings');setSettingsPane('Advanced')}},[backend?.planning?.pending,backend?.calendar?.open_pending]);
 const[calendarTitle,setCalendarTitle]=useState(''),[calendarStart,setCalendarStart]=useState(''),[calendarEnd,setCalendarEnd]=useState(''),[calendarPlace,setCalendarPlace]=useState(''),[calendarNotes,setCalendarNotes]=useState(''),[calendarZone,setCalendarZone]=useState(()=>Intl.DateTimeFormat().resolvedOptions().timeZone);
 const[nodeReview,setNodeReview]=useState(false);
 const[teammateReview,setTeammateReview]=useState(false);
