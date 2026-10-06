@@ -268,7 +268,12 @@ try:
  click('Tools')
  advanced=button('Expand advanced browser controls');advanced.wait('exists',timeout=10)
  for attempt in range(3):
-  advanced.wrapper_object().invoke()
+  for scroll_attempt in range(18):
+   control=advanced.wrapper_object();rect=control.rectangle();bounds=window.rectangle()
+   if rect.top>bounds.top+120 and rect.bottom<bounds.bottom-65:break
+   mouse.scroll(coords=(760,450),wheel_dist=-3 if rect.bottom>=bounds.bottom-65 else 3);time.sleep(.2)
+  else:window.capture_as_image().save('ui-evidence/native-advanced-viewport-failure.png');raise RuntimeError('Advanced controls outside viewport')
+  control.click_input()
   try:window.child_window(title='Download Laya model',control_type='Button').wait('exists',timeout=5);break
   except Exception:
    window.capture_as_image().save('ui-evidence/native-advanced-expand-failure.png')
