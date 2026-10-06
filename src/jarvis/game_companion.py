@@ -91,6 +91,8 @@ class GameCompanion:
       if ticket==self.generation:self.status='Paused: selected window not foreground or unavailable'
      return
     if not isinstance(frame,bytes)or len(frame)>200000:raise ValueError('Invalid transient frame')
+    with self.lock:
+     if ticket!=self.generation or not self.enabled:return
     row=model.analyze(frame);frame=None
     with self.lock:
      if ticket!=self.generation or not self.enabled:return
