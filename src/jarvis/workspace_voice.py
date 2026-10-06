@@ -220,7 +220,7 @@ class WorkspaceVoice:
             finally:
                 cancel.set()
                 if speaker:
-                    speaker.stop();speaker.synth.g2p.close()
+                    speaker.close()if callable(getattr(speaker,'close',None))else speaker.stop()
                     if self.round_speaker is speaker:self.round_speaker=None
                 with self.lock:
                     if ticket==self.generation:self.busy=False
@@ -279,7 +279,7 @@ class WorkspaceVoice:
                 if not cancel.is_set():self.notify('error','Team round failed: '+str(e)[:160])
             finally:
                 if speaker:
-                    speaker.stop();speaker.synth.g2p.close()
+                    speaker.close()if callable(getattr(speaker,'close',None))else speaker.stop()
                     if self.round_speaker is speaker:self.round_speaker=None
                 with self.lock:
                     if ticket==self.generation:self.busy=False
