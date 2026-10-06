@@ -9,7 +9,7 @@ def normalize(text):
 def parse(text):
  if not isinstance(text,str):return None
  text=normalize(text)
- t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|reo)[,:!]?\s+)?','',text,flags=re.I).strip()
+ t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)[.,:!]?\s+)?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
  t=re.sub(r'\s+please[.!?]*$','',t,flags=re.I).strip().rstrip('.!?')
  if re.fullmatch(r'(?:open (?:this |the |a )?browser and )?open (?:the )?youtube',t,re.I):return {'command':'open','value':'https://www.youtube.com/'}
@@ -28,7 +28,7 @@ def goal(text):
  if not isinstance(text,str):return None
  text=normalize(text)
  from .reo_commands import parse as reo_parse
- normalized=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|reo)[,:!]?\s+)?','',text,flags=re.I).strip()
+ normalized=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)[.,:!]?\s+)?','',text,flags=re.I).strip()
  normalized=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',normalized,flags=re.I)
  if re.match(r'^(?:what|when|why|how|is|are|do|does)\b',normalized,re.I):return None
  if normalized.lower()in ('browser read links',)or re.fullmatch(r'browser (?:choose|select) link \d+[.!]?',normalized,re.I):return None
