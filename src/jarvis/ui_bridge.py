@@ -435,7 +435,7 @@ class Bridge:
    self.voice.endpoint_mode=request['mode']
   elif cmd=='voice-engine':
    if self.voice.busy or self.voice.runtime is not None or self.setup.busy:raise ValueError('Stop voice and wait for model setup before changing speech engine')
-   if request.get('engine')not in ('kokoro','kitten'):raise ValueError('Unknown speech engine')
+   if request.get('engine')not in ('kokoro','kitten','pocket'):raise ValueError('Unknown speech engine')
    if self.voice_preferences:self.voice_preferences.save(request['engine'])
    self.judge.close();self.voice.tts_engine=request['engine'];self.setup.select(request['engine'])
   elif cmd=='voice-setup':
