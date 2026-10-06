@@ -204,13 +204,14 @@ try:
   for attempt in range(3):
    mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.3)
    control=engine.wrapper_object()
-   try:control.select(label)
-   except Exception:
-    control.set_focus();window.type_keys('{HOME}'+key+'{ENTER}')
+   # WebView2 UIA select() may return without firing React's change event.
+   # Use the actual native dropdown keyboard path, then verify its visible value.
+   engine.wait('enabled',timeout=10);control.click_input();window.type_keys(key+'{ENTER}')
    deadline=time.monotonic()+4
    while time.monotonic()<deadline:
     if engine.wrapper_object().selected_text().startswith(label.split(' - ')[0]):return
     time.sleep(.2)
+  window.capture_as_image().save('ui-evidence/native-engine-selection-failure.png')
   raise RuntimeError('Native speech engine option not selected: '+label)
  choose_engine('Kitten nano int8 - optional English, small download','{HOME}{DOWN}')
  assert engine.wrapper_object().selected_text().startswith('Kitten')
@@ -218,7 +219,7 @@ try:
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
  assert 'About 28MB'in' '.join(x.window_text()for x in window.descendants())
  button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
- window.capture_as_image().save('ui-evidence/native-kitten-download-review.png');click('Cancel voice download review');mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.5);choose_engine('Kokoro - default','{HOME}')
+ window.capture_as_image().save('ui-evidence/native-kitten-download-review.png');click('Cancel voice download review');window.child_window(title='Confirm voice download',control_type='Button').wait_not('exists',timeout=10);mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.5);choose_engine('Kokoro - default','{HOME}')
  assert 'Downloading 'not in' '.join(x.window_text()for x in window.descendants())
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('native exact Kokoro/Kitten download reviews canceled; no download or microphone start; engine restored')
