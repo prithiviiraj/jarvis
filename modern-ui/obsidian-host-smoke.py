@@ -39,7 +39,10 @@ with tempfile.TemporaryDirectory()as fixture:
    page.wait_for_function("app.workspace.activeLeaf?.view?.getViewType()==='canvas'",timeout=15000)
    page.wait_for_selector('.canvas-node',timeout=15000)
    result=page.evaluate("()=>({version:app.getVersion?.(),type:app.workspace.activeLeaf.view.getViewType(),nodes:document.querySelectorAll('.canvas-node').length,canvas:app.workspace.activeLeaf.view.getData?.()})")
-   assert result['nodes']>=13,result
+   assert result['nodes']==13,result
+   fixture_canvas=json.loads((root/'Brain of Brain.canvas').read_text(encoding='utf-8'))
+   assert len(fixture_canvas['nodes'])==13 and len(fixture_canvas['edges'])==12
+   result['source_edges']=len(fixture_canvas['edges'])
    if result.get('canvas'):assert len(result['canvas']['nodes'])==13 and len(result['canvas']['edges'])==12
    page.screenshot(path='ui-evidence/actual-obsidian-canvas.png',full_page=False)
    pathlib.Path('ui-evidence/actual-obsidian-canvas-checks.json').write_text(json.dumps({'scope':'Actual Obsidian1.9.14 Windows fixture host, not owner laptop','installer_url':url,'sha256':digest,'result':result},indent=2),encoding='utf-8')
