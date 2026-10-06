@@ -1,7 +1,7 @@
 """Bounded owner-created fictional profiles. No effect/credential authority in personality."""
 import json,re,threading
 from pathlib import Path
-BUILTINS=('JARVIS','NOVA','KAI','LYRA','DEX','REO')
+BUILTINS=('JARVIS','NOVA','KAI','LYRA','DEX')
 VOICE_IDS=('am_michael','af_heart','am_liam','af_sky','am_fenrir')
 class AgentRegistry:
  def __init__(self,path):
