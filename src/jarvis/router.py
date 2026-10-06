@@ -44,11 +44,16 @@ class LocalOnlyHTTPS(urllib.request.HTTPSHandler):
 def local_http():
     return urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect(),LocalOnlyHTTPS())
 
+def cloud_http():
+    # Packaged Windows trust store must include public roots for API TLS.
+    import ssl,certifi
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect(),urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())))
+
 class HttpTransport:
     def __init__(self):self.http=local_http();self.cloud_http=None;self.last_diagnostics=[]
     def opener(self,provider):
         if not provider.cloud:return self.http
-        if self.cloud_http is None:self.cloud_http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+        if self.cloud_http is None:self.cloud_http=cloud_http()
         return self.cloud_http
     def complete(self,provider,messages,key=None):
         from .response_diagnostics import ResponseDiagnostics
