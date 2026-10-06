@@ -12,3 +12,10 @@ class Awareness(unittest.TestCase):
   try:
    s=b.teammate_state();self.assertFalse(s['teammates']['DEX']['independent_background_work']);self.assertIsNone(s['teammates']['KAI']['recent_actual_reply']);self.assertEqual(s['permitted_local_sensors']['camera'],'off');b.execute({'command':'teammate-awareness','enabled':True,'consent':True});b.stop();self.assertFalse(b.teammate_awareness.enabled)
   finally:b.close()
+ def test_factual_direct_question_does_not_ask_model(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  b=Bridge(WorkspaceVoice())
+  try:
+   b.teammate_awareness.enable(True);self.assertTrue(b.teammate_query('DEX, what app am I using?'));self.assertIn('do not know',b.messages[-1]['text']);self.assertEqual(b.messages[-1]['provider'],'verified-app-state');self.assertTrue(b.teammate_query('KAI, what are you doing?'));self.assertIn('No independent background work',b.messages[-1]['text'])
+  finally:b.close()
