@@ -200,7 +200,7 @@ try:
     if engine.wrapper_object().selected_text().startswith(label.split(' - ')[0]):return
     time.sleep(.2)
   raise RuntimeError('Native speech engine option not selected: '+label)
- choose_engine('Kitten nano int8 - optional English, small download','{END}')
+ choose_engine('Kitten nano int8 - optional English, small download','{HOME}{DOWN}')
  assert engine.wrapper_object().selected_text().startswith('Kitten')
  assert 'Kitten assets not checked'in' '.join(x.window_text()for x in window.descendants())
  click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
