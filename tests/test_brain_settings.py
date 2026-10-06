@@ -26,7 +26,7 @@ class BrainTests(unittest.TestCase):
     if me.p.name=='slot1':raise RouterError('http-429')
     yield {'text':'yes','provider':me.p.name,'model':me.p.model}
   with patch('jarvis.brain_settings.BrainRouter',Fake):
-   self.assertEqual(self.b.router('DEX').ask([{'role':'user','content':'hi'}])['text'],'yes');self.assertEqual(self.b.router('NOVA').ask([{'role':'user','content':'hi'}])['text'],'yes')
+   self.assertEqual(self.b.router('DEX').ask([{'role':'user','content':'Explain a technical question'}])['text'],'yes');self.assertEqual(self.b.router('NOVA').ask([{'role':'user','content':'Explain a technical question'}])['text'],'yes')
   self.assertEqual(routers,['slot1','slot2','slot2']);self.assertGreater(self.b.cooldowns['slot1'],time.monotonic())
  def test_partial_no_fallback(self):
   self.b.configure(self.rows,{})
