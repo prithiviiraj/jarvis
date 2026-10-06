@@ -8,6 +8,7 @@ from jarvis.workspace import Workspace
 from unittest.mock import patch
 import numpy as np
 from jarvis.workspace_voice import WorkspaceVoice,VOICES
+assert VOICES['NOVA']=='af_sky' and VOICES['LYRA']=='af_heart','Persona voice swap missing'
 from jarvis import models,voice_assets,providers
 from jarvis.paths import ensure_layout
 class Handler(http.server.BaseHTTPRequestHandler):
