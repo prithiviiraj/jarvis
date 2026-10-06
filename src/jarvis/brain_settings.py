@@ -208,7 +208,10 @@ class RoutedBrain:
   self.name=name
  def stream(self,messages,cloud_consent=False,cancel=None,**kw):
   errors=[]
-  for s in self.settings.candidates(self.name):
+  from .intent_routing import local_turn
+  local_only=kw.pop('local_only',False)is True or local_turn(messages)
+  candidates=[Slot('slot5','local','automatic')]if local_only else self.settings.candidates(self.name)
+  for s in candidates:
    if cancel is not None and cancel.is_set():return
    local=s.provider=='local'
    if local:
@@ -241,7 +244,7 @@ class RoutedBrain:
     # Shared cooldown protects all personas using a rate-limited slot.
     if not local and any(c in str(e)for c in ('http-429','http-401','http-403')):
      with self.settings.lock:self.settings.cooldowns[s.id]=time.monotonic()+300
-  guidance=''
+  guidance=' Casual replies are local-only by your choice. Start LM Studio and load one chat model; no API fallback was sent.'if local_only else ''
   if any(e.startswith('local') and 'empty' in e for e in errors):guidance=' The loaded LM Studio model returned no usable final text; it may not fit this chat template. Load a proven chat-instruct model (for example spark-x2.5-4b) or test an enabled cloud account.'
   raise RouterError('No configured brain answered. '+('; '.join(errors)[-220:]if errors else'Save and test cloud slots or start LM Studio.')+guidance)
  def ask(self,messages,**kw):
