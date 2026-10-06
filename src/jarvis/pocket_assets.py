@@ -1,0 +1,12 @@
+"""Pinned no-cloning Pocket TTS presets. CPU only, explicit download; no owner samples."""
+from pathlib import Path
+from .models import digest,fetch_verified,DownloadError,verified_http
+FILES={'model.safetensors': ('https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e7205b6ee50e654a5ea19f0e9df2b0813b05e921/languages/english_2026-09/model.safetensors', '916ccd2686e9311cb40054893a3c4284393d658825ffc714a276f3e9b152344f', 219030220), 'tokenizer.json': ('https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/00eac05ed3d16bdc3f6b5d598874019c34a89214/languages/english_2026-09/tokenizer.json', 'f498428e1eafee50492f7be13dc9bfafcfc12e508cd0eb1b01c92ecd5d8c6687', 246044), 'alba.safetensors': ('https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/4e1e0a3e611c51c0b4ed8174fc10f32a54644303/languages/english_2026-09/embeddings/alba.safetensors', 'd291428b416d6c36a1de7835e51dbe1e334b75e5af512bb18dd23a1047fe8f3b', 6196024), 'anna.safetensors': ('https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/4e1e0a3e611c51c0b4ed8174fc10f32a54644303/languages/english_2026-09/embeddings/anna.safetensors', '80b3c36dc29aa1acd09ed522099142c5236789c8c5e87b2a30523175772a531c', 7818040), 'michael.safetensors': ('https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/4e1e0a3e611c51c0b4ed8174fc10f32a54644303/languages/english_2026-09/embeddings/michael.safetensors', '401711f60394aa6085627f7050c1b3f97b31aa7138784811bc6c6ec7d7eaad0c', 7277368), 'marius.safetensors': ('https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/4e1e0a3e611c51c0b4ed8174fc10f32a54644303/languages/english_2026-09/embeddings/marius.safetensors', 'b05946f39371f8853902b0486231f2d401c8a9570da9978329120d4ecfd009e9', 6196024), 'javert.safetensors': ('https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/4e1e0a3e611c51c0b4ed8174fc10f32a54644303/languages/english_2026-09/embeddings/javert.safetensors', '580e4b72d4065e906c14e580f97da478c9707bead74b0ef9c049e0ca8de997d9', 6196024)}
+def ready(root):return all((Path(root)/n).is_file()and digest(Path(root)/n)==sha for n,(_,sha,_)in FILES.items())
+def download(root,consent=False,cancel=None,notify=lambda *a:None):
+ if consent is not True:raise DownloadError('Review Pocket no-cloning model and presets download first')
+ http=verified_http()
+ for name,(url,sha,cap)in FILES.items():
+  target=Path(root)/name
+  if target.is_file()and digest(target)==sha:continue
+  fetch_verified(http,url,target,sha,cap,notify=notify,cancel=cancel)
