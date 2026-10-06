@@ -47,3 +47,21 @@ class DottedLaptopLeader(unittest.TestCase):
   finally:b.close()
  def test_dotted_question_still_not_effect(self):
   self.assertIsNone(parse('J.A.R.V.I.S. How do I open the browser?'))
+
+class OneReviewSetup(unittest.TestCase):
+ def test_setup_requires_review_and_never_opens_browser_or_mic(self):
+  b=Bridge();thread=Mock();b.laya_setup.start=Mock(return_value=thread);b.laya_setup.ready=True;b.laya_engine.load=Mock(return_value=thread);b.laya_engine.agent=Mock()
+  try:
+   with self.assertRaises(ValueError):b.enable_control()
+   b.enable_control(True).join(2);self.assertTrue(b.browser_enabled);self.assertTrue(b.laya_enabled);self.assertIsNone(b.browser);self.assertIsNone(b.voice.runtime)
+   b.laya_setup.start.assert_called_once_with(check=True);b.laya_engine.load.assert_called_once_with(consent=True)
+  finally:b.close()
+ def test_stop_setup_discards_late_ready(self):
+  import threading
+  b=Bridge();entered=threading.Event();release=threading.Event()
+  class Worker:
+   def join(self):entered.set();release.wait(2)
+  b.laya_setup.start=Mock(return_value=Worker());b.laya_setup.ready=True;b.laya_engine.load=Mock()
+  try:
+   worker=b.enable_control(True);entered.wait(1);b.stop_laya();release.set();worker.join(2);self.assertFalse(b.browser_enabled);self.assertFalse(b.laya_enabled);b.laya_engine.load.assert_not_called()
+  finally:b.close()
