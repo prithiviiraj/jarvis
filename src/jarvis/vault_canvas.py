@@ -4,7 +4,7 @@ AREAS=[('Agents','Agents index.md','Separate agent nodes'),('Planning','Planning
 def canvas():
  nodes=[{'id':'home','type':'file','file':'Data Centre/Home.md','x':540,'y':0,'width':440,'height':180,'color':'4'}];edges=[]
  for index,(name,path,desc)in enumerate(AREAS):
-  col=index%4;row=index//4;ident='area'+str(index);nodes.append({'id':ident,'type':'file','file':path,'x':col*400,'y':260+row*250,'width':360,'height':190,'color':str(1+index%6)});edges.append({'id':'link'+str(index),'fromNode':'home','fromSide':'bottom','toNode':ident,'toSide':'top','label':name})
+  col=index%4;row=index//4;ident='area'+str(index);nodes.append({'id':ident,'type':'file','file':path,'x':col*400,'y':260+row*250,'width':360,'height':190,'color':str(1+index%6)});edges.append({'id':'link'+str(index),'fromNode':'home','fromSide':'bottom','toNode':ident,'toSide':'top'})
  return json.dumps({'nodes':nodes,'edges':edges},indent=2)
 def scaffolds():
  out={'Brain of Brain.canvas':canvas()}
