@@ -1,7 +1,7 @@
 """Real Windows UI Automation against the actual Tauri WebView2 window."""
 import subprocess,pathlib,time,json,ctypes,os
 from PIL import ImageGrab
-from pywinauto import Desktop
+from pywinauto import Desktop,mouse
 # Controlled OpenAI-compatible local test server. Not a real model acceptance claim.
 import http.server,threading
 requests=[]
