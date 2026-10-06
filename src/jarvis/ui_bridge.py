@@ -219,6 +219,7 @@ class Bridge:
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
   cmd=request.get('command');allowed={'status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
+  if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):self.warning=''
   if cmd not in ('status','idle-mode'):self.idle.activity()
   scoped_changes={'conversation-interrupt','brain-save','voice-engine','voice-endpoint','turn-mode','team-dialogue','team-round','history-new','history-open','history-delete','history-clear'}
   if cmd in scoped_changes and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
@@ -431,7 +432,7 @@ class Bridge:
     else:self.error=str(value)[:300]
    elif kind=='voice-actor':self.voice.reply_actor=str(value)
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
-   elif kind=='transcript':self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
+   elif kind=='transcript':self.warning='';self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
    elif kind in ('answer','proactive-answer'):
     self.archive_dirty=True
     row={'name':value.get('profile',self.voice.name),'text':value['text'][:4000],**{k:value[k]for k in ('provider','model','cloud','slot')if k in value}}
