@@ -103,7 +103,10 @@ class BrowserSession:
        from .browser_links import links
        fresh=links(page)
        if value not in {r['url']for r in fresh['links']}:raise ValueError('Selected link changed; read links again')
-     if command=='read-links':
+     if command=='news-text':
+      from .news_page import capture
+      captured=capture(page,expected_url);result={'url':page.url,'title':page.title()[:160],'news_text':captured}
+     elif command=='read-links':
       from .browser_links import links
       snapshot=links(page);result={'url':page.url,'title':page.title()[:160],'links':snapshot['links']}
      else:
