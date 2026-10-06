@@ -35,3 +35,15 @@ class Intents(unittest.TestCase):
   b.laya_engine.load.assert_not_called();b.voice.runtime=None;b.laya_engine.loading=True;b.voice.start=Mock()
   with self.assertRaises(ValueError):b.execute({'command':'voice-on','consent':True})
   b.voice.start.assert_not_called();b.laya_engine.loading=False;b.close()
+
+class DottedLaptopLeader(unittest.TestCase):
+ def test_exact_dotted_name_browser_review_and_off_no_model(self):
+  self.assertEqual(parse('J.A.R.V.I.S. Open the browser.'),{'command':'open-window','value':''})
+  b=Bridge();b.voice.send_text=Mock()
+  try:
+   b.execute({'command':'chat','text':'J.A.R.V.I.S. Open the browser.'});b.voice.send_text.assert_not_called();self.assertEqual(b.reo_log[-1]['state'],'blocked');self.assertIsNone(b.browser)
+   b.browser_enabled=True;b.execute({'command':'chat','text':'J.A.R.V.I.S. Open the browser.'});self.assertEqual(b.browser_pending,{'command':'open-window','value':''});self.assertIsNone(b.browser);b.voice.send_text.assert_not_called()
+   b.browser_pending=None;self.assertTrue(b.voice_action('J.A.R.V.I.S. Open the browser.'));self.assertEqual(b.browser_pending['command'],'open-window');self.assertIsNone(b.browser)
+  finally:b.close()
+ def test_dotted_question_still_not_effect(self):
+  self.assertIsNone(parse('J.A.R.V.I.S. How do I open the browser?'))
