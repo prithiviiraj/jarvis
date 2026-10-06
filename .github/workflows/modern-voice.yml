@@ -69,6 +69,12 @@ jobs:
         run: |
           python night-fix-bridge-state.py
           if ($LASTEXITCODE -ne 0) { throw 'Actual owner command bridge failed' }
+          python polish-state.py
+          if ($LASTEXITCODE -ne 0) { throw 'Polish actual Bridge state failed' }
+          node polish-pixels.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Polish pixels failed' }
+          node presence-pixels.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Polish pixels failed' }
           node narrow-pixels.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Front Laya/app/support/voice checks failed' }
           node conductor-handoff.mjs
