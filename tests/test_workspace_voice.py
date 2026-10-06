@@ -4,7 +4,7 @@ from jarvis.workspace_voice import WorkspaceVoice,VOICES,FreeSessionRouter
 from jarvis import voice_assets
 class BridgeTests(unittest.TestCase):
  def test_five_locked_voices(self):
-  self.assertEqual(VOICES,{'JARVIS':'am_michael','NOVA':'af_heart','KAI':'am_liam','LYRA':'af_sky','DEX':'am_fenrir'})
+  self.assertEqual(VOICES,{'JARVIS':'am_michael','NOVA':'af_sky','KAI':'am_liam','LYRA':'af_heart','DEX':'am_fenrir'})
  def test_no_start_on_construction(self):
   factory=Mock();c=WorkspaceVoice(factory);factory.assert_not_called();self.assertIsNone(c.runtime)
  def test_consent_gate(self):
