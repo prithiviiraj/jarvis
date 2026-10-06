@@ -29,6 +29,22 @@ class Dialogue(unittest.TestCase):
   self.assertEqual(order('JARVIS, can you discuss with NOVA about humans?'),('JARVIS','NOVA','JARVIS','NOVA','JARVIS'))
   for t in ("Jarvis don't discuss with Nova about this",'Stop the conversation with Nova','Do not talk to Nova about science','What does Nova do?','I talked with Nova yesterday','Talk to Nova','Lyra what is time now?'):
    self.assertFalse(requested(t),t)
+ def test_live_laptop_speak_together_phrase(self):
+  from jarvis.team_discussion import participants
+  t='Can you speak with NOVA together? Speak about why politics is important?'
+  self.assertTrue(requested(t));self.assertEqual(order(t),('JARVIS','NOVA','JARVIS','NOVA','JARVIS'))
+  self.assertEqual(participants(t,'LYRA'),('LYRA','NOVA'))
+  for no in ("Don't speak with NOVA together",'Stop speaking with NOVA together','Speak to Nova','Speak with Nova'):
+   self.assertFalse(requested(no),no)
+ def test_laptop_phrase_actual_rounds_and_context(self):
+  v=WorkspaceVoice();calls=[]
+  class Router:
+   def __init__(self,name):self.name=name
+   def ask(self,messages,**kw):calls.append((self.name,messages));return {'text':'Useful reply from '+self.name+'.','provider':'fixture','model':'controlled','cloud':True}
+  brains=Mock();brains.router.side_effect=lambda name:Router(name)
+  v.dialogue('Can you speak with NOVA together? Speak about why politics is important?',brains).join(2)
+  self.assertEqual([n for n,m in calls],['JARVIS','NOVA','JARVIS','NOVA','JARVIS'])
+  self.assertIn('[JARVIS] Useful reply from JARVIS.',str(calls[1][1]));self.assertIn('[NOVA] Useful reply from NOVA.',str(calls[2][1]));v.close()
  def test_no_fabricated_user_turn_on_idle(self):
   v=WorkspaceVoice();brains=Mock();brains.router.return_value.ask.return_value={'text':'A short real reply.'}
   v.dialogue('Nova and Lyra talk to each other about hello',brains,rounds=1,origin='idle').join(2)
