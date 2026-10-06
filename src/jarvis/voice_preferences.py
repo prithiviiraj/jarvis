@@ -7,9 +7,9 @@ class VoicePreferences:
   try:
    if self.path.stat().st_size>1000:return 'kokoro'
    data=json.loads(self.path.read_text(encoding='utf-8'))
-   return data['engine']if set(data)=={'engine'}and data['engine']in ('kokoro','kitten')else'kokoro'
+   return data['engine']if set(data)=={'engine'}and data['engine']in ('kokoro','kitten','pocket')else'kokoro'
   except (OSError,ValueError,KeyError,TypeError):return 'kokoro'
  def save(self,engine):
-  if engine not in ('kokoro','kitten'):raise ValueError('Unsupported speech engine')
+  if engine not in ('kokoro','kitten','pocket'):raise ValueError('Unsupported speech engine')
   self.path.parent.mkdir(parents=True,exist_ok=True);temp=self.path.with_suffix('.tmp')
   temp.write_text(json.dumps({'engine':engine}),encoding='utf-8');os.replace(temp,self.path)
