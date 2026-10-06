@@ -16,13 +16,13 @@ class SetupTests(unittest.TestCase):
  def test_selection_invalidates_previous_ready_without_io(self):
   setup=VoiceSetup();setup.ready=True;setup.checked=True;setup.status='Kokoro assets ready'
   with patch('jarvis.voice_setup.models.ready')as r,patch('jarvis.voice_setup.models.download')as d:
-   setup.select('kitten');state=setup.snapshot();self.assertFalse(state['ready']);self.assertFalse(state['checked']);self.assertEqual(state['engine'],'kitten');self.assertIn('Kitten assets not checked',state['status']);r.assert_not_called();d.assert_not_called()
+   setup.select('kokoro');state=setup.snapshot();self.assertFalse(state['ready']);self.assertFalse(state['checked']);self.assertEqual(state['engine'],'kokoro');self.assertIn('Kokoro assets not checked',state['status']);r.assert_not_called();d.assert_not_called()
  def test_selected_check_names_engine_and_reuses_no_download(self):
   setup=VoiceSetup()
-  with patch('jarvis.voice_setup.models.ready',return_value=True),patch('jarvis.kitten_assets.ready',return_value=True),patch('jarvis.voice_setup.models.download')as d:
-   setup.start(check=True,engine='kitten')
+  with patch('jarvis.voice_setup.models.ready',return_value=True),patch('jarvis.voice_setup.voice_assets.ready',return_value=True),patch('jarvis.voice_setup.models.download')as d:
+   setup.start(check=True,engine='kokoro')
    while setup.busy:time.sleep(.01)
-   state=setup.snapshot();self.assertTrue(state['ready']);self.assertTrue(state['checked']);self.assertEqual(state['engine'],'kitten');self.assertIn('Kitten assets ready',state['status']);d.assert_not_called()
+   state=setup.snapshot();self.assertTrue(state['ready']);self.assertTrue(state['checked']);self.assertEqual(state['engine'],'kokoro');self.assertIn('Kokoro assets ready',state['status']);d.assert_not_called()
  def test_selection_refused_during_setup(self):
   setup=VoiceSetup();setup.busy=True
   with self.assertRaises(ValueError):setup.select('kitten')
