@@ -160,11 +160,13 @@ try:
  window.capture_as_image().save('ui-evidence/native-brain-settings.png')
  click('Agents')
  def fill_named(name,text):
-  control=window.child_window(title=name,control_type='Edit');control.wait('exists',timeout=10);control.wrapper_object().set_focus();window.type_keys('^a');window.type_keys(text,with_spaces=True)
+  control=window.child_window(title=name,control_type='Edit');control.wait('exists',timeout=10)
+  wrapper=control.wrapper_object();wrapper.set_edit_text(text)
+  assert wrapper.get_value()==text,('Native field value mismatch',name,wrapper.get_value())
  fill_named('New agent name','MIRA');fill_named('New agent personality','Curious patient tutor.')
  click('Review new agent');button('Confirm create agent').wait('exists',timeout=10);click('Cancel agent review')
  assert not window.child_window(title='Confirm create agent',control_type='Button').exists(),'Creator cancel failed'
- click('Review new agent');button('Confirm create agent').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-agent-create-review.png');click('Confirm create agent');time.sleep(1)
+ click('Review new agent');button('Confirm create agent').wrapper_object().set_focus();time.sleep(.2);assert window.child_window(title='MIRA',control_type='Text').exists(),'Exact reviewed agent name missing';window.capture_as_image().save('ui-evidence/native-agent-create-review.png');click('Confirm create agent');time.sleep(1)
  button('MIRA Custom teammate').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-agent-created-team.png')
  checks.append('native custom creator exact review/cancel/create joins Team; no mic/model starts')
  click('Team room')
