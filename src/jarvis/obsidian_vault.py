@@ -46,6 +46,13 @@ class Vault:
     if not p.exists():p.write_text(text,encoding='utf-8')
    self.enabled=True;self.config.parent.mkdir(parents=True,exist_ok=True);self.config.write_text(json.dumps({'version':1,'enabled':True,'name':NAME}),encoding='utf-8');self.status='Vault created; local exports enabled';self.error='';self.digest=None
    return self.snapshot()
+ def open(self):
+  if not self.enabled or self.root is None or self.expected()!=self.root:raise ValueError('Create the reviewed vault first')
+  if os.name!='nt':raise RuntimeError('Opening Obsidian is Windows-only')
+  from urllib.parse import urlencode
+  uri='obsidian://open?'+urlencode({'path':str(self.safe('README.md'))})
+  os.startfile(uri)
+  self.status='Open request sent to installed Obsidian. Select Brain of Brain folder as vault if it is not registered yet.'
  def disable(self):
   with self.lock:self.enabled=False;self.config.parent.mkdir(parents=True,exist_ok=True);self.config.write_text(json.dumps({'version':1,'enabled':False,'name':NAME}),encoding='utf-8');self.status='Sync off. Existing vault notes kept.'
  def sync(self,messages,agents,settings,chat_id=None,force=False):
