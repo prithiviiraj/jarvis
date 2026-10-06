@@ -111,10 +111,10 @@ class PresenceLayer(unittest.TestCase):
     s=b.execute({'command':'chat','text':text});answer=s['messages'][-1];self.assertEqual(answer['provider'],'system-clock');self.assertRegex(answer['text'],r'Master, it is (?:[1-9]|1[0-2]):[0-5][0-9] (?:AM|PM) IST.');b.voice.send_text.assert_not_called()
   finally:b.close()
  def test_camera_review_and_off_no_false_identity(self):
-  b=Bridge(WorkspaceVoice());b.camera.start=Mock();b.setup.ready=True
+  b=Bridge(WorkspaceVoice());b.camera.start=Mock();b.setup.ready=True;b.judge.poll=Mock(return_value=None)
   try:
    with self.assertRaises(ValueError):b.execute({'command':'awareness-mode','enabled':True})
-   b.camera.start.assert_not_called();b.execute({'command':'awareness-mode','enabled':True,'consent':True,'audio':True});b.camera.start.assert_called_once_with(True);self.assertTrue(b.judge.night_session);self.assertTrue(b.context.apps);self.assertIn('not identity/sleep',b.status);b.execute({'command':'awareness-mode','enabled':False});self.assertFalse(b.context.apps);self.assertFalse(b.judge.enabled)
+   b.camera.start.assert_not_called();b.execute({'command':'awareness-mode','enabled':True,'consent':True,'audio':True});b.camera.start.assert_called_once_with(True);self.assertTrue(b.judge.night_session);self.assertTrue(b.context.apps);self.assertIn('not identity/sleep',b.status);from jarvis.proactive import SYSTEM;self.assertIn('not verified identity or sleep',SYSTEM);b.execute({'command':'awareness-mode','enabled':False});self.assertFalse(b.context.apps);self.assertFalse(b.judge.enabled)
   finally:b.close()
  def test_explicit_night_configured_presence(self):
   b=Bridge(WorkspaceVoice());b.setup.ready=True
