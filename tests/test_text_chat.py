@@ -66,7 +66,7 @@ class IncrementalChatTests(unittest.TestCase):
   r=Mock()
   def chunks(*a,**k):yield {'text':'Partial','provider':'local'};raise RuntimeError('stream stopped')
   r.stream.side_effect=chunks;c=WorkspaceVoice(text_factory=lambda:r);b=Bridge(c);c.send_text('hi').join(2);s=b.execute({'command':'status'})
-  self.assertEqual(s['messages'][-1]['text'],'Partial');self.assertIn('stream stopped',s['error']);self.assertEqual(c.memory.snapshot(),[]);b.close()
+  self.assertTrue(any(m['text']=='Partial'for m in s['messages']));self.assertTrue(any(m['name']=='KAI'and 'stream stopped'in m['text']for m in s['messages']));self.assertIn('stream stopped',s['error']);self.assertEqual(c.memory.snapshot(),[]);b.close()
 
 class OwnProfileRetry(unittest.TestCase):
  def test_narrated_other_reply_retried_without_fake_bubble(self):
