@@ -102,7 +102,7 @@ class GameCompanion:
      self.status='Recent frame analyzed locally, not guaranteed real time'
      row={**row,'analysis_s':round(elapsed,3)}
      if self.export:self.results.append(dict(row));self.results=self.results[-50:]
-     if row['comment']and self.clock()-self.last_comment>=30:self.last_comment=self.clock();self.notify('game-comment',{**row,'audio':self.audio})
+     if row['comment']and self.clock()-self.last_comment>=30:self.last_comment=self.clock();self.notify('game-comment',{**row,'audio':self.audio,'generation':ticket})
    except Exception as e:
     with self.lock:
      if ticket==self.generation:self.enabled=False;self.status='Stopped: '+str(e)[:160]
