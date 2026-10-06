@@ -10,6 +10,7 @@ KEYWORDS={
 def pick(text,selected='JARVIS'):
     if not isinstance(text,str) or not text.strip():raise ValueError('Text required')
     if selected not in ROLES:raise ValueError('Unknown selected profile')
+    if re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?laya\b',text,re.I):return 'JARVIS','Laya query to leader; actions use reviewed control'
     names='|'.join(re.escape(n)for n in ROLES)
     custom=re.match(r'^\s*(?:hey\s+|hi\s+)?('+names+r')\b',text,re.I)
     if custom:return custom.group(1).upper(),'direct address'
