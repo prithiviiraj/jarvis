@@ -143,7 +143,10 @@ class WorkspaceVoice:
         if type(rounds)is not int or not 1<=rounds<=3:raise ValueError('Choose1to3conversation rounds')
         if origin not in ('user','idle'):raise ValueError('Invalid conversation origin')
         self.dialogue_origin=origin
-        members=participants(topic,self.name)
+        from .multi_address import addressed,request as addressed_request
+        from .team_discussion import requested
+        direct=addressed(topic)if origin=='user'and not requested(topic)else()
+        members=direct or participants(topic,self.name)
         with self.lock:
             if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Stop voice and wait for the current reply first')
             self.busy=True;self.generation+=1;ticket=self.generation;context=self.memory.messages();self.text_cancel=threading.Event();cancel=self.text_cancel
@@ -155,13 +158,13 @@ class WorkspaceVoice:
                 if audio:
                     speaker=build_proactive_speaker(self.tts_engine);self.round_speaker=speaker
                     speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
-                actors=members*rounds+('JARVIS',);prefetched={}
+                actors=direct or members*rounds+('JARVIS',);prefetched={}
                 import time
                 def make_request(index,name,context):
-                    request=messages(name,topic,context,index,final=index==len(actors)-1,addressees=members)
+                    request=addressed_request(name,topic,context)if direct else messages(name,topic,context,index,final=index==len(actors)-1,addressees=members)
                     if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(topic)
                     instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.'if index==len(actors)-1 else 'Round '+str(index//len(members)+1)+': reply only as '+name+' in1to2short sentences (at most45words). React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
-                    request[-1]['content']+='\n'+instruction
+                    if not direct:request[-1]['content']+='\n'+instruction
                     if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. Begin your first turn with your own name and a short in-character presence greeting. In later turns react to a real preceding teammate instead of reintroducing yourself. Show lively involvement with one playful observation, brief affectionate LYRA/master greeting or friendly NOVA disagreement as your persona fits; no forced conflict, demands or invented facts. Never announce another profile as yourself. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
                     return request
                 for index,name in enumerate(actors):
@@ -177,7 +180,7 @@ class WorkspaceVoice:
                         def chunks():
                             nonlocal answer,first_text,generation_done
                             pending=prefetched.pop(index,None)
-                            source=pending.stream()if pending is not None else router.stream(request,cancel=cancel,**({'local_only':True}if origin=='idle'else{}))
+                            source=pending.stream()if pending is not None else router.stream(request,cancel=cancel,**({'local_only':not getattr(self,'idle_configured',False),'configured_chat':getattr(self,'idle_configured',False)}if origin=='idle'else{}))
                             for delta in source:
                                 with self.lock:
                                     if cancel.is_set()or self.closed or ticket!=self.generation:return
@@ -208,11 +211,11 @@ class WorkspaceVoice:
                         if cancel.is_set()or self.closed or ticket!=self.generation:return
                         text=clean_reply(answer.get('text'));own_reply(text,name,context)
                     else:
-                        answer=router.ask(request,cancel=cancel,**({'local_only':True}if origin=='idle'else{}))
+                        answer=router.ask(request,cancel=cancel,**({'local_only':not getattr(self,'idle_configured',False),'configured_chat':getattr(self,'idle_configured',False)}if origin=='idle'else{}))
                         try:text=clean_reply(answer.get('text'));own_reply(text,name,context)
                         except ValueError:
                             if cancel.is_set():return
-                            answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel,**({'local_only':True}if origin=='idle'else{}))
+                            answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel,**({'local_only':not getattr(self,'idle_configured',False),'configured_chat':getattr(self,'idle_configured',False)}if origin=='idle'else{}))
                             text=clean_reply(answer.get('text'));own_reply(text,name,context)
                         if cancel.is_set()or self.closed or ticket!=self.generation:return
                         self.notify('answer',{**answer,'text':text,'profile':name,'stream_id':stream_id})
