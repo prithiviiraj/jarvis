@@ -17,8 +17,8 @@ class BanterTests(unittest.TestCase):
    with self.assertRaises(ValueError):c.start_banter(topic,names,True)
  def test_context_sequence_and_bound(self):
   c,r=self.make();c.memory.append('DEX','question','prior context')
-  with patch('jarvis.workspace_voice.banter_wait',return_value=False):c.start_banter('invited banter',('NOVA','JARVIS','KAI'),True,5,2).join(2)
-  self.assertEqual(r.ask.call_count,5);self.assertEqual([x[0] for x in c.memory.snapshot()][-5:],['NOVA','JARVIS','KAI','NOVA','JARVIS'])
+  with patch('jarvis.workspace_voice.banter_wait',return_value=False):c.start_banter('invited banter',('NOVA','JARVIS','SILA'),True,5,2).join(2)
+  self.assertEqual(r.ask.call_count,5);self.assertEqual([x[0] for x in c.memory.snapshot()][-5:],['NOVA','JARVIS','SILA','NOVA','JARVIS'])
   self.assertTrue(any('[NOVA] Actual supplied reply'==m['content'] for m in r.ask.call_args_list[1].args[0]));self.assertTrue(all(x.kwargs['cloud_consent'] is False for x in r.ask.call_args_list));c.factory.assert_not_called();self.assertFalse(c.banter_active)
  def test_failure_atomic(self):
   c,r=self.make();c.memory.append('DEX','old','kept');r.ask.side_effect=[{'text':'one'},RuntimeError()]
@@ -51,7 +51,7 @@ class BanterTests(unittest.TestCase):
   r.ask.assert_not_called();self.assertEqual(c.memory.snapshot(),[])
  def test_twelve_turns_context_bound(self):
   c,r=self.make();r.ask.return_value={'text':'a'*1000}
-  with patch('jarvis.workspace_voice.banter_wait',return_value=False):c.start_banter('x'*1000,('JARVIS','NOVA','KAI','LYRA','DEX'),True,12,2).join(2)
+  with patch('jarvis.workspace_voice.banter_wait',return_value=False):c.start_banter('x'*1000,('JARVIS','NOVA','SILA','LYRA','DEX'),True,12,2).join(2)
   self.assertEqual(r.ask.call_count,12);self.assertEqual(len(c.memory.snapshot()),6)
   # Supplied prior context is bounded before each request, plus system/current instruction.
   for call in r.ask.call_args_list:self.assertLessEqual(sum(len(m['content']) for m in call.args[0][1:-1]),12000)
