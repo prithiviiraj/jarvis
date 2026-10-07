@@ -57,7 +57,7 @@ checks=[];window=None
 try:
  main=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');main.wait('visible',timeout=30)
  main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
- main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
+ main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30);main.child_window(title='Settings',control_type='Button').wrapper_object().invoke();main.child_window(title='Appearance',control_type='Button').wrapper_object().invoke();main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
  assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists(), 'Avatar window was removed'
  main.capture_as_image().save('ui-evidence/workspace-first-launch.png')
@@ -82,7 +82,7 @@ try:
  main.restore();main.set_focus();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Duplicate pill should hide while workspace visible'
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'Duplicate transcript should hide while workspace visible'
- main.child_window(title='Transcript OFF',control_type='Button').wrapper_object().invoke();main.minimize();time.sleep(.8)
+ main.child_window(title='Settings',control_type='Button').wrapper_object().invoke();main.child_window(title='Appearance',control_type='Button').wrapper_object().invoke();main.child_window(title='Transcript OFF',control_type='Button').wrapper_object().invoke();main.minimize();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must survive minimization'
  main.restore();main.set_focus();main.child_window(title='Transcript ON',control_type='Button').wrapper_object().invoke();main.minimize();captions.wait('visible',timeout=10)
  # Controlled background verifies transparent pixels outside text/hover controls.
@@ -101,10 +101,18 @@ try:
  def button(name,root=None):
   import re
   # Animated Tools tiles include live status and descriptions in their UIA names.
-  tiles=('Laya activate','Camera awareness','Proactive','Live screen share')
+  tiles=('Laya activate','Camera','Live screen','Proactive')
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
   item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):
+  # Navigation changed, effects/reviews remain real native controls.
+  if name=='Add local draft':name='Send message'
+  if name=='Agents':
+   click('Settings');click('Team options');return
+  if name=='Voice setup':
+   click('Settings');click('Voices');return
+  if name in ('Transcript ON','Transcript OFF'):
+   button('Settings').wrapper_object().invoke();button('Appearance').wrapper_object().invoke()
   button(name,root).wrapper_object().invoke()
   if name in ('Transcript ON','Transcript OFF'):
    # UIA invoke queues async IPC. Wait for actual native save/readback before close.
@@ -113,31 +121,31 @@ try:
    button(name).wait('enabled',timeout=10)
   checks.append(name)
  # Actual fixed Windows app launch: review before execution, window observed.
- click('Settings');click('Tools');click('Laya activate');click('Review app launch permission');click('Confirm app permission')
+ click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
  click('Prepare app launch');click('Review exact app launch')
  window.capture_as_image().save('ui-evidence/native-notepad-exact-review.png')
  click('Cancel app launch');click('Prepare app launch');click('Review exact app launch');click('Confirm app launch')
  notes=Desktop(backend='uia').window(class_name='Notepad');notes.wait('visible',timeout=15)
  notes.capture_as_image().save('ui-evidence/native-reviewed-notepad-window.png');notes.close();window.set_focus()
- click('Disable app launch');click('Memory');click('AUTO · Create Brain of Brain vault')
+ click('Disable app launch');click('Memory');click('Connect Obsidian')
  window.capture_as_image().save('ui-evidence/native-obsidian-auto-review.png')
- click('Confirm AUTO vault setup')
+ # Connect is the owner's direct action; no extra confirm button.
  import winreg
  with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders')as key:download_path=winreg.QueryValueEx(key,'{374DE290-123F-4565-9164-39C4925E467B}')[0]
  auto_root=pathlib.Path(os.path.expandvars(download_path))/'Brain of Brain'
  deadline=time.monotonic()+30
  while time.monotonic()<deadline:
   content=' '.join(x.window_text()for x in window.descendants())
-  if all((auto_root/f).is_file() for f in ['Team/LYRA.md','Active Work.md','Modes/Current settings.md','Brain of Brain.canvas']) and 'Setting up your data centre' not in content and 'Local vault ready; auto-sync ON.' in content:break
+  if all((auto_root/f).is_file() for f in ['Team/LYRA.md','Active Work.md','Modes/Current settings.md','Brain of Brain.canvas']) and 'Setting up your data centre' not in content and 'Local vault ready; manual sync only.' in content:break
   time.sleep(.2)
  else:raise RuntimeError('Async AUTO vault setup did not settle')
  assert (auto_root/'Team/LYRA.md').is_file();assert (auto_root/'Active Work.md').is_file();assert (auto_root/'Modes/Current settings.md').is_file()
- click('Stop vault sync');click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
+ click('Manual sync');click('Show visuals');click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
 
  time.sleep(2)
  assert not any('body'in row for row in requests),'Launch discovery must not send inference or user text'
- click('Review proactive team ON');click('Cancel proactive team review');checks.append('front proactive review canceled; permission remains OFF')
+ click('Settings');click('Tools');assert button('Proactive').exists(),'Single Proactive control missing';assert not window.child_window(title='Confirm proactive team',control_type='Button').exists();checks.append('single Proactive control present; no automatic speech or model start on mount')
  click('Settings');click('Brain & APIs')
  assert not window.child_window(title='Review local speed test',control_type='Button').exists(),'Removed speed control remains'
  button('Check LM Studio connection').wait('exists',timeout=10);click('Check LM Studio connection')
@@ -279,7 +287,7 @@ try:
   click('Disconnect vault');time.sleep(.5)
   click('Review English search download');button('Confirm English search download').wait('exists',timeout=10);click('Cancel English search download');window.child_window(title='Confirm English search download',control_type='Button').wait_not('exists',timeout=10);checks.append('native optional English search model download review canceled; no download')
   checks.append('native vault connect review/cancel/confirm, local search, exact note review/cancel/create, no overwrite, disconnect')
- click('Tools');click('Laya activate')
+ click('Advanced');click('Advanced browser controls')
  advanced=button('Expand advanced browser controls');advanced.wait('exists',timeout=10)
  for attempt in range(3):
   for scroll_attempt in range(18):
@@ -308,17 +316,17 @@ try:
 
 
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
- button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Talk to LYRA · Mic ON').wait('exists',timeout=10);window.child_window(title='Mic OFF. Selecting a profile stops the previous voice session. Press Talk to LYRA to start; typed chat stays text-only.',control_type='Text').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
+ button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Activate team').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS. OPEN. BROWSER.');click('Add local draft')
- button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
+ button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'open-window'in' '.join(x.window_text()for x in window.descendants())
  window.capture_as_image().save('ui-evidence/native-dotted-jarvis-browser-review.png');click('Cancel Team browser action')
  checks.append('exact JARVIS. OPEN. BROWSER. punctuation phrase prepares browser-open review; cancel leaves browser unopened')
- field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Review proposed browser action');click('Confirm Team browser action')
+ field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Confirm Team browser action');click('Settings');click('Advanced');click('Advanced browser controls')
  deadline=time.monotonic()+30
  while time.monotonic()<deadline:
   content=' '.join(x.window_text()for x in window.descendants())
-  if 'Browser reports ready: about:blank'in content:break
+  if 'about:blank'in content and 'ready'in content:break
   if 'Browser reports error' in content:raise RuntimeError('Actual isolated Edge startup failed: '+content)
   time.sleep(.3)
  else:raise RuntimeError('Actual reviewed isolated Edge open did not become ready')
@@ -326,11 +334,11 @@ try:
  checks.append('actual bundled Playwright starts isolated installed Edge after exact Confirm, reports about:blank ready; no external site or Laya inferred action')
 
 
- field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft')
- button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
+ click('Team room');field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft')
+ button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'https://www.youtube.com/'in' '.join(x.window_text()for x in window.descendants())
  window.capture_as_image().save('ui-evidence/native-team-browser-review.png');click('Cancel Team browser action')
- checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Laya activate');click('Stop browser control')
+ checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Advanced');click('Advanced browser controls');click('Stop browser control')
 
  # The owner's exact live-test sentence must invoke actual multi-round IPC, not solo chat.
  click('Team room');click('JARVIS Team leader');click('New chat');time.sleep(.5)
@@ -348,7 +356,7 @@ try:
  window.capture_as_image().save('ui-evidence/native-laptop-phrase-dialogue.png')
  checks.append('exact laptop speak-with-NOVA-together sentence starts five actual routed turns; previous teammate reply included, no audio/microphone starts')
  # Isolate real chat archive title from earlier explicit action-routing messages.
- click('Agents');click('New chat');time.sleep(.5)
+ click('Team room');click('New chat');time.sleep(.5)
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
  click('Add local draft')
  deadline=time.monotonic()+8
@@ -397,7 +405,7 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-chat-error.png');checks.append('model error remains visible after idle polling')
  pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
  # Native archive navigation and Pause preservation are visible, not metadata-only.
- click('Agents');click('New chat')
+ click('Team room');click('New chat')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.'not in' '.join(x.window_text()for x in window.descendants()):break
@@ -411,7 +419,7 @@ try:
  assert 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()),'Archived actual reply not restored'
  window.capture_as_image().save('ui-evidence/native-history-restored.png')
  checks.append('native new chat clears active context; saved conversation reopens actual reply')
- click('Transcript ON');window.minimize();overlay_text=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
+ click('Transcript ON');click('Team room');window.minimize();overlay_text=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
  deadline=time.monotonic()+8
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in overlay_text.descendants()):break
