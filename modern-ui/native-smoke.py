@@ -104,7 +104,14 @@ try:
   tiles=('Laya activate','Camera awareness','Proactive','Live screen share')
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
   item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
- def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
+ def click(name,root=None):
+  button(name,root).wrapper_object().invoke()
+  if name in ('Transcript ON','Transcript OFF'):
+   # UIA invoke queues async IPC. Wait for actual native save/readback before close.
+   confirmed='Transcript confirmed '+('ON'if name=='Transcript ON'else'OFF')
+   window.child_window(title=confirmed,control_type='Text').wait('exists',timeout=10)
+   button(name).wait('enabled',timeout=10)
+  checks.append(name)
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Tools');click('Laya activate');click('Review app launch permission');click('Confirm app permission')
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
