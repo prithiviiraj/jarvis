@@ -27,6 +27,27 @@ class KokoroSpeaker:
   with self.lock:
    if ticket!=self.generation:return None
   return text,audio,sr
+ def prepare_stream(self,text,generation=None):
+  with self.lock:
+   ticket=self.generation if generation is None else generation
+   if ticket!=self.generation:return
+  from ..speech_text import speech_text
+  text=speech_text(text)
+  if not text:return
+  # Only explicit synthesis implementations, not dynamic Mock attributes.
+  if callable(getattr(type(self.synth),'synthesize_stream',None)):
+   chunks=iter(self.synth.synthesize_stream(text))
+   while True:
+    with self.lock:
+     if ticket!=self.generation:return
+    try:part,audio,sr=next(chunks)
+    except StopIteration:return
+    with self.lock:
+     if ticket!=self.generation:return
+    yield part,audio,sr
+  else:
+   prepared=self.prepare(text,ticket)
+   if prepared is not None:yield prepared
  def play_prepared(self,prepared,generation=None):
   ticket=self.generation if generation is None else generation
   text,audio,sr=prepared
