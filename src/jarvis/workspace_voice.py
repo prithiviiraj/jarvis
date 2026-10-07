@@ -13,7 +13,7 @@ class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
-        self.turn_mode='vad';self.endpoint_mode='balanced';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
+        self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None;self.dialogue_origin='user'
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
