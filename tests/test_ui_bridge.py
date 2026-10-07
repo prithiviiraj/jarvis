@@ -45,14 +45,14 @@ class UiBridgeTests(unittest.TestCase):
 
  def test_error_survives_idle_poll(self):
   self.b.voice.notify('error','LM Studio timeout');self.b.voice.notify('state','off')
-  self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
-  self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
+  self.assertEqual(self.b.execute({'command':'status'})['error'],'Local model did not answer. Check LM Studio connection and the selected model; Mic can listen again. No action was taken.')
+  self.assertEqual(self.b.execute({'command':'status'})['error'],'Local model did not answer. Check LM Studio connection and the selected model; Mic can listen again. No action was taken.')
   self.assertEqual(self.b.execute({'command':'pause'})['error'],'')
 
  def test_setup_does_not_enable_audio(self):
   self.b.setup.start=Mock();state=self.b.execute({'command':'voice-setup','consent':True,'reviewed_engine':'kokoro'});self.b.setup.start.assert_called_once_with(consent=True,engine='kokoro');self.assertFalse(state['voice_active'])
  def test_voice_failure_visible(self):
-  self.b.voice.notify('error','Speech assets missing');self.b.voice.notify('state','off');self.assertEqual(self.b.execute({'command':'status'})['error'],'Speech assets missing')
+  self.b.voice.notify('error','Speech assets missing');self.b.voice.notify('state','off');self.assertEqual(self.b.execute({'command':'status'})['error'],'Local speech assets are missing. Open Voices and check the installed files.')
 
  def test_live_expression_busy_and_idle(self):
   self.assertEqual(self.b.execute({'command':'status'})['expression']['state'],'idle')
@@ -113,7 +113,7 @@ class ResponseSource(unittest.TestCase):
  def test_all_profiles_keep_true_route(self):
   b=Bridge(WorkspaceVoice())
   try:
-   for name in ('JARVIS','NOVA','KAI','LYRA','DEX'):
+   for name in ('JARVIS','NOVA','SILA','LYRA','DEX'):
     b.voice.notify('answer',{'text':'Cloud actual reply','profile':name,'provider':'nim','model':'actual-model','cloud':True})
    s=b.execute({'command':'status'});self.assertTrue(all(r['provider']=='nim'and r['model']=='actual-model'and r['cloud']is True for r in s['messages']))
   finally:b.close()
