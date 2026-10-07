@@ -28,13 +28,13 @@ class Context(unittest.TestCase):
  def test_unmatched_middle_and_last_keep_context(self):
   m=TeamMemory();m.restore([{'name':'You','text':'open data centre'},{'name':'You','text':'hear me?'}]);self.assertIn('open data centre',str(m.messages()));self.assertEqual(m.messages()[-1]['content'],'hear me?');self.assertEqual(m.messages()[0],{'role':'user','content':'open data centre'});self.assertEqual(m.snapshot(),[])
  def test_failed_action_followup_all_agents(self):
-  for name in ('JARVIS','NOVA','KAI','LYRA','DEX'):
+  for name in ('JARVIS','NOVA','SILA','LYRA','DEX'):
    seen=[]
    class Router:
     def stream(self,m,**kw):seen.extend(m);yield {'text':'I can hear you. Your earlier data centre request is not completed.','provider':'fixture','cloud':False}
    v=WorkspaceVoice(text_factory=Router);b=Bridge(v);b.evolution.generate=Mock()
    try:
-    b.execute({'command':'chat','text':'JARVIS open the data center.'});self.assertTrue(any(m['name']=='KAI'and'not connected'in m['text']for m in b.messages));b.execute({'command':'select','name':name});b.execute({'command':'chat','text':name+', can you hear me?'})
+    b.execute({'command':'chat','text':'JARVIS open the data center.'});self.assertIn('not connected',b.failure_detail['detail']);self.assertFalse(any(m['name']=='SILA'for m in b.messages));b.execute({'command':'select','name':name});b.execute({'command':'chat','text':name+', can you hear me?'})
     for _ in range(100):
      b.execute({'command':'status'})
      if not v.busy:break
@@ -44,7 +44,7 @@ class Context(unittest.TestCase):
  def test_empty_error_timeout_and_cancel(self):
   b=Bridge(WorkspaceVoice());b.evolution.generate=Mock()
   try:
-   b.voice.notify('answer',{'text':''});b.execute({'command':'status'});self.assertTrue(any(m['name']=='KAI'and'empty'in m['text']for m in b.messages));b.reply_wait={'started':time.monotonic()-95,'chat':b.chat_id};b.execute({'command':'status'});self.assertTrue(any('90 seconds'in m['text']for m in b.messages));n=len(b.messages);b.execute({'command':'status'});self.assertEqual(len(b.messages),n);b.reply_wait={'started':0,'chat':b.chat_id};b.execute({'command':'pause'});self.assertIsNone(b.reply_wait)
+   b.voice.notify('answer',{'text':''});b.execute({'command':'status'});self.assertIn('empty',b.failure_detail['detail']);b.evolution.generate.assert_not_called();b.reply_wait={'started':time.monotonic()-95,'chat':b.chat_id};b.execute({'command':'status'});self.assertIn('90 seconds',b.failure_detail['detail']);n=len(b.messages);b.execute({'command':'status'});self.assertEqual(len(b.messages),n);b.reply_wait={'started':0,'chat':b.chat_id};b.execute({'command':'pause'});self.assertIsNone(b.reply_wait)
   finally:b.close()
  def test_data_open_success_not_invent_visibility(self):
   b=Bridge(WorkspaceVoice());b.obsidian.enabled=True;b.obsidian.open=Mock(side_effect=lambda *a:setattr(b.obsidian,'status','Open requested; visibility not verified'))
@@ -85,7 +85,7 @@ class MoreGates(unittest.TestCase):
 class Regression(unittest.TestCase):
  def test_empty_error_clear_is_not_a_failure(self):
   b=Bridge(WorkspaceVoice());b.evolution.generate=Mock()
-  try:b.voice.notify('error','');b.execute({'command':'status'});self.assertFalse(any(m['name']=='KAI'for m in b.messages))
+  try:b.voice.notify('error','');b.execute({'command':'status'});self.assertFalse(any(m['name']=='SILA'for m in b.messages))
   finally:b.close()
  def test_voice_action_handled_does_not_timeout(self):
   b=Bridge(WorkspaceVoice());b.evolution.generate=Mock()
@@ -100,7 +100,7 @@ class Regression(unittest.TestCase):
     for _ in range(100):
      if not b.export_busy:break
      time.sleep(.001)
-    self.assertEqual(p.read_text(),'Owner edit');self.assertTrue(any(m['name']=='KAI'and'no overwrite'in m['text']for m in b.messages))
+    self.assertEqual(p.read_text(),'Owner edit');self.assertIn('no overwrite',b.failure_detail['detail']);self.assertFalse(any(m['name']=='SILA'for m in b.messages))
    finally:b.close()
 class PresenceLayer(unittest.TestCase):
  def test_time_real_ist_12hour_no_model(self):
@@ -138,22 +138,24 @@ class PresenceCadence(unittest.TestCase):
 class WakeRobustness(unittest.TestCase):
  def test_ambiguous_prefix_not_legitimate_reference(self):
   from jarvis.wake_address import ambiguous
-  names=['JARVIS','NOVA','KAI','LYRA','DEX']
-  self.assertTrue(ambiguous('Kai jarvis can you hear me',names));self.assertTrue(ambiguous('Hey Kai Jarvis open browser',names))
-  for text in ['Hey Jarvis can you hear me','Kai and Jarvis talk together','Jarvis tell Kai hello','Jarvis Jarvis hello']:self.assertFalse(ambiguous(text,names),text)
+  names=['JARVIS','NOVA','SILA','LYRA','DEX']
+  self.assertTrue(ambiguous('Sila jarvis can you hear me',names));self.assertTrue(ambiguous('Hey Sila Jarvis open browser',names))
+  for text in ['Hey Jarvis can you hear me','Sila and Jarvis talk together','Jarvis tell Sila hello','Jarvis Jarvis hello']:self.assertFalse(ambiguous(text,names),text)
  def test_runtime_ambiguous_keeps_raw_no_route_no_action(self):
   from jarvis.runtime import VoiceRuntime
-  stt=Mock();stt.transcribe.return_value='Kai jarvis';router=Mock();speaker=Mock();speaker.generation=1;events=[];v=VoiceRuntime(Mock(),stt,router,speaker,lambda *a:events.append(a));v.mic=Mock();v.action_handler=Mock();v.enable(True)
-  try:v.turn([0],v.generation,False,[]);router.ask.assert_not_called();router.stream.assert_not_called();v.action_handler.assert_not_called();self.assertIn(('transcript','Kai jarvis'),events);self.assertTrue(any(k=='error'and'two adjacent'in s for k,s in events))
+  stt=Mock();stt.transcribe.return_value='Sila jarvis';router=Mock();speaker=Mock();speaker.generation=1;events=[];v=VoiceRuntime(Mock(),stt,router,speaker,lambda *a:events.append(a));v.mic=Mock();v.action_handler=Mock();v.enable(True)
+  try:v.turn([0],v.generation,False,[]);router.ask.assert_not_called();router.stream.assert_not_called();v.action_handler.assert_not_called();self.assertIn(('transcript','Sila jarvis'),events);self.assertTrue(any(k=='error'and'two adjacent'in s for k,s in events))
   finally:v.close()
 class MultiAddress(unittest.TestCase):
  def test_explicit_order_not_mishear_or_mention(self):
   from jarvis.multi_address import addressed
   self.assertEqual(addressed('Jarvis, Lyra.'),('JARVIS','LYRA'));self.assertEqual(addressed('Lyra and Jarvis please answer'),('LYRA','JARVIS'))
-  for t in ['Kai Jarvis','Jarvis tell Lyra hello','What did Jarvis and Lyra say?']:self.assertEqual(addressed(t),())
+  for t in ['Sila Jarvis','Jarvis tell Lyra hello','What did Jarvis and Lyra say?']:self.assertEqual(addressed(t),())
  def test_text_both_actual_replies_no_extra_summary(self):
   seen=[]
   class Settings:
+   def refresh_live(me):pass
+   def live_snapshot(me):return {'state':'unavailable','models':[]}
    def stop_warmup(me):pass
    local_gate=threading.Lock()
    def snapshot(me):return {'slots':[],'assignments':{},'busy':[],'checks':{}}
@@ -193,7 +195,7 @@ class ContextProvenance(unittest.TestCase):
   self.assertEqual(m.messages(),[{'role':'user','content':'unanswered one'},{'role':'user','content':'answered two'},{'role':'assistant','content':'[LYRA] real reply'},{'role':'user','content':'unanswered three'}]);self.assertEqual(len(m.snapshot()),1)
  def test_trim_keeps_unmatched_order_and_no_fabricated_answer(self):
   from jarvis.team_memory import TeamMemory
-  m=TeamMemory(max_turns=2);m.restore([{'name':'You','text':'old'},{'name':'KAI','text':'old answer'},{'name':'You','text':'miss'},{'name':'You','text':'recent'},{'name':'LYRA','text':'recent answer'},{'name':'You','text':'latest'},{'name':'DEX','text':'latest answer'}])
+  m=TeamMemory(max_turns=2);m.restore([{'name':'You','text':'old'},{'name':'SILA','text':'old answer'},{'name':'You','text':'miss'},{'name':'You','text':'recent'},{'name':'LYRA','text':'recent answer'},{'name':'You','text':'latest'},{'name':'DEX','text':'latest answer'}])
   self.assertEqual([x['content']for x in m.messages()],['recent','[LYRA] recent answer','latest','[DEX] latest answer']);self.assertFalse(any('No completed answer' in x['content']for x in m.messages()))
  def test_only_unanswered_bounded(self):
   from jarvis.team_memory import TeamMemory
