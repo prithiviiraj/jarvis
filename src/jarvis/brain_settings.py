@@ -246,8 +246,10 @@ class RoutedBrain:
   from .intent_routing import local_turn
   image_turn=any(isinstance(row,dict)and isinstance(row.get('content'),list)and any(isinstance(part,dict)and part.get('type')=='image_url'for part in row['content'])for row in messages)
   configured_chat=kw.pop('configured_chat',False)is True
+  api_only=kw.pop('api_only',False)is True
   local_only=kw.pop('local_only',False)is True or image_turn or (not configured_chat and local_turn(messages))
   candidates=[self.settings.local_candidate(self.name)]if local_only else self.settings.candidates(self.name)
+  if api_only:candidates=[s for s in candidates if s.provider!='local']
   for s in candidates:
    if cancel is not None and cancel.is_set():return
    local=s.provider=='local'
