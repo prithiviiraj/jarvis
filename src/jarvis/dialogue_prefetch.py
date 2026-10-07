@@ -1,7 +1,7 @@
 """At most one real next turn, bounded deltas, cancellation and no audio output."""
 import queue,threading
 class Prefetch:
- def __init__(self,router,messages,cancel,local_only=False):
+ def __init__(self,router,messages,cancel,local_only=False,configured_chat=False,api_only=False):
   self.queue=queue.Queue(maxsize=3);self.cancel=cancel
   def put(item):
    while not cancel.is_set():
@@ -9,7 +9,7 @@ class Prefetch:
     except queue.Full:pass
   def run():
    try:
-    for delta in router.stream(messages,cancel=cancel,**({'local_only':True}if local_only else{})):
+    for delta in router.stream(messages,cancel=cancel,local_only=local_only,configured_chat=configured_chat,api_only=api_only):
      if cancel.is_set():return
      put(('delta',delta))
    except Exception as e:put(('error',e))
