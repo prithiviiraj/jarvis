@@ -1,0 +1,8 @@
+sentence-transformers==6.1.0
+transformers==5.19.0
+numpy==1.26.4
+scipy==1.14.1
+scikit-learn==1.6.1
+librosa==0.11.0
+av==15.1.0
+Pillow==11.3.0
