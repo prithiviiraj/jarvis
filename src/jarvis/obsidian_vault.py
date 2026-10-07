@@ -12,7 +12,7 @@ def downloads():
  finally:ctypes.windll.ole32.CoTaskMemFree(ctypes.cast(out,ctypes.c_void_p))
 class Vault:
  def __init__(self,config,downloads_source=downloads):
-  self.config=pathlib.Path(config);self.downloads_source=downloads_source;self.root=None;self.enabled=False;self.status='Not connected';self.error='';self.skipped=[];self.lock=threading.RLock();self.last=0;self.digest=None;self.nodes_connected=False;self.busy=False;self.operation='';self.phase='';self.generation=0;self.worker=None;self.closed=False
+  self.registration='not checked';self.connection_error='';self.config=pathlib.Path(config);self.downloads_source=downloads_source;self.root=None;self.enabled=False;self.status='Not connected';self.error='';self.skipped=[];self.lock=threading.RLock();self.last=0;self.digest=None;self.nodes_connected=False;self.busy=False;self.operation='';self.phase='';self.generation=0;self.worker=None;self.closed=False
   try:
    data=json.loads(self.config.read_text(encoding='utf-8'))
    if data=={'version':1,'enabled':True,'name':NAME}:self.root=self.expected();self.enabled=self.root.is_dir();self.status='Connected local exports'if self.enabled else'Vault missing; use AUTO to reconnect'
@@ -29,7 +29,7 @@ class Vault:
   if not target.resolve().is_relative_to(self.root.resolve()):raise ValueError('Managed note is redirected outside vault')
   return target
  def snapshot(self):
-  return {'busy':self.busy,'operation':self.operation,'phase':self.phase,'auto_sync':self.enabled,'enabled':self.enabled,'nodes_connected':self.nodes_connected,'name':NAME,'folder':str(self.root)if self.root else'Windows Downloads / '+NAME,'status':self.status,'error':self.error,'skipped':list(self.skipped),'scope':'Local selected chat, team and safe mode exports. No credentials, camera, raw logs or arbitrary laptop files. Notes do not execute instructions.'}
+  return {'registration':self.registration,'connection_error':self.connection_error,'busy':self.busy,'operation':self.operation,'phase':self.phase,'auto_sync':self.enabled,'enabled':self.enabled,'nodes_connected':self.nodes_connected,'name':NAME,'folder':str(self.root)if self.root else'Windows Downloads / '+NAME,'status':self.status,'error':self.error,'skipped':list(self.skipped),'scope':'Local selected chat, team and safe mode exports. No credentials, camera, raw logs or arbitrary laptop files. Notes do not execute instructions.'}
  def start(self,operation,messages=None,agents=None,settings=None,chat_id=None,reviewed=None,confirm=False,force=True):
   if self.closed:raise ValueError('Vault exporter is closed')
   if operation not in ('connect','sync'):raise ValueError('Unsupported vault operation')
@@ -40,7 +40,7 @@ class Vault:
    try:
     with self.lock:
      if ticket!=self.generation:return
-     if operation=='connect':self.create(reviewed,confirm)
+     if operation=='connect':self.connection_error='';self.registration='checking';self.create(reviewed,confirm)
     if ticket!=self.generation:return
     with self.lock:
      if ticket!=self.generation:return
@@ -51,10 +51,13 @@ class Vault:
      self.phase='Checking Obsidian vault registration'
      from .obsidian_registry import register
      register(self.root)
+     self.registration='registered'
      if ticket!=self.generation:return
      self.phase='Opening the visual data centre';self.open('Brain of Brain.canvas')
     self.phase='Complete';self.status='Local vault ready; auto-sync ON. '+('Obsidian open requested, visibility not verified.'if operation=='connect'else'Local exports updated.')+('; edited notes preserved: '+str(len(self.skipped))if self.skipped else'')
-   except Exception as error:self.error=str(error)[:300];self.phase='Needs attention';self.status='Operation stopped; existing notes and Obsidian vaults preserved'
+   except Exception as error:
+    self.error=str(error)[:300];self.phase='Needs attention';self.status='Operation stopped; existing notes and Obsidian vaults preserved'
+    if operation=='connect':self.connection_error=self.error;self.registration='needs attention'
    finally:
     with self.lock:self.busy=False
   self.worker=threading.Thread(target=run,daemon=True);self.worker.start();return self.worker
@@ -92,7 +95,7 @@ class Vault:
   from .obsidian_registry import uri as registered_uri
   uri=registered_uri(self.root,note)
   os.startfile(uri)
-  self.status='Open request sent to installed Obsidian. Registered Brain of Brain vault ID was verified; window visibility not yet verified.'
+  self.registration='registered; open requested';self.connection_error='';self.status='Open request sent to installed Obsidian. Registered Brain of Brain vault ID was verified; window visibility not yet verified.'
  def disable(self):
   with self.lock:self.generation+=1;self.nodes_connected=False;self.enabled=False;self.config.parent.mkdir(parents=True,exist_ok=True);self.config.write_text(json.dumps({'version':1,'enabled':False,'name':NAME}),encoding='utf-8');self.status='Sync off. Existing vault notes kept.'
  def sync(self,messages,agents,settings,chat_id=None,force=False):
@@ -105,12 +108,12 @@ class Vault:
     from .personas import ROLES,CHARACTERS
     from .workspace_voice import VOICES
     files={}
-    for name in ('JARVIS','NOVA','KAI','LYRA','DEX'):
+    for name in ('JARVIS','NOVA','SILA','LYRA','DEX'):
      files['Team/'+name+'.md']='# '+name+'\n\nRole: '+ROLES[name]+'\nVoice: '+VOICES[name]+'\n\n## Fictional style\n\n'+CHARACTERS[name]+'\n\nExport only. Editing does not alter the live profile.\n'
     for row in agents.get('agents',[]):
      files['Team/'+row['name']+'.md']='# '+row['name']+'\n\nVoice: '+row['voice']+'\n\n'+row['personality']+'\n\nExport only; review app changes separately.\n'
     import re
-    names=['JARVIS','NOVA','KAI','LYRA','DEX']+[row['name']for row in agents.get('agents',[])if isinstance(row.get('name'),str)]
+    names=['JARVIS','NOVA','SILA','LYRA','DEX']+[row['name']for row in agents.get('agents',[])if isinstance(row.get('name'),str)]
     names=list(dict.fromkeys(n for n in names if re.fullmatch(r'[A-Z][A-Z0-9_-]{1,23}',n)))
     files['Agents index.md']='# Agent data nodes\n\n'+ '\n'.join('[['+'Agents/'+n+'/Node|'+n+']]'for n in names)+'\n\nSeparate linked notes. Live app permissions are not changed by notes.\n'
     for name in names:
