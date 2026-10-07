@@ -5,7 +5,7 @@ Owner listening comparison approved styles A/B, then F/G/H/K. Five default agent
 |---|---|---|
 | JARVIS / team leader | A | am_michael |
 | NOVA / secretary | B | af_heart |
-| KAI / researcher | H | am_liam |
+| SILA / researcher | H | am_liam |
 | LYRA / writer | G | af_sky |
 | DEX / coder | K | am_fenrir |
 | Spare | F | am_onyx |
