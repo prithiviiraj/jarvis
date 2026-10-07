@@ -1,6 +1,6 @@
 """Shared pinned CPU Pocket engine; preset embeddings only, no arbitrary audio inputs."""
 import threading,pathlib,copy,os,tempfile
-PRESETS={'JARVIS':'michael','NOVA':'anna','LYRA':'alba','KAI':'marius','DEX':'javert'}
+PRESETS={'JARVIS':'michael','NOVA':'anna','LYRA':'alba','SILA':'marius','DEX':'javert'}
 class PocketCPU:
  def __init__(self,root,config=None):
   from ..pocket_assets import ready
