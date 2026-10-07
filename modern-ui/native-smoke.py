@@ -207,8 +207,8 @@ try:
     if control.wrapper_object().selected_text()==label:return
     time.sleep(.2)
   raise AssertionError('Native option readback failed: '+name+' -> '+label)
- choose_native_option('Listening pause','Fast - 480ms','{DOWN}')
- choose_native_option('Listening pause','Balanced - 800ms (default)','')
+ choose_native_option('Listening pause','Fast - 480ms (default)','{DOWN}')
+ choose_native_option('Listening pause','Balanced - 800ms','')
  window.capture_as_image().save('ui-evidence/native-voice-timing-empty.png')
  checks.append('native session listening-pause fast480ms then balanced800ms selector')
  click('Settings');click('Voices')
