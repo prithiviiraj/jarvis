@@ -23,7 +23,7 @@ Source137/CI155 already has separate Windows fixture evidence for the prior work
 7. Record what actually works on the laptop. Do not infer audio, capture, GPU performance or firewall enforcement from these screenshots.
 
 ## Not yet proven
-Owner-laptop microphone/speaker/echo, game capture, GPU/latency, current installation behavior, native News browser/voice path and the new packaged UI. Relative-date language is a draft handoff, not an automatic scheduler. No reminders, calendar conflict checking, invitations or Google sync. KAI Google sync is next phase. Wake word and Windows auto-start remain planned.
+Owner-laptop microphone/speaker/echo, game capture, GPU/latency, current installation behavior, native News browser/voice path and the new packaged UI. Relative-date language is a draft handoff, not an automatic scheduler. No reminders, calendar conflict checking, invitations or Google sync. SILA Google sync is next phase. Wake word and Windows auto-start remain planned.
 
 LiveKit v3 is parked as a separate review-only experiment with unresolved cancellation/handle-ownership diagnostics. It is not promoted, enabled, or bundled by these changes. Windows containment has not been proved; the withdrawn blanket Block plus loopback Allow recipe must not be used.
 
