@@ -25,3 +25,18 @@ class LayaFrontRouting(unittest.TestCase):
    state=b.execute({'command':'select','name':'LYRA'})
    self.assertFalse(state['voice_active']);self.assertIn('LYRA selected. Mic OFF',state['status']);v.start.assert_not_called()
   finally:b.close()
+
+class LayaDirectAcceptance(unittest.TestCase):
+ def test_active_typed_browser_submits_without_review_or_model(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  v=WorkspaceVoice();v.send_text=Mock();b=Bridge(v);b.execute({'command':'laya-session','enabled':True,'consent':True});browser=Mock();browser.cancel.is_set.return_value=False;browser.snapshot.return_value={'state':'ready','url':'about:blank'};b.browser=browser
+  try:
+   b.execute({'command':'chat','text':'open the browser'});browser.submit.assert_called_once_with(command='open-window',value='',confirmed=True);self.assertIsNone(b.browser_pending);v.send_text.assert_not_called();self.assertFalse(any('prepared for review' in e['text'] for e in b.reo_log))
+  finally:b.close()
+ def test_active_spoken_browser_submits_without_review(self):
+  from jarvis.ui_bridge import Bridge
+  b=Bridge();b.execute({'command':'laya-session','enabled':True,'consent':True});browser=Mock();browser.cancel.is_set.return_value=False;browser.snapshot.return_value={'state':'ready','url':'about:blank'};b.browser=browser
+  try:
+   self.assertTrue(b.voice_action('Laya, open the browser'));browser.submit.assert_called_once_with(command='open-window',value='',confirmed=True);self.assertIsNone(b.browser_pending)
+  finally:b.close()
