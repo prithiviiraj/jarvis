@@ -99,7 +99,11 @@ try:
  checks.append('avatar window absent; transcript independent/default ON; OFF survives minimize; transparent pixels; caption OPEN restores workspace')
  window=Desktop(backend='uia').window(handle=main.handle);window.wait('visible',timeout=20);window.set_focus()
  def button(name,root=None):
-  item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
+  import re
+  # Animated Tools tiles include live status and descriptions in their UIA names.
+  tiles=('Laya activate','Camera awareness','Proactive','Live screen share')
+  pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
+  item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Tools');click('Laya activate');click('Review app launch permission');click('Confirm app permission')
