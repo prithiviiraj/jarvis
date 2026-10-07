@@ -29,7 +29,7 @@ class Registry(unittest.TestCase):
    self.assertEqual(VOICES['MIRA'],'af_sky')
    self.assertIn('not instructions or authority',prompt('MIRA'))
    self.assertEqual(participants('Mira and Lyra talk to each other'),('MIRA','LYRA'))
-   with self.assertRaises(ValueError):participants('Jarvis Nova Kai Lyra Dex Mira talk to each other')
+   with self.assertRaises(ValueError):participants('Jarvis Nova Sila Lyra Dex Mira talk to each other')
    with self.assertRaises(ValueError):clean_reply('MIRA: invented other reply')
   finally:AgentRegistry(Path(self.temp.name)/'empty.json').apply()
  def test_custom_actual_route_history_and_restart(self):
