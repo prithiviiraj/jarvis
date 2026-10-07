@@ -4,7 +4,7 @@ from jarvis.action_intent import parse
 from jarvis.ui_bridge import Bridge
 class Intents(unittest.TestCase):
  def test_any_persona_or_bare(self):
-  for name in ('Jarvis','Nova','Lyra','Kai','Dex','Reo',''):
+  for name in ('Jarvis','Nova','Lyra','Sila','Dex','Reo',''):
    self.assertEqual(parse(name+' can you open the browser?'),{'command':'open-window','value':''})
   self.assertEqual(parse('open browser'),{'command':'open-window','value':''})
  def test_questions_not_commands(self):
@@ -19,7 +19,7 @@ class Intents(unittest.TestCase):
   b=Bridge();b.browser_enabled=True;b.browser=Mock();b.browser.cancel.is_set.return_value=False;b.browser.snapshot.return_value={'state':'ready','url':'https://example.com/'};b.shared_action('scroll slightly');self.assertEqual(b.browser_pending,{'command':'scroll-down-small','value':'','expected_url':'https://example.com/'});b.browser.submit.assert_not_called();b.close()
  def test_shared_goal_any_profile(self):
   from jarvis.action_intent import goal
-  for name in ('Jarvis','Nova','Lyra','Kai','Dex','Reo',''):
+  for name in ('Jarvis','Nova','Lyra','Sila','Dex','Reo',''):
    self.assertEqual(goal(name+' find the documentation link'),'find the documentation link')
   self.assertIsNone(goal('Jarvis what is time now'))
   self.assertIsNone(goal('browser read links'))
