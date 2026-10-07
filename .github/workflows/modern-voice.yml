@@ -25,6 +25,16 @@ permissions:
   contents: read
   actions: read
 jobs:
+  dispatch-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record actual accepted dispatch inputs
+        env:
+          ACCEPTED_INPUTS: ${{ toJSON(github.event.inputs) }}
+          ACCEPTED_REF: ${{ github.ref }}
+          ACCEPTED_SHA: ${{ github.sha }}
+        run: |
+          printf 'Accepted ref: %s\nAccepted SHA: %s\nAccepted inputs: %s\n' "$ACCEPTED_REF" "$ACCEPTED_SHA" "$ACCEPTED_INPUTS" | tee -a "$GITHUB_STEP_SUMMARY"
   windows:
     needs: embedding-runtime
     if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
