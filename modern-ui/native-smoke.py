@@ -329,6 +329,10 @@ try:
  assert 'open-window'in' '.join(x.window_text()for x in window.descendants())
  window.capture_as_image().save('ui-evidence/native-dotted-jarvis-browser-review.png');click('Cancel Team browser action')
  checks.append('exact JARVIS. OPEN. BROWSER. punctuation phrase prepares browser-open review; cancel leaves browser unopened')
+ # Cancel is a full browser-stop and revokes session permission. Re-enable explicitly.
+ click('Settings');click('Advanced');click('Advanced browser controls')
+ click('Enable browser commands');click('Confirm browser permission');click('Team room')
+ field=window.child_window(title='Message draft',control_type='Edit')
  field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Confirm Team browser action');click('Settings');click('Advanced');click('Advanced browser controls')
  deadline=time.monotonic()+30
  while time.monotonic()<deadline:
