@@ -55,15 +55,16 @@ server=http.server.ThreadingHTTPServer(('127.0.0.1',1234),LocalFixture);threadin
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
 try:
- main=Desktop(backend='uia').window(title_re='JARVIS / Modern.*');main.wait('visible',timeout=30);main.set_focus()
+ main=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');main.wait('visible',timeout=30)
+ main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
  main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
- assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists(), 'Avatar window was removed'
+ assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists(), 'Avatar window was removed'
  main.capture_as_image().save('ui-evidence/workspace-first-launch.png')
  main.minimize()
- captions=Desktop(backend='uia').window(title='JARVIS / Live captions');captions.wait('visible',timeout=15);caption_handle=captions.handle
- assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists()
- pill=Desktop(backend='uia').window(title='JARVIS / Compact voice bar');pill.wait('visible',timeout=15);pill_handle=pill.handle
+ captions=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Live captions');captions.wait('visible',timeout=15);caption_handle=captions.handle;captions=Desktop(backend='uia').window(handle=caption_handle)
+ assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists()
+ pill=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Compact voice bar');pill.wait('visible',timeout=15);pill_handle=pill.handle;pill=Desktop(backend='uia').window(handle=pill_handle)
  assert ctypes.windll.user32.GetWindowLongW(pill_handle,-20)&8,'Pill must be always on top'
  pill.child_window(title='Stop JARVIS',control_type='Button').wait('exists',timeout=15)
  pill.child_window(title='Open JARVIS workspace',control_type='Button').wait('exists',timeout=15)
@@ -96,7 +97,7 @@ try:
  captions.move_mouse_input(coords=(captions.rectangle().width()-30,12));time.sleep(.3)
  captions.child_window(title='Reopen workspace',control_type='Button').wrapper_object().invoke();main.wait('visible',timeout=10);main.set_focus()
  checks.append('avatar window absent; transcript independent/default ON; OFF survives minimize; transparent pixels; caption OPEN restores workspace')
- window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=20);window.set_focus()
+ window=Desktop(backend='uia').window(handle=main.handle);window.wait('visible',timeout=20);window.set_focus()
  def button(name,root=None):
   item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
@@ -414,7 +415,7 @@ try:
  assert 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()),'Archived actual reply not restored'
  window.capture_as_image().save('ui-evidence/native-history-restored.png')
  checks.append('native new chat clears active context; saved conversation reopens actual reply')
- click('Transcript ON');window.minimize();overlay_text=Desktop(backend='uia').window(title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
+ click('Transcript ON');window.minimize();overlay_text=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
  deadline=time.monotonic()+8
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in overlay_text.descendants()):break
@@ -434,7 +435,7 @@ try:
  workspace_handle=window.handle;ctypes.windll.user32.PostMessageW(workspace_handle,0x0010,0,0)
  overlay_text.wait('visible',timeout=10);time.sleep(.3)
  assert not ctypes.windll.user32.IsWindowVisible(workspace_handle)
- assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists()
+ assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists()
  overlay_text.move_mouse_input(coords=(overlay_text.rectangle().width()-30,12));time.sleep(.3)
  overlay_text.child_window(title='Reopen workspace',control_type='Button').wrapper_object().invoke();window.wait('visible',timeout=10);window.set_focus()
  checks.append('workspace close keeps only transcript; caption OPEN restores same workspace; avatars absent')
@@ -442,8 +443,9 @@ try:
  # Persist OFF across a full native application restart, not only in renderer state.
  click('Transcript OFF');ctypes.windll.user32.PostMessageW(window.handle,0x0010,0,0);p.wait(timeout=10)
  p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
- window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30)
+ window=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30)
  restarted_workspace_handle=window.handle
+ window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
  window.minimize()
  # Hidden WebViews are not in UIA. Enumerate this restarted process only,
  # with pointer-safe Win32 signatures and a bounded creation wait.
@@ -472,7 +474,7 @@ try:
   time.sleep(.1)
  assert persisted_handle,'Caption window missing from restarted process after bounded creation wait'
  assert not user32.IsWindowVisible(persisted_handle),'Transcript OFF was not persisted across restart'
- assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists()
+ assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists()
  # A minimized WebView may disappear from UIA; restore its verified native HWND first.
  assert ctypes.windll.user32.IsWindow(restarted_workspace_handle),'Restarted workspace HWND is invalid'
  ctypes.windll.user32.ShowWindow(restarted_workspace_handle,9) # SW_RESTORE
