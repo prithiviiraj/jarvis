@@ -50,6 +50,6 @@ class ObsidianVault(unittest.TestCase):
   from jarvis.obsidian import Vault as Reader
   with tempfile.TemporaryDirectory()as d:
    base=pathlib.Path(d);v=Vault(base/'config.json',lambda:base);v.create(NAME,True)
-   reader=Reader('"'+str(base/NAME)+'"');self.assertEqual(reader.root,base/NAME);self.assertIn('Brain of Brain',reader.read('README.md'))
+   reader=Reader('"'+str(base/NAME)+'"');self.assertEqual(reader.root,(base/NAME).resolve(strict=True));self.assertIn('Brain of Brain',reader.read('README.md'))
    other=base/'ordinary';other.mkdir()
    with self.assertRaises(ValueError):Reader(other)
