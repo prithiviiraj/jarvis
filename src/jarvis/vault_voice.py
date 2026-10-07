@@ -3,7 +3,7 @@ import re
 
 def parse_voice(text):
  if not isinstance(text,str):return None
- text=re.sub(r'^(?:hey\s+|hi\s+|hello\s+)?(?:jarvis|nova|kai|lyra|dex)[,:]?\s+','',text.strip(),flags=re.I)
+ text=re.sub(r'^(?:hey\s+|hi\s+|hello\s+)?(?:jarvis|nova|sila|lyra|dex)[,:]?\s+','',text.strip(),flags=re.I)
  match=re.fullmatch(r'(?:obsidian|vault)\s+(search|read)\s+(.+)',text,flags=re.I)
  if not match:
   if re.match(r'^(?:obsidian|vault)\s+(?:search|read|create|write|delete|open|edit|overwrite)\b',text,re.I):raise ValueError('Use explicit vault search words or vault read Exact/Note.md. Spoken writes are not enabled; nothing was sent to a model.')
