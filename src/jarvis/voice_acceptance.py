@@ -53,7 +53,7 @@ def run():
  try:
   assert not bridge.execute({'command':'status'})['voice_active']
   with patch.dict(providers.ENDPOINTS,{'local':f'http://127.0.0.1:{server.server_port}/v1'}),patch('jarvis.runtime.ContinuousMic',Mic):
-   for name in ['JARVIS','NOVA','KAI','LYRA','DEX']:
+   for name in ['JARVIS','NOVA','SILA','LYRA','DEX']:
     progress('select',persona=name);bridge.execute({'command':'select','name':name});samples.clear();loaded=time.monotonic()
     bridge.execute({'command':'voice-on','consent':True});deadline=time.monotonic()+60
     while bridge.voice.busy and time.monotonic()<deadline:time.sleep(.1)
