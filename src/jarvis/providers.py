@@ -26,7 +26,7 @@ def local_models(timeout=2):
    llms=[x for x in metadata['models'] if isinstance(x,dict) and x.get('type')=='llm' and valid(x.get('key'))]
    loaded=list(dict.fromkeys(i['id'] for x in llms for i in x.get('loaded_instances',[]) if isinstance(i,dict) and valid(i.get('id'))))
    if loaded:return loaded
-   return list(dict.fromkeys(x['key'] for x in llms))
+   return [] # Downloaded models are not loaded chat instances.
  except Exception:pass # Older LM Studio exposes only the OpenAI-compatible list.
  try:
   data=read(ENDPOINTS['local']+'/models')['data']
@@ -34,3 +34,21 @@ def local_models(timeout=2):
   if not ids:raise ValueError('No chat model')
   return ids[:20]
  except Exception:raise RouterError('LM Studio is not answering with a chat model. Open LM Studio, load a model, then start its local server.') from None
+
+
+def local_live_models(timeout=2):
+ """Read actual loaded instances only. Never equate downloaded assets with loading."""
+ http=local_http();base=ENDPOINTS['local'].removesuffix('/v1')
+ with http.open(base+'/api/v1/models',timeout=timeout)as response:
+  raw=response.read(262145)
+ if len(raw)>262144:raise ValueError('Model list too large')
+ rows=json.loads(raw).get('models')
+ if not isinstance(rows,list):raise ValueError('Live loaded-instance metadata unavailable')
+ loaded=[]
+ for row in rows:
+  if not isinstance(row,dict)or row.get('type')!='llm':continue
+  for instance in row.get('loaded_instances',[]):
+   ident=instance.get('id')if isinstance(instance,dict)else None
+   if isinstance(ident,str)and 0<len(ident)<200:
+    loaded.append({'id':ident,'key':row.get('key',''),'vision':row.get('capabilities',{}).get('vision')is True})
+ return loaded[:20]
