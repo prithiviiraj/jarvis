@@ -49,7 +49,7 @@ class BrainTests(unittest.TestCase):
     return R()
   t=v.parallel_round('test topic',Settings());t.join(4);self.assertFalse(t.is_alive());self.assertEqual(len(seen),5);events=[]
   while not v.events.empty():events.append(v.events.get())
-  answers=[value for kind,value in events if kind=='answer'];self.assertEqual([a['profile']for a in answers],['NOVA','KAI','LYRA','DEX','JARVIS','JARVIS']);self.assertEqual(answers[-1]['text'],'Conclusion.');v.close()
+  answers=[value for kind,value in events if kind=='answer'];self.assertEqual([a['profile']for a in answers],['NOVA','SILA','LYRA','DEX','JARVIS','JARVIS']);self.assertEqual(answers[-1]['text'],'Conclusion.');v.close()
  def test_local_connection_check_async_current_failure(self):
   with patch('jarvis.brain_settings.local_models',return_value=['current-model']):
    t=self.b.check();t.join(1)
