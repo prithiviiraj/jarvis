@@ -35,7 +35,7 @@ class StrongIdle(unittest.TestCase):
   from jarvis.idle_companion import IdleCompanion
   now=[0];voice=Mock();voice.busy=False;voice.runtime=None;voice.memory.messages.return_value=[];brains=Mock();brains.router.return_value.ask.side_effect=[{'text':'{"speak":true,"profiles":["NOVA","LYRA"],"topic":"A greeting"}'},{'text':'{"speak":true,"profiles":["NOVA","LYRA"],"topic":"A fresh idea"}'}]
   c=IdleCompanion(voice,brains,Mock(),clock=lambda:now[0],hour=lambda:12);c.enable(True,True,strong=True);now[0]=19;self.assertIsNone(c.poll());now[0]=21;c.poll().join(2)
-  self.assertTrue(brains.router.return_value.ask.call_args.kwargs['local_only']);self.assertIn('NOVA and KAI',voice.dialogue.call_args.args[0]);self.assertEqual(voice.dialogue.call_args.kwargs['rounds'],2)
+  self.assertTrue(brains.router.return_value.ask.call_args.kwargs['local_only']);self.assertIn('NOVA and SILA',voice.dialogue.call_args.args[0]);self.assertEqual(voice.dialogue.call_args.kwargs['rounds'],2)
   now[0]=180;self.assertIsNone(c.poll());now[0]=202;c.poll().join(2);self.assertIn('LYRA and DEX',voice.dialogue.call_args.args[0]);c.stop();self.assertFalse(c.enabled)
  def test_typed_stop_never_goes_to_model(self):
   from jarvis.ui_bridge import Bridge
