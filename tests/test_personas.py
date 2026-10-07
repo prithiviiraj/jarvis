@@ -9,7 +9,7 @@ class PersonaTests(unittest.TestCase):
   for name in ROLES:
    for other in ROLES:self.assertIn(other,prompt(name))
  def test_lively_no_canned_hearing(self):
-  self.assertIn('not proof you heard audio',prompt('LYRA'));self.assertIn('affectionate curious',prompt('LYRA'));self.assertNotIn('Let us settle this and help master',prompt('LYRA'));self.assertIn('concise but engaged',prompt('KAI'))
+  self.assertIn('not proof you heard audio',prompt('LYRA'));self.assertIn('affectionate curious',prompt('LYRA'));self.assertNotIn('Let us settle this and help master',prompt('LYRA'));self.assertIn('experienced manager',prompt('SILA'));self.assertIn('Most introverted',prompt('SILA'))
 
  def test_short_sweet_all_default_and_custom_profiles(self):
   for name in list(ROLES)+['CUSTOM']:
