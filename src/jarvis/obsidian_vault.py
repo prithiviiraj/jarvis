@@ -12,7 +12,7 @@ def downloads():
  finally:ctypes.windll.ole32.CoTaskMemFree(ctypes.cast(out,ctypes.c_void_p))
 class Vault:
  def __init__(self,config,downloads_source=downloads):
-  self.registration='not checked';self.connection_error='';self.config=pathlib.Path(config);self.downloads_source=downloads_source;self.root=None;self.enabled=False;self.status='Not connected';self.error='';self.skipped=[];self.lock=threading.RLock();self.last=0;self.digest=None;self.nodes_connected=False;self.busy=False;self.operation='';self.phase='';self.generation=0;self.worker=None;self.closed=False
+  self.auto_sync=False;self.registration='not checked';self.connection_error='';self.config=pathlib.Path(config);self.downloads_source=downloads_source;self.root=None;self.enabled=False;self.status='Not connected';self.error='';self.skipped=[];self.lock=threading.RLock();self.last=0;self.digest=None;self.nodes_connected=False;self.busy=False;self.operation='';self.phase='';self.generation=0;self.worker=None;self.closed=False
   try:
    data=json.loads(self.config.read_text(encoding='utf-8'))
    if data=={'version':1,'enabled':True,'name':NAME}:self.root=self.expected();self.enabled=self.root.is_dir();self.status='Connected local exports'if self.enabled else'Vault missing; use AUTO to reconnect'
@@ -29,7 +29,7 @@ class Vault:
   if not target.resolve().is_relative_to(self.root.resolve()):raise ValueError('Managed note is redirected outside vault')
   return target
  def snapshot(self):
-  return {'registration':self.registration,'connection_error':self.connection_error,'busy':self.busy,'operation':self.operation,'phase':self.phase,'auto_sync':self.enabled,'enabled':self.enabled,'nodes_connected':self.nodes_connected,'name':NAME,'folder':str(self.root)if self.root else'Windows Downloads / '+NAME,'status':self.status,'error':self.error,'skipped':list(self.skipped),'scope':'Local selected chat, team and safe mode exports. No credentials, camera, raw logs or arbitrary laptop files. Notes do not execute instructions.'}
+  return {'registration':self.registration,'connection_error':self.connection_error,'busy':self.busy,'operation':self.operation,'phase':self.phase,'auto_sync':self.enabled and self.auto_sync,'enabled':self.enabled,'nodes_connected':self.nodes_connected,'name':NAME,'folder':str(self.root)if self.root else'Windows Downloads / '+NAME,'status':self.status,'error':self.error,'skipped':list(self.skipped),'scope':'Local selected chat, team and safe mode exports. No credentials, camera, raw logs or arbitrary laptop files. Notes do not execute instructions.'}
  def start(self,operation,messages=None,agents=None,settings=None,chat_id=None,reviewed=None,confirm=False,force=True):
   if self.closed:raise ValueError('Vault exporter is closed')
   if operation not in ('connect','sync'):raise ValueError('Unsupported vault operation')
@@ -54,7 +54,7 @@ class Vault:
      self.registration='registered'
      if ticket!=self.generation:return
      self.phase='Opening the visual data centre';self.open('Brain of Brain.canvas')
-    self.phase='Complete';self.status='Local vault ready; auto-sync ON. '+('Obsidian open requested, visibility not verified.'if operation=='connect'else'Local exports updated.')+('; edited notes preserved: '+str(len(self.skipped))if self.skipped else'')
+    self.phase='Complete';self.status='Local vault ready; manual sync only. '+('Obsidian open requested, visibility not verified.'if operation=='connect'else'Local exports updated.')+('; edited notes preserved: '+str(len(self.skipped))if self.skipped else'')
    except Exception as error:
     self.error=str(error)[:300];self.phase='Needs attention';self.status='Operation stopped; existing notes and Obsidian vaults preserved'
     if operation=='connect':self.connection_error=self.error;self.registration='needs attention'
