@@ -4,7 +4,7 @@ from jarvis.workspace_voice import WorkspaceVoice,VOICES,FreeSessionRouter
 from jarvis import voice_assets
 class BridgeTests(unittest.TestCase):
  def test_five_locked_voices(self):
-  self.assertEqual(VOICES,{'JARVIS':'am_michael','NOVA':'af_sky','KAI':'am_liam','LYRA':'af_heart','DEX':'am_fenrir'})
+  self.assertEqual(VOICES,{'JARVIS':'am_michael','NOVA':'am_puck','SILA':'am_liam','LYRA':'af_heart','DEX':'am_fenrir'})
  def test_no_start_on_construction(self):
   factory=Mock();c=WorkspaceVoice(factory);factory.assert_not_called();self.assertIsNone(c.runtime)
  def test_consent_gate(self):
@@ -26,7 +26,7 @@ class BridgeTests(unittest.TestCase):
   def factory(*args):entered.set();release.wait(2);return runtime
   c=WorkspaceVoice(factory);worker=c.start(True);self.assertTrue(entered.wait(1));c.pause();release.set();worker.join(2);runtime.enable.assert_not_called();runtime.close.assert_called_once()
  def test_stale_captions_dropped(self):
-  runtime=Mock();factory=Mock(return_value=runtime);c=WorkspaceVoice(factory);c.start(True).join(2);notify=factory.call_args.args[1];c.select('KAI');notify('transcript','old private text')
+  runtime=Mock();factory=Mock(return_value=runtime);c=WorkspaceVoice(factory);c.start(True).join(2);notify=factory.call_args.args[1];c.select('SILA');notify('transcript','old private text')
   items=[]
   while not c.events.empty():items.append(c.events.get())
   self.assertNotIn(('transcript','old private text'),items)
