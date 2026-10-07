@@ -444,12 +444,34 @@ try:
  p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30)
  restarted_workspace_handle=window.handle
- window.minimize();time.sleep(1)
- # UIA does not enumerate a hidden WebView window. Check native visibility by HWND.
- ctypes.windll.user32.FindWindowW.restype=ctypes.c_void_p
- persisted_handle=ctypes.windll.user32.FindWindowW(None,'JARVIS / Live captions')
- assert persisted_handle,'Caption window must exist for restart persistence check'
- assert not ctypes.windll.user32.IsWindowVisible(ctypes.c_void_p(persisted_handle)),'Transcript OFF was not persisted across restart'
+ window.minimize()
+ # Hidden WebViews are not in UIA. Enumerate this restarted process only,
+ # with pointer-safe Win32 signatures and a bounded creation wait.
+ from ctypes import wintypes
+ user32=ctypes.windll.user32
+ user32.GetWindowThreadProcessId.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.DWORD)]
+ user32.GetWindowTextW.argtypes=[wintypes.HWND,wintypes.LPWSTR,ctypes.c_int]
+ user32.IsWindowVisible.argtypes=[wintypes.HWND];user32.IsWindowVisible.restype=wintypes.BOOL
+ callback_type=ctypes.WINFUNCTYPE(wintypes.BOOL,wintypes.HWND,wintypes.LPARAM)
+ user32.EnumWindows.argtypes=[callback_type,wintypes.LPARAM]
+ def process_caption_windows():
+  found=[]
+  def visit(hwnd,param):
+   pid=wintypes.DWORD();user32.GetWindowThreadProcessId(hwnd,ctypes.byref(pid))
+   if pid.value==p.pid:
+    title=ctypes.create_unicode_buffer(512);user32.GetWindowTextW(hwnd,title,len(title))
+    if title.value=='JARVIS / Live captions':found.append(hwnd)
+   return True
+  callback=callback_type(visit);user32.EnumWindows(callback,0);return found
+ deadline=time.monotonic()+15;persisted_handle=None
+ while time.monotonic()<deadline:
+  if p.poll()is not None:raise RuntimeError('Restarted native app exited before caption verification: '+str(p.returncode))
+  matches=process_caption_windows()
+  if len(matches)==1:persisted_handle=matches[0];break
+  if len(matches)>1:raise RuntimeError('Duplicate caption HWNDs in restarted native process')
+  time.sleep(.1)
+ assert persisted_handle,'Caption window missing from restarted process after bounded creation wait'
+ assert not user32.IsWindowVisible(persisted_handle),'Transcript OFF was not persisted across restart'
  assert not Desktop(backend='uia').window(title='JARVIS / Floating faces').exists()
  # A minimized WebView may disappear from UIA; restore its verified native HWND first.
  assert ctypes.windll.user32.IsWindow(restarted_workspace_handle),'Restarted workspace HWND is invalid'
