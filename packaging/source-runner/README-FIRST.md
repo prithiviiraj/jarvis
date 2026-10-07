@@ -11,7 +11,7 @@ Personal testing build, not a frozen EXE or finished installer. Python 3.12 is r
 ## Say this to test
 - "Hello, who are you?"
 - "Tell me a short joke."
-- Switch to NOVA, KAI, LYRA and DEX and repeat. Each uses a different locked voice.
+- Switch to NOVA, SILA, LYRA and DEX and repeat. Each uses a different locked voice.
 - Press Pause all during a reply. Audio and capture must stop. Closing must release the microphone.
 
 Groq sends recognized text, not microphone audio. Cloud consent is session-only. The app does not automatically verify billing and will not select a paid fallback. Real Groq replies require your own key and account; CI synthetic replies are not proof of a live provider.
@@ -34,7 +34,7 @@ Download models opens a visible window: Starting/cache checksum checks, an activ
 
 Session setup choices are remembered across voice profiles in memory only. Switching stops/releases the previous microphone/runtime; press Enable voice to start the selected voice. It does not start recording automatically. Pause all or closing the app clears remembered permission; next launch starts OFF. JARVIS keeps the team-leader identity but does not claim real background delegation/tools.
 
-Local Whisper uses a short roster-name prompt (JARVIS/NOVA/KAI/LYRA/DEX) as a transcription hint. This is not a guarantee for accent/name accuracy; captions remain the actual transcript. Team profiles know the roster and ask for clarification for garbled names instead of inventing a person.
+Local Whisper uses a short roster-name prompt (JARVIS/NOVA/SILA/LYRA/DEX) as a transcription hint. This is not a guarantee for accent/name accuracy; captions remain the actual transcript. Team profiles know the roster and ask for clarification for garbled names instead of inventing a person.
 
 Automatic prefers listed GPT-OSS120B for answer quality; listed20B is used when120B is absent. No speed/quality guarantee. When listed20B is available, a transient timeout/rate-limit/server failure on120B before any answer text may fall back once to20B. The actual responding model is reported. No failover after text starts, no model mixing, and no fallback for permission/auth/model/empty-token errors. Diagnostic sends one greeting only and never retries it. Optional manual override lets the owner explicitly choose listed20B for comparison.
 
@@ -53,7 +53,7 @@ Typed local chat: pause voice, open Chat, type and Send local. Requires exactly 
 
 Browser proposal foundation (experimental, not connected to workspace): model-free contract accepts at most20 supplied nonsensitive controls from a15-second snapshot under an exact HTTPS host scope. Model output can only select observed offered click/scroll/wait/done/blocked choices; cannot supply selectors/code/text or execute. All proposals require review and DONE is not proof of completion. No browser driver, sensing or model is loaded. Laya quality/hardware and a separate reviewed executor remain untested/unimplemented.
 
-Multi-profile round: Team Room lets you choose2-5profiles and Start round. UI order is JARVIS, NOVA, KAI, LYRA, DEX. Each uses the same local LM Studio model with its own persona, sees actual prior replies, and records only when the entire round succeeds. These are text replies, not distinct live workers or audible voices. No background/autonomous rounds.
+Multi-profile round: Team Room lets you choose2-5profiles and Start round. UI order is JARVIS, NOVA, SILA, LYRA, DEX. Each uses the same local LM Studio model with its own persona, sees actual prior replies, and records only when the entire round succeeds. These are text replies, not distinct live workers or audible voices. No background/autonomous rounds.
 
 Session timer panel: OFF on launch. Session timer opens a separate local panel; declare gaming/working/watching videos, choose15-180minutes, check session consent, Start timer. Suggestions stay in this panel as text, deferred while quiet/voice busy/workspace minimized. Stop, closing the panel, Pause all or closing app clear it. No popup/audio/cloud/screen detection. This is a declared-activity timer, not proactive agents observing you.
 
