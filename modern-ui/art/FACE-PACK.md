@@ -2,7 +2,7 @@
 
 Render each persona from Maya/Blender with the same camera and lighting across states. Square512x512 transparent PNG RGBA is recommended;64-1024px is accepted. Alpha edges should be clean, with no baked background, ground shadow, labels or controls. Keep the face inside80% of the canvas, centred, with matching placement across frames.
 
-Folders: JARVIS/, NOVA/, KAI/, LYRA/, DEX/. Each has idle/, thinking/, speaking/. Looping PNG frame sequences or a static/animated WebP clip are accepted. A clip can have1-120 images at1-30fps. Recommended24fps,2-4seconds. A WebP loop uses one frame path in the manifest; its own internal frame timing is authoritative. Entire pack under60MB.
+Folders: JARVIS/, NOVA/, SILA/, LYRA/, DEX/. Each has idle/, thinking/, speaking/. Looping PNG frame sequences or a static/animated WebP clip are accepted. A clip can have1-120 images at1-30fps. Recommended24fps,2-4seconds. A WebP loop uses one frame path in the manifest; its own internal frame timing is authoritative. Entire pack under60MB.
 
 At the pack root put manifest.json:
 
