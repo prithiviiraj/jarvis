@@ -111,6 +111,17 @@ try:
   tiles=('Laya activate','Camera','Live screen','Proactive')
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
   item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
+ def expand_advanced():
+  # HTML summary exposes Button semantics but has no Windows UIA Invoke pattern.
+  # Use real mouse input, as the already-passing initial expansion does.
+  toggle=window.child_window(title='Expand advanced browser controls',control_type='Button')
+  toggle.wait('exists',timeout=10)
+  for _ in range(18):
+   wrapper=toggle.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
+   if rect.top>bounds.top+120 and rect.bottom<bounds.bottom-65:break
+   mouse.scroll(coords=(760,450),wheel_dist=-3 if rect.bottom>=bounds.bottom-65 else 3);time.sleep(.2)
+  else:raise RuntimeError('Advanced summary outside viewport')
+  toggle.wrapper_object().click_input()
  def click(name,root=None):
   # Navigation changed, effects/reviews remain real native controls.
   if name=='Add local draft':name='Send message'
@@ -123,11 +134,12 @@ try:
   # Re-entering Settings remounts the native <details> collapsed. Reveal it
   # only when the requested legacy review control is inside that panel.
   advanced_names={'Enable browser commands','Download Laya model','Load inbuilt Laya','Stop Laya setup / engine','Enable shared Laya','Stop Laya proposals','Prepare browser command','Review / run browser command','Read available links locally'}
+  if name=='Expand advanced browser controls':
+   expand_advanced();checks.append(name);return
   if name in advanced_names:
    item=(root or window).child_window(title=name,control_type='Button')
    if not item.exists():
-    toggle=(root or window).child_window(title='Expand advanced browser controls',control_type='Button')
-    toggle.wait('exists',timeout=10);toggle.wrapper_object().invoke()
+    expand_advanced()
   button(name,root).wrapper_object().invoke()
   if name in ('Transcript ON','Transcript OFF'):
    # UIA invoke queues async IPC. Wait for actual native save/readback before close.
