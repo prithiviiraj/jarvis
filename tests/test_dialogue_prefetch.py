@@ -20,3 +20,8 @@ class PrefetchTests(unittest.TestCase):
   class Router:
    def stream(self,*a,**kw):calls.append(kw);yield {'text':'Hi.'}
   p=Prefetch(Router(),[],threading.Event(),local_only=True);self.assertEqual(list(p.stream()),[{'text':'Hi.'}]);self.assertTrue(calls[0]['local_only'])
+ def test_api_only_idle_flags_preserved(self):
+  calls=[]
+  class Router:
+   def stream(self,*a,**kw):calls.append(kw);yield {'text':'Hi.'}
+  p=Prefetch(Router(),[],threading.Event(),configured_chat=True,api_only=True);list(p.stream());self.assertTrue(calls[0]['api_only']);self.assertTrue(calls[0]['configured_chat']);self.assertFalse(calls[0]['local_only'])
