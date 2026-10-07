@@ -33,10 +33,10 @@ def account_models(kind,key):
 
 class BrainSettings:
  def __init__(self,store=None,path=None):
-  self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.local_gate=threading.Lock();self.warmup_cancel=threading.Event()
+  self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.live={'state':'not checked','models':[],'checked_at':None,'scope':'loaded-instance discovery only, not inference'};self.live_busy=False;self.live_last=-1e20;self.local_gate=threading.Lock();self.warmup_cancel=threading.Event()
   if self.path and self.path.is_file():
    try:
-    saved=json.loads(self.path.read_text());self.configure(saved.get('slots',[]),saved.get('assignments',{}),persist=False)
+    saved=json.loads(self.path.read_text());assignments=saved.get('assignments',{});legacy=''.join(('K','AI'));assignments={('SILA'if n==legacy else n):slot for n,slot in assignments.items()};self.configure(saved.get('slots',[]),assignments,persist=False)
    except Exception:self.rows={};self.assignments={}
  def keys(self):
   if self.store is None:
@@ -75,7 +75,36 @@ class BrainSettings:
      try:present=self.keys().status(s.key_target).get('present',False)
      except Exception:pass
     rows.append({'id':s.id,'provider':s.provider,'model':s.model,'label':s.label,'enabled':True,'consent':s.id in self.consent,'free':s.id in self.free,'key_present':present,'cooldown_s':max(0,round(self.cooldowns.get(s.id,0)-time.monotonic()))})
-   return {'slots':rows,'assignments':dict(self.assignments),'checks':dict(self.checks),'busy':list(self.busy),'consent_scope':'session only; free plan is user-confirmed, not verified by API'}
+   return {'slots':rows,'assignments':dict(self.assignments),'checks':dict(self.checks),'live':self.live_snapshot(),'busy':list(self.busy),'consent_scope':'session only; free plan is user-confirmed, not verified by API'}
+ def refresh_live(self,force=False):
+  """Bounded asynchronous loopback discovery, never cloud tests or model loading."""
+  with self.lock:
+   if self.live_busy or(not force and time.monotonic()-self.live_last<10):return
+   self.live_busy=True;self.live_last=time.monotonic()
+  def work():
+   from .providers import local_live_models
+   try:
+    models=local_live_models(timeout=2)
+    result={'state':'loaded'if models else'no loaded model','models':models,'checked_at':time.time(),'scope':'actual loaded instances; not inference or response verification'}
+   except Exception as error:
+    result={'state':'unavailable','models':[],'checked_at':time.time(),'error':type(error).__name__+': loaded-instance discovery unavailable; no loaded model claimed','scope':'discovery only; older server metadata may be unsupported'}
+   with self.lock:self.live=result;self.live_busy=False
+  worker=threading.Thread(target=work,daemon=True);worker.start();return worker
+ def live_snapshot(self):
+  with self.lock:
+   state=dict(self.live);state['models']=list(self.live.get('models',[]));state['busy']=self.live_busy
+   stamp=state.get('checked_at');state['age_s']=round(time.time()-stamp,1)if stamp else None
+   if stamp and time.time()-stamp>15:state['state']='stale'
+   profiles={}
+   for name in ROLES:
+    sid=self.assignments.get(name);slot=self.rows.get(sid)
+    if slot and slot.provider!='local':
+     check=self.checks.get(sid,{})
+     profiles[name]={'route':sid,'provider':slot.provider,'state':'permission required'if sid not in self.consent or sid not in self.free else 'last test '+check.get('state','not checked'),'model':slot.model,'scope':'configured route; no independent background worker; cached test is not live connectivity'}
+    else:
+     chosen=slot.model if slot else'automatic';models=state['models'];match=[x for x in models if chosen=='automatic'or chosen in(x['id'],x.get('key'))]
+     profiles[name]={'route':sid or'local fallback','provider':'local','state':'loaded route'if state['state']=='loaded'and match else state['state']if chosen=='automatic'else'configured model not observed loaded','model':chosen,'scope':'shared loaded local model; not proof of an answer or separate worker'}
+   state['profiles']=profiles;return state
  def check(self,sid='local',notify=lambda *a:None):
   with self.lock:
    if sid in self.busy:return
@@ -197,7 +226,13 @@ class BrainSettings:
    cloud.sort(key=lambda s:s.id!=primary)
    slots=list(cloud)
   # Local always last, and no parallel local inference.
-  return slots+[Slot('slot5','local','automatic')]
+  return slots+[self.local_candidate(name)]
+ def local_candidate(self,name):
+  with self.lock:
+   primary=self.rows.get(self.assignments.get(name));local=[s for s in self.rows.values()if s.provider=='local']
+   if primary and primary.provider=='local':return primary
+   if len(local)==1:return local[0]
+  return Slot('slot5','local','automatic')
 class _Keys:
  def __init__(self,settings,slots):self.settings=settings;self.slots=slots
  def get(self,name):return self.settings.keys().get(self.slots[name].key_target)
@@ -212,16 +247,23 @@ class RoutedBrain:
   image_turn=any(isinstance(row,dict)and isinstance(row.get('content'),list)and any(isinstance(part,dict)and part.get('type')=='image_url'for part in row['content'])for row in messages)
   configured_chat=kw.pop('configured_chat',False)is True
   local_only=kw.pop('local_only',False)is True or image_turn or (not configured_chat and local_turn(messages))
-  candidates=[Slot('slot5','local','automatic')]if local_only else self.settings.candidates(self.name)
+  candidates=[self.settings.local_candidate(self.name)]if local_only else self.settings.candidates(self.name)
   for s in candidates:
    if cancel is not None and cancel.is_set():return
    local=s.provider=='local'
    if local:
     try:
      ids=local_models()
-     if len(ids)!=1:continue
-     s=Slot(s.id,'local',ids[0])
-    except Exception:continue
+     if s.model!='automatic':
+      if s.model not in ids:
+       live=self.settings.live_snapshot();matches=[m['id']for m in live.get('models',[])if m.get('key')==s.model and m['id']in ids]if live.get('state')=='loaded'else[]
+       if len(matches)==1:s=Slot(s.id,'local',matches[0])
+       else:raise ValueError('Assigned local model '+s.model+' is not observed loaded. Loaded choices: '+(', '.join(ids)or'none'))
+     elif len(ids)==1:s=Slot(s.id,'local',ids[0])
+     elif not ids:raise ValueError('LM Studio returned no loaded chat instance. Check server and model load state.')
+     else:raise ValueError('Several local chat instances are loaded: '+', '.join(ids)+'. Assign an exact local model to this profile; none was picked.')
+    except Exception as error:
+     errors.append('local discovery: '+(str(error)if isinstance(error,(ValueError,RouterError))else type(error).__name__)[:220]);continue
    p=replace(configured(s.provider,s.model),name='local'if local else s.id,timeout=30,requires_free_plan=not local)
    router=BrainRouter([p],key_store=None if local else _Keys(self.settings,{s.id:s}))
    options={}
