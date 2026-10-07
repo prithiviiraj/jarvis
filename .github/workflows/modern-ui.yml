@@ -30,7 +30,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Install failed' }
           npm run build
           if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed' }
-          npm install --no-save playwright@1.51.1
+          npm install --no-save playwright@1.56.0
           npx playwright install chromium
           $server = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','dist' -PassThru
           try { node ui-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw 'UI smoke failed' } } finally { Stop-Process -Id $server.Id }
