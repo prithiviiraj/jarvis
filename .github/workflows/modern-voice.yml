@@ -71,6 +71,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Actual owner command bridge failed' }
           python polish-state.py
           if ($LASTEXITCODE -ne 0) { throw 'Polish actual Bridge state failed' }
+          node transcript-setting-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Transcript native-setting readback fixture failed' }
           node polish-pixels.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Polish pixels failed' }
           node presence-pixels.mjs
