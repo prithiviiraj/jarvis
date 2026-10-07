@@ -1,8 +1,8 @@
 """Explicit user-started bounded fictional team conversation, no tools."""
 import re
 from .personas import prompt
-ORDER=('JARVIS','NOVA','LYRA','KAI','DEX','JARVIS')
-BANTER_ORDER=('JARVIS','NOVA','DEX','JARVIS','NOVA','LYRA','KAI','DEX','JARVIS')
+ORDER=('JARVIS','NOVA','LYRA','SILA','DEX','JARVIS')
+BANTER_ORDER=('JARVIS','NOVA','DEX','JARVIS','NOVA','LYRA','SILA','DEX','JARVIS')
 def banter(text):return bool(re.search(r'\b(?:argue|argument|bicker|banter)\b',text,re.I))
 def order(text,initiator="JARVIS"):
  if re.search(r'\beach\s+other\b',text,re.I)or (requested(text)and not re.search(r'\b(?:among|amongst|between)\s+yourselves\b',text,re.I)):return participants(text,initiator)*2+('JARVIS',)
@@ -25,7 +25,7 @@ def messages(actor,topic,context,index,final=None,addressees=None):
  elif banter(topic) and index==3:instruction='End the fictional bickering now. Say Stop all! What will master think of us? Idiots. Keep it playful, no threats. Tell the team to settle.'
  elif banter(topic) and index>3:instruction='Give a short apology to Jarvis and master, then one useful sentence. The argument is over, do not restart it.'
  elif banter(topic):
-  if actor=='KAI':instruction='One short reply as the team recorder: cite an actual earlier mistake from the supplied conversation to win, if one exists. Never invent one. Dry, smug, few words.'
+  if actor=='SILA':instruction='One short reserved reply as the introverted researcher and experienced manager. Point out one verified fact from this conversation, gently organize the disagreement, and do not invent mistakes. Optional brief authored reflection stays text-only.'
   elif actor=='NOVA':instruction='One short hot-tempered reply. If your past was thrown at you, explode defensively (Why bring up the past!). Mild fictional outrage only, no slurs.'
   elif actor=='DEX':instruction='One short reply that calmly ends the debate. Practical and matured; the others are wary of you.'
   else:instruction='One short playful in-character disagreement or response to the actual preceding team words. No insults to master, no threats, no real feelings/conflict claims.'
@@ -49,7 +49,7 @@ def participants(text,initiator="JARVIS"):
  if len(names)==1:
   partner=initiator if initiator in ROLES and initiator!='REO' and initiator!=names[0] else ('NOVA' if names[0]=='JARVIS' else 'JARVIS')
   return (partner,names[0])
- return tuple(names) if len(names)>=2 else ('JARVIS','NOVA','LYRA','KAI','DEX')
+ return tuple(names) if len(names)>=2 else ('JARVIS','NOVA','LYRA','SILA','DEX')
 
 def clean_reply(text):
  from .persona_text import strip_speaker_tag
