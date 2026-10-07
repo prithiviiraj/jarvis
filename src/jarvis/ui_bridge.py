@@ -63,6 +63,7 @@ class Bridge:
     try:self.messages=self.history.load(self.chat_id);self.voice.memory.restore(self.messages)
     except Exception:self.history_error='Saved conversation could not be restored. Original archive preserved.';self.chat_id=self.history.new()
  def poll(self):
+  self.brains.refresh_live()
   if self.browser:
    state=self.browser.snapshot()
    try:self.news.observe(state)
@@ -92,21 +93,15 @@ class Bridge:
   key=(surface,reason)
   if key in self.failure_notices:return
   self.failure_notices.add(key)
-  self.messages.append({'name':'KAI','text':surface+': '+reason+' No successful completion is verified.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
-  if propose and not self.failure_guard:
-   self.failure_guard=True
-   try:
-    if self.evolution_busy:self.messages.append({'name':'DEX','text':'An existing local proposal is still running; no second proposal or live fix was started.','provider':'verified-app-state','cloud':False})
-    else:self._execute({'command':'evolution-generate','goal':'Prepare a local source/tests/risks proposal for this observed issue: '+surface+'. Diagnostic data: '+reason+'. Do not install or run generated code. Unknown causes need investigation, not assumptions.','consent':True})
-   except Exception as error:
-    self.messages.append({'name':'DEX','text':'Local proposal could not start: '+str(error)[:200]+'. Nothing installed.','provider':'verified-app-state','cloud':False})
-   finally:self.failure_guard=False
+  self.failure_detail={'surface':surface,'detail':reason}
+  self.status=surface+' could not complete. No action or code fix was started.'
+  self.error='Local operation did not complete. No action or automatic fix was started.'
  def time_action(self,text,spoken=False):
   import re,datetime
   from zoneinfo import ZoneInfo
-  if not isinstance(text,str)or not re.fullmatch(r"\s*(?:(?:hey\s+)?(?:jarvis|nova|kai|lyra|dex)[,.:]?\s+)?(?:what(?:'s| is) (?:the )?(?:time|current time)(?: now)?|tell me (?:the )?(?:time|current time)|time now|time)[.!?]*\s*",text,re.I):return False
+  if not isinstance(text,str)or not re.fullmatch(r"\s*(?:(?:hey\s+)?(?:jarvis|nova|sila|lyra|dex)[,.:]?\s+)?(?:what(?:'s| is) (?:the )?(?:time|current time)(?: now)?|tell me (?:the )?(?:time|current time)|time now|time)[.!?]*\s*",text,re.I):return False
   current=datetime.datetime.now(ZoneInfo('Asia/Kolkata'));answer='Master, it is '+current.strftime('%I:%M %p').lstrip('0')+' IST.'
-  target=re.search(r'\b(jarvis|nova|kai|lyra|dex)\b',text,re.I)
+  target=re.search(r'\b(jarvis|nova|sila|lyra|dex)\b',text,re.I)
   actor=target.group(1).upper()if target else self.voice.name
   self.messages.append({'name':actor,'text':answer,'provider':'system-clock','cloud':False});self.archive_dirty=True
   if spoken and self.voice.runtime is not None:
@@ -152,11 +147,11 @@ class Bridge:
  @staticmethod
  def stop_intent(text):
   import re
-  return isinstance(text,str)and bool(re.fullmatch(r'\s*(?:(?:jarvis|nova|kai|lyra|dex)[,.:]?\s+)?(?:stop|stop talking|stop team conversation|quiet|be quiet|cancel conversation)[.!?]*\s*',text,re.I))
+  return isinstance(text,str)and bool(re.fullmatch(r'\s*(?:(?:jarvis|nova|sila|lyra|dex)[,.:]?\s+)?(?:stop|stop talking|stop team conversation|quiet|be quiet|cancel conversation)[.!?]*\s*',text,re.I))
  def teammate_query(self,text):
   import re
   if not self.teammate_awareness.enabled or not isinstance(text,str):return False
-  m=re.fullmatch(r'\s*(DEX|KAI)[,.:]?\s+(?:what(?: are you doing| is your status| did you install| code did you install| app am I using)|status)[?!.]*\s*',text,re.I)
+  m=re.fullmatch(r'\s*(DEX|SILA)[,.:]?\s+(?:what(?: are you doing| is your status| did you install| code did you install| app am I using)|status)[?!.]*\s*',text,re.I)
   if not m:return False
   name=m.group(1).upper();state=self.teammate_state();row=state['teammates'][name]
   if 'app'in text.lower():
@@ -187,7 +182,10 @@ class Bridge:
   return True
  def interface_context(self,text=None):
   import json
-  state={'browser':{'enabled':self.browser_enabled,'active_direct_session':self.laya_active,'controlled_browser':'isolated Edge only','model_ready':self.laya_engine.snapshot().get('ready',False),'setup_busy':self.control_busy,'pending_review':self.browser_pending is not None},'apps':{'enabled':self.desktop_enabled,'approved':['Notepad','Calculator','Paint'],'confirmation_required':not self.laya_active},'microphone_on':self.voice.runtime is not None,'speech_engine':'Kokoro','camera_enabled':self.vision.enabled,'vault_connected':self.vault is not None,'obsidian_connected':self.obsidian.enabled,'unsupported':['arbitrary desktop automation','shell','file deletion','forms','credentials','sending messages','payments'],'fixes':{'browser':'Type or say activate laya for direct isolated Edge navigation, or Settings > Tools > Enable browser control for reviewed mode. Model download/loading is separate for page reasoning.','apps':'Settings > Tools > Reviewed Windows apps > Review app launch permission. Outside active Laya mode, review each exact app launch.','microphone':'Voices > Talk to selected profile starts a consented mic session. Typed chat works with mic OFF.','voice':'Voices > Check local voice models, or review Download local voice models if missing.','vault':'Settings > Memory > connect local vault. Calendar saves local reviewed notes only, no Google sync/reminders.'}}
+  self.brains.refresh_live()
+  engine=self.laya_engine.snapshot();live=self.brains.live_snapshot()
+  browser_fix=('Laya engine is loaded and browser permission is enabled; do not ask to load or enable it again. Check the actual browser page/session state if an action fails.'if engine.get('ready')and self.browser_enabled else'Laya engine is loaded; browser session permission is OFF. Open Settings > Tools > Laya activate to review the session, not download the model again.'if engine.get('ready')else'Laya is loading; wait for actual ready state.'if engine.get('loading')else'Laya engine is not loaded. Open Settings > Tools > Laya activate to check the actual setup error and review loading.')
+  state={'browser':{'enabled':self.browser_enabled,'active_direct_session':self.laya_active,'controlled_browser':'isolated Edge only','model_ready':self.laya_engine.snapshot().get('ready',False),'setup_busy':self.control_busy,'pending_review':self.browser_pending is not None},'apps':{'enabled':self.desktop_enabled,'approved':['Notepad','Calculator','Paint'],'confirmation_required':not self.laya_active},'microphone_on':self.voice.runtime is not None,'speech_engine':self.voice.tts_engine,'live_brains':live,'last_failure':getattr(self,'failure_detail',None),'laya_engine':engine,'camera_enabled':self.context.camera=='on','camera_vision_enabled':self.vision.enabled,'vault_connected':self.vault is not None,'obsidian_exports_enabled':self.obsidian.enabled,'obsidian_registration':getattr(self.obsidian,'registration','not checked'), 'obsidian_error':self.obsidian.error,'unsupported':['arbitrary desktop automation','shell','file deletion','forms','credentials','sending messages','payments'],'fixes':{'browser':browser_fix,'apps':'Settings > Tools > Laya activate > Reviewed Windows apps > Review app launch permission. Outside active Laya mode, review each exact app launch.','microphone':'Voices > Talk to selected profile starts a consented mic session. Typed chat works with mic OFF.','voice':'Voices > Check local voice models, or review Download local voice models if missing.','vault':'Settings > Memory > connect local vault. Managed AUTO registration may need Obsidian closed; check actual error instead of claiming connection. Calendar saves local reviewed notes only, no Google sync/reminders.'}}
   import re
   hints=[]
   relevant=[('camera',r'\b(?:camera|see me|look at me|can you see|webcam)\b',not self.vision.enabled,'Camera features are available but OFF. Use the CAM control and review camera permission to enable the current-frame feature; I cannot see you while it is OFF.'),('browser',r'\b(?:browser|laya|navigate|brave)\b',not self.browser_enabled,'Browser control is available but OFF. Type or say activate laya for direct isolated Edge navigation, or enable reviewed browser control in Settings > Tools.'),('apps',r'\b(?:notepad|calculator|paint)\b',not self.desktop_enabled,'Approved app launches are available but OFF. Review app launch permission in Settings > Tools first.'),('vault',r'\b(?:vault|obsidian)\b',not(self.vault or self.obsidian.enabled),'Local vault features are available but not connected. Connect the vault in Settings > Memory; private note text is not automatically shared.')]
@@ -207,8 +205,8 @@ class Bridge:
   if not self.laya_active:return
   goal='Prepare a reviewed proposal for the missing '+surface+' capability. Diagnosis: '+answer[:500]+'. No installation or executable actions.'
   self.laya_support={'surface':surface,'diagnosis':answer,'goal':goal,'status':'Starting local DEX proposal generation; no code installed'}
-  kai=('Master, indha app la Brave open/control adapter innum illa. Unga laptop la Brave path missing nu naan check pannala. DEX local proposal prepare pannuva. Proposal review pannuveengala, illa DEX kitta neengale pesuveengala? Idhu live install illa.'if surface=='browser'else 'Master, '+answer+' DEX local proposal prepare pannuva; neengalum DEX kitta pesalam.')
-  self.messages.append({'name':'KAI','text':kai,'provider':'verified-app-state','cloud':False})
+  sila=('Master, indha app la Brave open/control adapter innum illa. Unga laptop la Brave path missing nu naan check pannala. DEX local proposal prepare pannuva. Proposal review pannuveengala, illa DEX kitta neengale pesuveengala? Idhu live install illa.'if surface=='browser'else 'Master, '+answer+' DEX local proposal prepare pannuva; neengalum DEX kitta pesalam.')
+  self.messages.append({'name':'SILA','text':sila,'provider':'verified-app-state','cloud':False})
   self.messages.append({'name':'DEX','text':'I am starting a local code proposal for this named gap. It will not install or run a fix. I will report if the local model is unavailable.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
   if not self.evolution_busy:self.execute({'command':'evolution-generate','goal':goal,'consent':True})
   else:self.laya_support['status']='Existing local proposal generation is busy; no second fix started'
@@ -221,7 +219,7 @@ class Bridge:
    self.desktop_pending=None;self.laya_support=None;self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
    self.execute({'command':'browser-stop'});self.reo_event('off','Laya session deactivated. Browser stopped; direct app mode ended.');return True
   self.laya_active=True;self.browser_enabled=True;self.desktop_enabled=True;self.laya_support=None
-  self.messages.append({'name':'KAI','text':'I am assigned to report real Laya capability gaps during this active session. DEX can offer local code proposals; neither of us installs untested fixes.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
+  self.messages.append({'name':'SILA','text':'I am assigned to report real Laya capability gaps during this active session. DEX can offer local code proposals; neither of us installs untested fixes.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
   self.reo_event('active','LAYA ACTIVE this session: isolated Edge open/navigation/scroll run directly. Notepad, Calculator and Paint open directly. No forms, sending, credentials, payments, files or shell. Local model setup is separate if page reasoning is needed.')
   return True
  def auto_browser(self):
@@ -307,7 +305,7 @@ class Bridge:
     self.voice.notify('error','Local vault command failed. Check the connected vault and exact Markdown note path in Settings > Memory.')
    return True
   import re
-  browser_explicit=bool(re.match(r'^\s*(?:(?:hey|hi|hello)\s+)?(?:(?:jarvis|nova|kai|lyra|dex)[, :]+)?browser\s+(?:open|search|scroll|read|choose|select|youtube|click|type|send|pay|buy|upload|delete)\b',text,re.I))
+  browser_explicit=bool(re.match(r'^\s*(?:(?:hey|hi|hello)\s+)?(?:(?:jarvis|nova|sila|lyra|dex)[, :]+)?browser\s+(?:open|search|scroll|read|choose|select|youtube|click|type|send|pay|buy|upload|delete)\b',text,re.I))
   if not self.browser_enabled:
    if browser_explicit:
     self.browser_pending=None;self.voice.notify('error','Browser control is OFF. Enable it in Settings > Tools; nothing opened or sent to a model.');return True
@@ -397,7 +395,7 @@ class Bridge:
   threading.Thread(target=run,daemon=True).start()
  def teammate_state(self):
   sensors=self.context.snapshot();recent=self.voice.memory.snapshot();recent=recent if isinstance(recent,list)else[];states={}
-  for name in ('DEX','KAI'):
+  for name in ('DEX','SILA'):
    replies=[answer for actor,user,answer in recent if actor==name]
    states[name]={'role':'coder'if name=='DEX'else'researcher','reply_in_progress':self.voice.busy and self.voice.reply_actor==name,'recent_actual_reply':replies[-1][:1200]if replies else None,'independent_background_work':False}
   if hasattr(self,'evolution'):states['DEX']['code_proposal']={'busy':self.evolution_busy,'status':self.evolution.status,'installed':False,'tests_executed':False}
@@ -493,7 +491,7 @@ class Bridge:
   elif cmd=='laya-cancel':self.stop_laya();self.browser_pending=None
   elif cmd=='laya-mode':
    if request.get('consent')is not True:raise ValueError('Review local Laya disclosure first')
-   self.laya_generation+=1;self.laya_enabled=True;self.laya_state={'busy':False,'status':'Enabled this session - load the inbuilt Laya engine; exact review still required','error':''}
+   self.laya_generation+=1;self.laya_enabled=True;self.laya_state={'busy':False,'status':('Enabled this session - inbuilt Laya engine already loaded'if self.laya_engine.snapshot().get('ready')else'Enabled this session - inbuilt Laya engine not loaded')+'; exact review still required','error':''}
   elif cmd=='laya-propose':self.start_laya(request.get('goal'))
   elif cmd=='laya-stop':self.stop_laya();self.browser_pending=None
   elif cmd=='browser-enable':self.enable_control(request.get('consent')is True)
@@ -807,7 +805,7 @@ class Bridge:
     if value and not str(value).startswith('Reply reached the completion limit'):
      self.reply_wait=None;self.explain_failure('Reply/voice runtime',value)
     if str(value).startswith('Reply reached the completion limit'):self.warning=str(value)[:300]
-    else:self.error=str(value)[:300]
+    else:self.error='Local model did not answer. Check LM Studio connection and the selected model; Mic can listen again. No action was taken.'if any(w in str(value).lower()for w in ('model','brain','lm studio'))else'Local speech assets are missing. Open Voices and check the installed files.'if 'speech assets' in str(value).lower()else'Operation could not complete. No successful action was verified.'
    elif kind=='action-handled':self.reply_wait=None
    elif kind=='voice-actor':self.voice.reply_actor=str(value)
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
@@ -839,7 +837,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'failure_detail':getattr(self,'failure_detail',None),'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
