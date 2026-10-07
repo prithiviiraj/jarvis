@@ -143,6 +143,7 @@ class WorkspaceVoice:
         if type(rounds)is not int or not 1<=rounds<=3:raise ValueError('Choose1to3conversation rounds')
         if origin not in ('user','idle'):raise ValueError('Invalid conversation origin')
         self.dialogue_origin=origin
+        idle_local=origin=='idle'and getattr(self,'idle_route','api')=='local'
         from .multi_address import addressed,request as addressed_request
         from .team_discussion import requested
         direct=addressed(topic)if origin=='user'and not requested(topic)else()
@@ -180,7 +181,7 @@ class WorkspaceVoice:
                         def chunks():
                             nonlocal answer,first_text,generation_done
                             pending=prefetched.pop(index,None)
-                            source=pending.stream()if pending is not None else router.stream(request,cancel=cancel,**({'local_only':not getattr(self,'idle_configured',False),'configured_chat':getattr(self,'idle_configured',False)}if origin=='idle'else{}))
+                            source=pending.stream()if pending is not None else router.stream(request,cancel=cancel,**({'local_only':idle_local,'configured_chat':True,'api_only':not idle_local}if origin=='idle'else{}))
                             for delta in source:
                                 with self.lock:
                                     if cancel.is_set()or self.closed or ticket!=self.generation:return
@@ -200,7 +201,7 @@ class WorkspaceVoice:
                                 next_name=actors[index+1];next_router=brains.router(next_name)
                                 if callable(getattr(type(next_router),'stream',None)):
                                     from .dialogue_prefetch import Prefetch
-                                    prefetched[index+1]=Prefetch(next_router,make_request(index+1,next_name,context+[{'role':'assistant','content':'['+name+'] '+actual}]),cancel,local_only=origin=='idle')
+                                    prefetched[index+1]=Prefetch(next_router,make_request(index+1,next_name,context+[{'role':'assistant','content':'['+name+'] '+actual}]),cancel,local_only=idle_local,configured_chat=origin=='idle',api_only=origin=='idle'and not idle_local)
                         if speaker:
                             from .speech_queue import SpeechQueue
                             from .persona_text import spoken_chunks
@@ -211,11 +212,11 @@ class WorkspaceVoice:
                         if cancel.is_set()or self.closed or ticket!=self.generation:return
                         text=clean_reply(answer.get('text'));own_reply(text,name,context)
                     else:
-                        answer=router.ask(request,cancel=cancel,**({'local_only':not getattr(self,'idle_configured',False),'configured_chat':getattr(self,'idle_configured',False)}if origin=='idle'else{}))
+                        answer=router.ask(request,cancel=cancel,**({'local_only':idle_local,'configured_chat':True,'api_only':not idle_local}if origin=='idle'else{}))
                         try:text=clean_reply(answer.get('text'));own_reply(text,name,context)
                         except ValueError:
                             if cancel.is_set():return
-                            answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel,**({'local_only':not getattr(self,'idle_configured',False),'configured_chat':getattr(self,'idle_configured',False)}if origin=='idle'else{}))
+                            answer=router.ask(request+[{'role':'user','content':'Reply only as '+name+'. Do not write any other person reply or speaker labels. One short useful sentence.'}],cancel=cancel,**({'local_only':idle_local,'configured_chat':True,'api_only':not idle_local}if origin=='idle'else{}))
                             text=clean_reply(answer.get('text'));own_reply(text,name,context)
                         if cancel.is_set()or self.closed or ticket!=self.generation:return
                         self.notify('answer',{**answer,'text':text,'profile':name,'stream_id':stream_id})
