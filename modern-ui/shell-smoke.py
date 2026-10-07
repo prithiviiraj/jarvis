@@ -6,13 +6,23 @@ env=dict(os.environ,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-po
 p=subprocess.Popen([str(pathlib.Path('src-tauri/target/release/jarvis-modern-ui.exe').resolve())],env=env);found=[]
 try:
  subprocess.run(['node','native-smoke.mjs'],check=True,timeout=90)
+ from ctypes import wintypes
+ user32=ctypes.windll.user32
+ user32.GetWindowTextW.argtypes=[wintypes.HWND,wintypes.LPWSTR,ctypes.c_int]
+ user32.GetWindowThreadProcessId.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.DWORD)]
+ user32.ShowWindow.argtypes=[wintypes.HWND,ctypes.c_int]
+ user32.SetWindowPos.argtypes=[wintypes.HWND,wintypes.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_uint]
+ user32.SetForegroundWindow.argtypes=[wintypes.HWND]
+ user32.GetWindowRect.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.RECT)]
+ user32.PostMessageW.argtypes=[wintypes.HWND,ctypes.c_uint,wintypes.WPARAM,wintypes.LPARAM]
  def enum(hwnd,_):
   b=ctypes.create_unicode_buffer(256);ctypes.windll.user32.GetWindowTextW(hwnd,b,256)
-  if 'JARVIS / Modern workspace preview' in b.value:found.append(hwnd)
+  owner=ctypes.c_ulong();ctypes.windll.user32.GetWindowThreadProcessId(hwnd,ctypes.byref(owner))
+  if owner.value==p.pid and b.value=='JARVIS / Modern workspace preview':found.append(hwnd)
   return True
  callback=ctypes.WINFUNCTYPE(ctypes.c_bool,ctypes.c_void_p,ctypes.c_void_p)(enum)
  ctypes.windll.user32.EnumWindows(callback,0)
- if not found:raise RuntimeError('Tauri shell window unavailable')
+ if len(found)!=1:raise RuntimeError('Expected exactly one workspace HWND in launched process: '+str(len(found)))
  hwnd=found[0];ctypes.windll.user32.ShowWindow(hwnd,9)
  ctypes.windll.user32.SetWindowPos(hwnd,0,0,0,1000,740,0x0040);ctypes.windll.user32.SetForegroundWindow(hwnd)
  time.sleep(1)
