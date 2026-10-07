@@ -38,7 +38,8 @@ class ChatHistory:
    if not isinstance(rows,list)or len(rows)>self.max_messages or any(not isinstance(r,dict)or not valid_name(r.get('name'))or not isinstance(r.get('text'),str)or len(r['text'])>4000 for r in rows):raise ValueError('Saved conversation invalid; file preserved')
    for r in rows:
     if any(k in r and (not isinstance(r[k],str)or len(r[k])>200)for k in ('provider','model','slot'))or ('cloud'in r and type(r['cloud'])is not bool):raise ValueError('Saved source invalid; file preserved')
-   return rows
+   legacy=''.join(('K','AI'))
+   return [{**r,'name':'SILA'if r['name']==legacy else r['name']}for r in rows]
  def delete(self,chat_id):
   with self.lock,self.db:self.db.execute('DELETE FROM chats WHERE id=?',(chat_id,))
   with self.lock:self.db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
