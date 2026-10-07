@@ -66,3 +66,13 @@ class KokoroSynth:
             audio=self.session.run(None,{'input_ids':np.array([[0,*tokens,0]],np.int64),'style':self.voice[len(tokens)-1].reshape(1,256),'speed':np.array([speed],np.float32)})[0].reshape(-1)
             if not 0<len(audio)<=24000*40 or not np.isfinite(audio).all():raise VoiceError('Voice output is invalid.')
             return np.clip(audio,-1,1).astype(np.float32),24000
+
+    def synthesize_stream(self,text,speed=1.0,max_chars=120):
+        """Yield bounded local synthesis chunks, not token-streaming within ONNX.
+        Split only at punctuation/word boundaries. Existing per-chunk validation stays.
+        """
+        from ..streaming import sentences
+        if not isinstance(text,str) or not 40<=max_chars<=220:raise VoiceError('Invalid voice stream input.')
+        for part in sentences(iter(text),max_chars=max_chars):
+            audio,sr=self.synthesize(part,speed)
+            yield part,audio,sr
