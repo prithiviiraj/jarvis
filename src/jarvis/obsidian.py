@@ -4,8 +4,19 @@ from urllib.parse import urlencode
 import os,time
 class Vault:
  def __init__(self,root):
-  self.root=Path(root).resolve(strict=True)
-  if not self.root.is_dir()or not (self.root/'.obsidian').is_dir():raise ValueError('Choose an Obsidian vault folder')
+  if not isinstance(root,(str,Path)):raise ValueError('Choose a full Obsidian vault folder path')
+  raw=str(root).strip()
+  if len(raw)>=2 and raw[0]==raw[-1]and raw[0]in ('"',"'"):raw=raw[1:-1].strip()
+  if not raw:raise ValueError('Choose a full Obsidian vault folder path')
+  self.root=Path(raw).expanduser().resolve(strict=True)
+  managed=False
+  marker=self.root/'.jarvis-vault.json'
+  if marker.is_file()and not marker.is_symlink()and marker.stat().st_size<=1048576:
+   try:
+    import json
+    data=json.loads(marker.read_text(encoding='utf-8'));managed=data.get('version')==1 and data.get('name')=='Brain of Brain'and isinstance(data.get('hashes'),dict)
+   except (OSError,ValueError):pass
+  if not self.root.is_dir()or not((self.root/'.obsidian').is_dir()or managed):raise ValueError('Choose an Obsidian vault folder containing .obsidian, or the reviewed managed Brain of Brain folder')
  def note(self,name,must_exist=True):
   if not isinstance(name,str)or len(name)>240 or '\\'in name or ':'in name or any(x.startswith('.')for x in name.split('/')):raise ValueError('Invalid note path')
   rel=Path(name)
