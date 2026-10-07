@@ -1,6 +1,6 @@
 """Five-orb view driven only by real workspace state. No inferred activity."""
 import math,time
-ROSTER=[('JARVIS','#5bc8b2'),('NOVA','#aa8be9'),('KAI','#ec9d65'),('LYRA','#e287b5'),('DEX','#79a9e8')]
+ROSTER=[('JARVIS','#5bc8b2'),('NOVA','#aa8be9'),('SILA','#ec9d65'),('LYRA','#e287b5'),('DEX','#79a9e8')]
 def radius(name,selected,state,elapsed,reduced=False):
     speaking=name==selected and state=='speaking'
     return 21+(7+(0 if reduced else 2*math.sin(elapsed*6)) if speaking else 0)
@@ -65,7 +65,7 @@ class OrbOverlay:
                 self.canvas.coords(f['brow'+side],ex-.16*r,y-.34*r,ex,y-(.44 if pose['mode']=='thinking' else .38)*r,ex+.16*r,y-.34*r)
             for part,dx in [('cheekL',-.49),('cheekR',.49)]:self.canvas.coords(f[part],x+dx*r-.1*r,y+.08*r,x+dx*r+.1*r,y+.18*r)
             h=pose['mouth']*r;self.canvas.coords(f['mouth'],x-.22*r,y+.35*r-h,x+.22*r,y+.35*r+h)
-            hair={'JARVIS':(-.72,-.9,.72,-.58),'NOVA':(-.88,-.85,-.05,-.45),'KAI':(-.55,-.98,.55,-.72),'LYRA':(.05,-.85,.88,-.45),'DEX':(-.8,-.83,.8,-.65)}[name]
+            hair={'JARVIS':(-.72,-.9,.72,-.58),'NOVA':(-.88,-.85,-.05,-.45),'SILA':(-.55,-.98,.55,-.72),'LYRA':(.05,-.85,.88,-.45),'DEX':(-.8,-.83,.8,-.65)}[name]
             self.canvas.coords(f['hair'],x+hair[0]*r,y+hair[1]*r,x+hair[2]*r,y+hair[3]*r)
             if pose['mode']=='thinking':self.canvas.itemconfigure(f['detail'],fill='#fff4cc')
             else:self.canvas.itemconfigure(f['detail'],fill='#f4ebd4')
