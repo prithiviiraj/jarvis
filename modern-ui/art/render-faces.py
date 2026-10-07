@@ -17,7 +17,7 @@ def curve(name,pts,r,material):
 for loc,power,size in [((-3,-4,5),500,4),((4,-2,2),300,4),((0,3,4),550,3)]:
  bpy.ops.object.light_add(type='AREA',location=loc);l=bpy.context.object;l.data.energy=power;l.data.size=size;l.rotation_euler=(Vector((0,0,.1))-l.location).to_track_quat('-Z','Y').to_euler()
 bpy.ops.object.camera_add(location=(0,-6,1.1));camera=bpy.context.object;camera.rotation_euler=(Vector((0,0,.12))-camera.location).to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=2.85;scene.camera=camera
-specs={'JARVIS':((.36,.76,.63),'round'), 'NOVA':((.64,.48,.85),'bunny'),'KAI':((.96,.59,.30),'fox'),'LYRA':((.91,.48,.66),'cat'),'DEX':((.39,.61,.91),'sprout')}
+specs={'JARVIS':((.36,.76,.63),'round'), 'NOVA':((.64,.48,.85),'bunny'),'SILA':((.96,.59,.30),'fox'),'LYRA':((.91,.48,.66),'cat'),'DEX':((.39,.61,.91),'sprout')}
 manifest={'version':1,'width':512,'height':512,'format':'png-sequence','design':'Original soft creature mascots','personas':{}}
 for persona,(color,kind)in specs.items():
  if '--persona'in sys.argv and persona!=sys.argv[sys.argv.index('--persona')+1]:continue
