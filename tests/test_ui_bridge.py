@@ -67,7 +67,7 @@ class UiBridgeTests(unittest.TestCase):
   self.b.voice.notify('metrics',{'turn_s':2});self.assertEqual(self.b.execute({'command':'pause'})['voice_metrics'],{})
   self.assertEqual(self.b.execute({'command':'status'})['voice_metrics'],{})
  def test_endpoint_session_preset_stopped_only(self):
-  self.assertEqual(self.b.execute({'command':'status'})['endpoint_mode'],'balanced')
+  self.assertEqual(self.b.execute({'command':'status'})['endpoint_mode'],'fast')
   self.assertEqual(self.b.execute({'command':'voice-endpoint','mode':'fast'})['endpoint_mode'],'fast')
   with self.assertRaises(ValueError):self.b.execute({'command':'voice-endpoint','mode':'arbitrary'})
   self.b.voice.busy=True
