@@ -26,6 +26,7 @@ permissions:
   actions: read
 jobs:
   windows:
+    needs: embedding-runtime
     if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: windows-latest
     timeout-minutes: 50
@@ -71,6 +72,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Actual owner command bridge failed' }
           python polish-state.py
           if ($LASTEXITCODE -ne 0) { throw 'Polish actual Bridge state failed' }
+          node universe-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Knowledge graph fixture failed' }
+          node next-track-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Direct controls/selected screen/editable answer fixture failed' }
           node transcript-setting-smoke.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Transcript native-setting readback fixture failed' }
           node polish-pixels.mjs
@@ -113,6 +118,11 @@ jobs:
       - name: CPU-only speech and native persona frontend
         shell: pwsh
         run: ./build-speech-native.ps1
+      - name: Download isolated EmbeddingGemma runtime for bundled delivery
+        uses: actions/download-artifact@v4
+        with:
+          name: JARVIS-Optional-EmbeddingGemma-Runtime
+          path: modern-ui/embedding-runtime
       - name: Package bundled local core and test the portable EXE
         shell: pwsh
         env:
@@ -249,3 +259,52 @@ jobs:
             optional-laya/server.log
           retention-days: 7
           if-no-files-found: error
+
+  embedding-runtime:
+    if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: optional-embedding
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build isolated EmbeddingGemma runtime, not working Laya interpreter
+        shell: pwsh
+        run: ./build-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Optional-EmbeddingGemma-Runtime
+          path: optional-embedding/embedding-runtime
+          if-no-files-found: error
+          retention-days: 7
+  embedding-model:
+    if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      JARVIS_DATA_DIR: /tmp/jarvis-embedding-acceptance
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      USE_TF: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pinned isolated CPU inference dependencies
+        run: |
+          python -m pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r optional-embedding/requirements.txt
+          python -m pip check
+      - name: Real pinned model, synthetic text/code/image/video/audio candidates
+        run: python optional-embedding/acceptance.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JARVIS-EmbeddingGemma-Real-CPU-Evidence
+          path: embedding-evidence
+          if-no-files-found: error
+          retention-days: 7
