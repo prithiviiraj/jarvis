@@ -193,3 +193,18 @@ class NativeModelListBoundary(unittest.TestCase):
  def test_native_allows_list_command(self):
   p=Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs'
   self.assertIn('"brain-models"',p.read_text().split('.contains(&command)')[0])
+
+class ApiOnlyRouting(unittest.TestCase):
+ def test_api_unavailable_never_discovers_local(self):
+  b=BrainSettings(Mock())
+  with patch('jarvis.brain_settings.local_models')as local:
+   with self.assertRaises(RouterError):b.router('JARVIS').ask([{'role':'user','content':'hi'}],configured_chat=True,api_only=True)
+   local.assert_not_called()
+ def test_api_failure_never_falls_back_to_local(self):
+  b=BrainSettings(Mock());b.configure([{'id':'slot1','provider':'groq','model':'llama-3.1-8b-instant','enabled':True,'consent':True,'free':True}],{})
+  class Failed:
+   def __init__(self,*a,**k):self.last_diagnostics=[];self.last_warnings=[]
+   def stream(self,*a,**k):raise RouterError('http-500');yield
+  with patch('jarvis.brain_settings.BrainRouter',Failed),patch('jarvis.brain_settings.local_models')as local:
+   with self.assertRaises(RouterError):b.router('NOVA').ask([{'role':'user','content':'A friendly chat'}],configured_chat=True,api_only=True)
+   local.assert_not_called()
