@@ -8,7 +8,7 @@ requests=[]
 class LocalFixture(http.server.BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def do_GET(self):
-  requests.append({'path':self.path});self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'models':[{'type':'llm','key':'qwen2.5-vl-3b-instruct','capabilities':{'vision':True},'loaded_instances':[]},{'type':'embedding','key':'text-embedding-nomic-embed-text-v1.5','loaded_instances':[]}]} if self.path=='/api/v1/models' else {'data':[{'id':'qwen2.5-vl-3b-instruct'},{'id':'text-embedding-nomic-embed-text-v1.5'}]}).encode())
+  requests.append({'path':self.path});self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'models':[{'type':'llm','key':'qwen2.5-vl-3b-instruct','capabilities':{'vision':True},'loaded_instances':[{'id':'qwen2.5-vl-3b-instruct'}]},{'type':'embedding','key':'text-embedding-nomic-embed-text-v1.5','loaded_instances':[]}]} if self.path=='/api/v1/models' else {'data':[{'id':'qwen2.5-vl-3b-instruct'},{'id':'text-embedding-nomic-embed-text-v1.5'}]}).encode())
  def do_POST(self):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));requests.append({'path':self.path,'body':body})
   # Direct-final retries append a user instruction. Match the original probe too.
@@ -102,7 +102,7 @@ try:
   item=(root or window).child_window(title_re=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+__import__('re').escape(name)+'$'),control_type='Button');item.wait('exists',timeout=20);return item
  def click(name,root=None):button(name,root).wrapper_object().invoke();checks.append(name)
  # Actual fixed Windows app launch: review before execution, window observed.
- click('Settings');click('Tools');click('Review app launch permission');click('Confirm app permission')
+ click('Settings');click('Tools');click('Laya activate');click('Review app launch permission');click('Confirm app permission')
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
  click('Prepare app launch');click('Review exact app launch')
  window.capture_as_image().save('ui-evidence/native-notepad-exact-review.png')
@@ -125,10 +125,10 @@ try:
  click('Stop vault sync');click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
 
  time.sleep(2)
- assert not requests,'Bundled core launch must not probe LM Studio or send inference'
+ assert not any('body'in row for row in requests),'Launch discovery must not send inference or user text'
  click('Review proactive team ON');click('Cancel proactive team review');checks.append('front proactive review canceled; permission remains OFF')
  click('Settings');click('Brain & APIs')
- click('Review local speed test');button('Confirm local speed test').wait('exists',timeout=10);button('Confirm local speed test').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-local-speed-review.png');click('Cancel local speed review');window.child_window(title='Confirm local speed test',control_type='Button').wait_not('exists',timeout=10);checks.append('native synthetic local timing review/cancel; no test request started')
+ assert not window.child_window(title='Review local speed test',control_type='Button').exists(),'Removed speed control remains'
  button('Check LM Studio connection').wait('exists',timeout=10);click('Check LM Studio connection')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
@@ -154,23 +154,8 @@ try:
  accounts=window.descendants(control_type='Button');tests=[x for x in accounts if x.window_text()=='Save & test this account'];assert tests and all(not x.is_enabled()for x in tests)
  window.capture_as_image().save('ui-evidence/native-empty-key-onboarding.png')
  checks.append('actual backend local model discovery ready; API key entry present; cloud remains off')
- before_warmup=len(requests)
- button('Warm local model').wait('exists',timeout=10)
- assert not any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests),'Warmup started without click'
- click('Warm local model')
- button('Confirm local warmup').wait('exists',timeout=10)
- assert len(requests)==before_warmup,'Review itself sent an unexpected model request'
- window.capture_as_image().save('ui-evidence/native-local-warmup-review.png')
- click('Confirm local warmup')
- deadline=time.monotonic()+10
- while time.monotonic()<deadline:
-  if any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests[before_warmup:]):break
-  time.sleep(.2)
- time.sleep(1)
- assert any(x.get('body',{}).get('messages',[{}])[-1].get('content')=='Say ready in one word.'for x in requests[before_warmup:]),'No explicit fixed local warmup request'
- checks.append('explicit local warmup sends fixed greeting only after review; no automatic launch inference')
- window.capture_as_image().save('ui-evidence/native-local-warmup.png')
-
+ assert not window.child_window(title='Warm local model',control_type='Button').exists(),'Removed warmup control remains'
+ checks.append('only LM Studio connection check remains; no speed or warmup control')
  window.capture_as_image().save('ui-evidence/native-brain-settings.png')
  click('Agents')
  def fill_named(name,text):
@@ -195,7 +180,7 @@ try:
  click('DEX Coder')
  click('Voice setup')
  button('Download local voice models').wait('exists',timeout=10)
- assert window.child_window(title='Last voice turn timing',control_type='Text').exists(),'Voice timing heading missing'
+ assert not window.child_window(title='Last voice turn timing',control_type='Text').exists(),'Removed voice timing remains'
  from pywinauto import mouse
  def choose_native_option(name,label,key):
   for attempt in range(3):
@@ -283,7 +268,7 @@ try:
   click('Disconnect vault');time.sleep(.5)
   click('Review English search download');button('Confirm English search download').wait('exists',timeout=10);click('Cancel English search download');window.child_window(title='Confirm English search download',control_type='Button').wait_not('exists',timeout=10);checks.append('native optional English search model download review canceled; no download')
   checks.append('native vault connect review/cancel/confirm, local search, exact note review/cancel/create, no overwrite, disconnect')
- click('Tools')
+ click('Tools');click('Laya activate')
  advanced=button('Expand advanced browser controls');advanced.wait('exists',timeout=10)
  for attempt in range(3):
   for scroll_attempt in range(18):
@@ -297,7 +282,7 @@ try:
    window.capture_as_image().save('ui-evidence/native-advanced-expand-failure.png')
    if attempt==2:raise
  click('Download Laya model');button('Confirm Laya model download').wait('exists',timeout=10);button('Confirm Laya model download').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-managed-laya-download-review.png');click('Cancel Laya model download');window.child_window(title='Confirm Laya model download',control_type='Button').wait_not('exists',timeout=10);assert 'Laya model missing; review Download Laya model'in' '.join(x.window_text()for x in window.descendants());assert not button('Load inbuilt Laya').wrapper_object().is_enabled();click('Stop Laya setup / engine');checks.append('native inbuilt Laya exact pinned download review/cancel and stop; no model download or engine loading')
- click('Enable shared Laya');button('Confirm Laya permission').wait('exists',timeout=10);button('Confirm Laya permission').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-laya-permission-review.png');click('Cancel Laya permission');window.child_window(title='Confirm Laya permission',control_type='Button').wait_not('exists',timeout=10);click('Enable shared Laya');click('Confirm Laya permission');time.sleep(.3);assert 'load the inbuilt Laya engine'in' '.join(x.window_text()for x in window.descendants());click('Stop Laya proposals');assert 'Silent shared action log'in' '.join(x.window_text()for x in window.descendants());click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
+ click('Enable shared Laya');button('Confirm Laya permission').wait('exists',timeout=10);button('Confirm Laya permission').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-laya-permission-review.png');click('Cancel Laya permission');window.child_window(title='Confirm Laya permission',control_type='Button').wait_not('exists',timeout=10);click('Enable shared Laya');click('Confirm Laya permission');time.sleep(.3);assert 'inbuilt Laya engine not loaded'in' '.join(x.window_text()for x in window.descendants());click('Stop Laya proposals');assert 'Silent shared action log'in' '.join(x.window_text()for x in window.descendants());click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
  button('Confirm browser permission').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-browser-permission-review.png')
  click('Cancel browser permission');window.child_window(title='Confirm browser permission',control_type='Button').wait_not('exists',timeout=10)
@@ -334,7 +319,7 @@ try:
  button('Review proposed browser action').wait('exists',timeout=10);click('Review proposed browser action');button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'https://www.youtube.com/'in' '.join(x.window_text()for x in window.descendants())
  window.capture_as_image().save('ui-evidence/native-team-browser-review.png');click('Cancel Team browser action')
- checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Stop browser control')
+ checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Tools');click('Laya activate');click('Stop browser control')
 
  # The owner's exact live-test sentence must invoke actual multi-round IPC, not solo chat.
  click('Team room');click('JARVIS Team leader');click('New chat');time.sleep(.5)
@@ -397,7 +382,7 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-final-truncated.png');checks.append('length retains final answer, marks incomplete, split thinking tags suppressed')
  field.wrapper_object().set_edit_text('failure-probe');click('Add local draft');time.sleep(4)
  text=' '.join(x.window_text() for x in window.descendants())
- assert 'http-503' in text, 'Failure not persistently visible: '+text
+ assert 'Local model did not answer.' in text, 'Failure not persistently visible: '+text
  window.capture_as_image().save('ui-evidence/tauri-chat-error.png');checks.append('model error remains visible after idle polling')
  pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
  # Native archive navigation and Pause preservation are visible, not metadata-only.
