@@ -57,7 +57,14 @@ checks=[];window=None
 try:
  main=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');main.wait('visible',timeout=30)
  main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
- main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30);main.child_window(title='Settings',control_type='Button').wrapper_object().invoke();main.child_window(title='Appearance',control_type='Button').wrapper_object().invoke();main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
+ # The published workspace starts on Knowledge universe; composer is Team-only.
+ main.child_window(title='Team room',control_type='Button').wait('exists',timeout=30)
+ main.child_window(title='Team room',control_type='Button').wrapper_object().invoke()
+ main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
+ main.child_window(title='Settings',control_type='Button').wrapper_object().invoke()
+ main.child_window(title='Appearance',control_type='Button').wrapper_object().invoke()
+ main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
+ main.child_window(title='Team room',control_type='Button').wrapper_object().invoke()
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
  assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists(), 'Avatar window was removed'
  main.capture_as_image().save('ui-evidence/workspace-first-launch.png')
