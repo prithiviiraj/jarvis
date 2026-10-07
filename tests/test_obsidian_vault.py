@@ -36,3 +36,20 @@ class ObsidianVault(unittest.TestCase):
     if row.get('type')!='file' or row['file']=='Agents index.md':continue
     self.assertTrue((root/row['file']).is_file())
    c.write_text('owner-edited canvas');v.create(NAME,True);self.assertEqual(c.read_text(),'owner-edited canvas')
+ def test_registration_error_survives_later_sync(self):
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory()as d:
+   base=pathlib.Path(d);v=Vault(base/'config.json',lambda:base)
+   with patch('jarvis.obsidian_registry.register',side_effect=RuntimeError('Close Obsidian then retry')):
+    v.start('connect',reviewed=NAME,confirm=True).join(3)
+   self.assertEqual(v.registration,'needs attention');self.assertIn('Close Obsidian',v.connection_error)
+   v.sync([],{'agents':[]},{},force=True)
+   self.assertIn('Close Obsidian',v.snapshot()['connection_error']);self.assertEqual(v.snapshot()['registration'],'needs attention')
+
+ def test_managed_vault_connect_before_obsidian_open(self):
+  from jarvis.obsidian import Vault as Reader
+  with tempfile.TemporaryDirectory()as d:
+   base=pathlib.Path(d);v=Vault(base/'config.json',lambda:base);v.create(NAME,True)
+   reader=Reader('"'+str(base/NAME)+'"');self.assertEqual(reader.root,base/NAME);self.assertIn('Brain of Brain',reader.read('README.md'))
+   other=base/'ordinary';other.mkdir()
+   with self.assertRaises(ValueError):Reader(other)
