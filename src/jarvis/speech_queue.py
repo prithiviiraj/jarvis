@@ -25,7 +25,10 @@ class SpeechQueue:
                 on_clause(part)
                 prepare=getattr(self.speaker,'prepare',None)
                 # Only real implementations, not arbitrary mocks/dynamic attributes.
-                if callable(getattr(type(self.speaker),'prepare',None)):
+                if callable(getattr(type(self.speaker),'prepare_stream',None)):
+                    for prepared in self.speaker.prepare_stream(part,ticket):
+                        if self.cancel.is_set() or not self.put(('prepared',prepared)):break
+                elif callable(getattr(type(self.speaker),'prepare',None)):
                     prepared=prepare(part,ticket)
                     if prepared is None:continue
                     if not self.put(('prepared',prepared)):break
