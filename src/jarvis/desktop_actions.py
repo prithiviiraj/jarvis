@@ -3,7 +3,7 @@ import re,os,pathlib,subprocess
 APPS={'notepad':('Notepad','notepad.exe'),'calculator':('Calculator','calc.exe'),'paint':('Paint','mspaint.exe')}
 def prepare(text):
  if not isinstance(text,str):return None
- t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya)[.,:!]?\s+)?','',text,flags=re.I).strip()
+ t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|sila|lyra|dex|laya)[.,:!]?\s+)?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
  m=re.fullmatch(r'(?:open|launch)\s+(?:the\s+)?(notepad|calculator|paint)(?:\s+app)?(?:\s+for me)?[.!?]*',t,re.I)
  if not m:return None
