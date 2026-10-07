@@ -11,7 +11,7 @@ def normalize(text):
 def parse(text):
  if not isinstance(text,str):return None
  text=normalize(text)
- t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
+ t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|sila|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
  t=t.strip().rstrip('.!?')
  # Bounded politeness only; do not remove arbitrary suffixes or URL text.
@@ -33,7 +33,7 @@ def goal(text):
  if not isinstance(text,str):return None
  text=normalize(text)
  from .reo_commands import parse as reo_parse
- normalized=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|kai|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
+ normalized=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|sila|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
  normalized=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',normalized,flags=re.I)
  if re.match(r'^(?:what|when|why|how|is|are|do|does)\b',normalized,re.I):return None
  if normalized.lower()in ('browser read links',)or re.fullmatch(r'browser (?:choose|select) link \d+[.!]?',normalized,re.I):return None
