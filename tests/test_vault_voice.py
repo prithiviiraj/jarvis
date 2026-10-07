@@ -37,7 +37,7 @@ class VaultVoice(unittest.TestCase):
   r.router.ask.assert_not_called();r.router.stream.assert_not_called();r.speaker.speak.assert_not_called();r.mic.resume.assert_called_once();self.assertFalse(r.busy)
 
  def test_all_persona_prefixes_keep_exact_path(self):
-  for name in ['JARVIS','NOVA','KAI','LYRA','DEX']:
+  for name in ['JARVIS','NOVA','SILA','LYRA','DEX']:
    self.assertEqual(parse_voice('Hey '+name+', vault read Work/Note.md'),{'command':'vault-read','note_name':'Work/Note.md'})
  def test_unsupported_spoken_write_is_consumed_without_chat(self):
   b=self.bridge()
