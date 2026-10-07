@@ -7,7 +7,7 @@ from .personas import ROLES
 
 def banter_wait(stop,interval):return stop.wait(interval)
 
-VOICES = {'JARVIS':'am_michael','NOVA':'af_sky','KAI':'am_liam','LYRA':'af_heart','DEX':'am_fenrir'}
+VOICES = {'JARVIS':'am_michael','NOVA':'am_puck','SILA':'am_liam','LYRA':'af_heart','DEX':'am_fenrir'}
 
 class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
@@ -268,7 +268,7 @@ class WorkspaceVoice:
                     if cancel.is_set():return
                     speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
                 ordered=[]
-                for name in ('NOVA','KAI','LYRA','DEX','JARVIS'):
+                for name in ('NOVA','SILA','LYRA','DEX','JARVIS'):
                     if cancel.is_set():return
                     if name not in results:continue
                     answer=results[name];answer['text']=strip_speaker_tag(answer['text']);ordered.append({'role':'assistant','content':'['+name+'] '+answer['text']})
@@ -437,7 +437,7 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         speaker=KokoroSpeaker(synth)
         speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
         speaker.select_profile(name)
-        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. KAI researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
+        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. SILA researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
         # No closure over runtime.close: that cycle delays native engine disposal.
         runtime.close_hook=g2p.close if g2p else lambda:None
