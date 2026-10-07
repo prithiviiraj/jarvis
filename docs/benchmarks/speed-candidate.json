@@ -1,0 +1,28 @@
+{
+  "endpoint": [
+    {
+      "preset": "balanced",
+      "post_speech_silence_ms": 800,
+      "scope": "deterministic 32ms frame endpoint, not mic benchmark"
+    },
+    {
+      "preset": "fast",
+      "post_speech_silence_ms": 480,
+      "scope": "deterministic 32ms frame endpoint, not mic benchmark"
+    }
+  ],
+  "speech": {
+    "whole-clause": {
+      "median_first_write_s": 0.4111604839999927,
+      "runs": 5,
+      "scope": "controlled length-proportional synth + fake output; not real ONNX/audio latency"
+    },
+    "bounded-generator": {
+      "median_first_write_s": 0.23341107800001737,
+      "runs": 5,
+      "scope": "controlled length-proportional synth + fake output; not real ONNX/audio latency"
+    }
+  },
+  "text_chars": 205,
+  "real_audio_benchmark": "unavailable: model assets/native Windows G2P and physical audio absent"
+}
