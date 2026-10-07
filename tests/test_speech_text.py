@@ -34,6 +34,6 @@ class SpeechTextTests(unittest.TestCase):
 class PersonaPronunciation(unittest.TestCase):
  def test_names_spoken_as_words_without_display_change(self):
   from jarvis.speech_text import speech_text
-  text='JARVIS calls N O V A and KAI. LYRA agrees with DEX.'
-  self.assertEqual(speech_text(text),'Jarvis calls Nova and Kai. Lyra agrees with Dex.')
-  self.assertEqual(text,'JARVIS calls N O V A and KAI. LYRA agrees with DEX.')
+  text='JARVIS calls N O V A and SILA. LYRA agrees with DEX.'
+  self.assertEqual(speech_text(text),'Jarvis calls Nova and Sila. Lyra agrees with Dex.')
+  self.assertEqual(text,'JARVIS calls N O V A and SILA. LYRA agrees with DEX.')
