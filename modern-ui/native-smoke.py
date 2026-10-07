@@ -120,6 +120,14 @@ try:
    click('Settings');click('Voices');return
   if name in ('Transcript ON','Transcript OFF'):
    button('Settings').wrapper_object().invoke();button('Appearance').wrapper_object().invoke()
+  # Re-entering Settings remounts the native <details> collapsed. Reveal it
+  # only when the requested legacy review control is inside that panel.
+  advanced_names={'Enable browser commands','Download Laya model','Load inbuilt Laya','Stop Laya setup / engine','Enable shared Laya','Stop Laya proposals','Prepare browser command','Review / run browser command','Read available links locally'}
+  if name in advanced_names:
+   item=(root or window).child_window(title=name,control_type='Button')
+   if not item.exists():
+    toggle=(root or window).child_window(title='Expand advanced browser controls',control_type='Button')
+    toggle.wait('exists',timeout=10);toggle.wrapper_object().invoke()
   button(name,root).wrapper_object().invoke()
   if name in ('Transcript ON','Transcript OFF'):
    # UIA invoke queues async IPC. Wait for actual native save/readback before close.
@@ -333,7 +341,7 @@ try:
  click('Settings');click('Advanced');click('Advanced browser controls')
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
  field=window.child_window(title='Message draft',control_type='Edit')
- field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Confirm Team browser action');click('Settings');click('Advanced');click('Advanced browser controls')
+ field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Confirm Team browser action');click('Settings');click('Advanced');click('Advanced browser controls');click('Expand advanced browser controls')
  deadline=time.monotonic()+30
  while time.monotonic()<deadline:
   content=' '.join(x.window_text()for x in window.descendants())
