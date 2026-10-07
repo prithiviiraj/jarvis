@@ -1,11 +1,11 @@
 """Deterministic single-persona routing for local typed messages. No model call."""
 import re
-ROLES={'JARVIS':'team leader','NOVA':'secretary','KAI':'researcher','LYRA':'writer','DEX':'coder'}
+ROLES={'JARVIS':'team leader','NOVA':'secretary','SILA':'researcher','LYRA':'writer','DEX':'coder'}
 KEYWORDS={
  'DEX':r'\b(code|coding|debug|debugging|python|javascript|typescript|function|programming|stacktrace|compiler|sql|git)\b',
  'LYRA':r'\b(write|writing|rewrite|poem|story|script|caption|subtitles|draft|essay)\b',
  'NOVA':r'\b(schedule|calendar|meeting|remind|reminder|appointment|agenda|briefing)\b',
- 'KAI':r'\b(research|compare|comparison|investigate|sources|study|learn|explain)\b',
+ 'SILA':r'\b(research|compare|comparison|investigate|sources|study|learn|explain)\b',
  'JARVIS':r'\b(browser|website|webpage|web page|click|scroll|automation|automate)\b'}
 def pick(text,selected='JARVIS'):
     if not isinstance(text,str) or not text.strip():raise ValueError('Text required')
