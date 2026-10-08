@@ -327,6 +327,7 @@ class Bridge:
   except ValueError as e:self.reo_event('blocked',str(e))
   return True
  def voice_action(self,text):
+  self.source_answer.stop()
   self.voice.memory.restore([m for m in self.messages if not m.get('transient_screen')])
   self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
   if self.brain_switch_action(text):return True
