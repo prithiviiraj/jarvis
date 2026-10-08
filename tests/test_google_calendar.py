@@ -16,7 +16,7 @@ class Tests(unittest.TestCase):
  def job(self,transport=None,identity=None):return GoogleCalendar(self.c,pathlib.Path(self.temp.name)/'ledger.json',transport or self.transport,identity or(lambda t:{'email':'owner@example.com','email_verified':True}))
  def prepare(self,j):return j.prepare('Solo bookkeeping','2026-10-08T17:00:00+05:30','2026-10-08T17:30:00+05:30','Office','Exact notes')
  def test_exact_no_invite_event_readback_restart(self):
-  j=self.job();r=self.prepare(j);j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'completed');post=[x for x in self.calls if x[1].endswith('sendUpdates=none')][0];self.assertTrue(post[1].endswith('sendUpdates=none'));self.assertEqual(post[2]['attendees'],[]);self.assertFalse(post[2]['reminders']['useDefault']);self.assertEqual(self.job().snapshot()['state'],'completed')
+  j=self.job();r=self.prepare(j);j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'completed');post=[x for x in self.calls if x[1].endswith('sendUpdates=none')][0];self.assertTrue(post[1].endswith('sendUpdates=none'));self.assertEqual(post[2]['attendees'],[]);self.assertFalse(post[2]['reminders']['useDefault']);j.stop();self.assertEqual(self.job().snapshot()['state'],'completed')
   with self.assertRaises(ValueError):j.submit(r,True)
  def test_naive_or_relative_dates_and_changed_review_rejected(self):
   for start,end in [('tomorrow','later'),('2026-10-08T17:00:00','2026-10-08T18:00:00'),('2026-10-08T18:00:00+05:30','2026-10-08T17:00:00+05:30')]:
