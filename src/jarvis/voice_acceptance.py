@@ -92,6 +92,11 @@ def run():
     assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
     runtime=None;turn=None
 
+  from .telegram_voice import TelegramVoice
+  import base64
+  preview=TelegramVoice().render('Exact reviewed voice fixture.',lambda:False);encoded=base64.b64decode(preview['audio_base64']);assert len(encoded)>100;assert preview['text']=='Exact reviewed voice fixture.'
+  (out/'frozen-telegram-Kokoro-preview.mp3').write_bytes(encoded)
+  (out/'frozen-telegram-Kokoro-preview.json').write_text(json.dumps({k:v for k,v in preview.items()if k!='audio_base64'},indent=2))
   assert len({row['audio_sha256']for row in rows})==3,'Persona synth outputs unexpectedly identical'
   report={'frozen_executable':True,'real_local_STT_and_three_Kokoro_syntheses':True,'source_audio':audio_url,'fixture_sha256':hashlib.sha256(raw).hexdigest(),'rows':rows,'brain_scope':'controlled local SSE fixture','mic_output_scope':'test adapters, no hardware','unrun':['physical microphone','audible output','real LM Studio model','owner accent','echo/barge-in','laptop load']}
   (out/'frozen-voice-chain.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
