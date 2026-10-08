@@ -108,12 +108,10 @@ class Vault:
     from .personas import ROLES,CHARACTERS
     from .workspace_voice import VOICES
     files={}
-    for name in ('JARVIS','NOVA','SILA','LYRA','DEX'):
+    for name in ('JARVIS','LYRA','DEX'):
      files['Team/'+name+'.md']='# '+name+'\n\nRole: '+ROLES[name]+'\nVoice: '+VOICES[name]+'\n\n## Fictional style\n\n'+CHARACTERS[name]+'\n\nExport only. Editing does not alter the live profile.\n'
-    for row in agents.get('agents',[]):
-     files['Team/'+row['name']+'.md']='# '+row['name']+'\n\nVoice: '+row['voice']+'\n\n'+row['personality']+'\n\nExport only; review app changes separately.\n'
     import re
-    names=['JARVIS','NOVA','SILA','LYRA','DEX']+[row['name']for row in agents.get('agents',[])if isinstance(row.get('name'),str)]
+    names=['JARVIS','LYRA','DEX']
     names=list(dict.fromkeys(n for n in names if re.fullmatch(r'[A-Z][A-Z0-9_-]{1,23}',n)))
     files['Agents index.md']='# Agent data nodes\n\n'+ '\n'.join('[['+'Agents/'+n+'/Node|'+n+']]'for n in names)+'\n\nSeparate linked notes. Live app permissions are not changed by notes.\n'
     for name in names:
