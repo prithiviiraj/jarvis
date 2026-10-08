@@ -14,6 +14,7 @@ git clone --branch v1.8.1 --depth 1 https://github.com/chrisstaite/lameenc.git m
 if ($LASTEXITCODE -ne 0) { throw 'MP3 source clone failed' }
 $commit=(git -C mp3-wrapper rev-parse HEAD).Trim()
 if ($commit -ne '346b9363076cdb4dd1e4bf369a1be1a67ef1cc67') { throw 'MP3 source pin changed' }
+$env:SETUPTOOLS_SCM_PRETEND_VERSION='1.8.1'
 python prepare-mp3-source.py
 if ($LASTEXITCODE -ne 0) { throw 'MP3 source preparation failed' }
 # Upstream CMake verifies the retained local LAME tar against its published hash.
