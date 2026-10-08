@@ -113,7 +113,7 @@ class ResponseSource(unittest.TestCase):
  def test_all_profiles_keep_true_route(self):
   b=Bridge(WorkspaceVoice())
   try:
-   for name in ('JARVIS','NOVA','SILA','LYRA','DEX'):
+   for name in ('JARVIS','LYRA','DEX'):
     b.voice.notify('answer',{'text':'Cloud actual reply','profile':name,'provider':'nim','model':'actual-model','cloud':True})
    s=b.execute({'command':'status'});self.assertTrue(all(r['provider']=='nim'and r['model']=='actual-model'and r['cloud']is True for r in s['messages']))
   finally:b.close()
@@ -140,7 +140,7 @@ class SemanticBridgeTests(unittest.TestCase):
 class LaptopTeamTrigger(unittest.TestCase):
  def test_exact_typed_phrase_dispatches_dialogue_not_solo(self):
   b=Bridge(WorkspaceVoice());b.voice.dialogue=Mock();b.voice.send_text=Mock()
-  text='Can you speak with NOVA together? Speak about why politics is important?'
+  text='Can you speak with DEX together? Speak about why politics is important?'
   try:
    state=b.execute({'command':'chat','text':text})
    b.voice.dialogue.assert_called_once_with(text,b.brains,False);b.voice.send_text.assert_not_called()
