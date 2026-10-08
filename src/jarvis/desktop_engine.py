@@ -30,7 +30,10 @@ class DesktopEngine:
    if row['action']in ('move','click')and not(0<=row['x']<target['width']and 0<=row['y']<target['height']):raise ValueError('Coordinate outside reviewed window')
   if self.adapter.observe(target['hwnd'])!=target:raise ValueError('Window changed before review')
   payload={'target':dict(target),'steps':steps,'scope':scope,'limits':'No secrets, credential fields, send/publish/pay/delete workflows. Mouse clicks can have effects; review exact targets.'};self.pending={'payload':payload,'sha256':hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()};self.state='review';return json.loads(json.dumps(self.pending))
- def stop(self):self.cancel.set();self.result='Stopped. Already completed input cannot be undone.'
+ def stop(self):
+  self.cancel.set()
+  if self.state=='review':self.pending=None;self.state='cancelled'
+  self.result='Stopped. Already completed input cannot be undone.'
  def run(self,reviewed,confirm=False,effect_approved=False):
   if confirm is not True or effect_approved is not True or self.state!='review'or not self.pending or reviewed!=self.pending:raise ValueError('Review exact window, task and steps before input')
   plan=json.loads(json.dumps(self.pending));target=plan['payload']['target'];self.cancel=threading.Event();self.completed=0;self.state='running'
@@ -43,7 +46,16 @@ class DesktopEngine:
     if self.adapter.foreground()!=target['hwnd']:raise ValueError('Foreground mismatch; no next input')
     # Recheck after foreground acquisition: moved/resized/replaced target cannot use stale coordinates.
     if self.adapter.observe(target['hwnd'])!=target:raise ValueError('Target changed during focus')
-    self.adapter.perform(target,row);self.completed+=1
+    if row['action']=='type':
+     # Each character is a literal input with a fresh foreground/window check.
+     # Stop can cut a long type step, rather than waiting for2000characters.
+     for char in row['text']:
+      if self.cancel.is_set():break
+      if self.adapter.foreground()!=target['hwnd']or self.adapter.observe(target['hwnd'])!=target:raise ValueError('Typing target changed; no next character')
+      self.adapter.perform(target,{'action':'type','text':char})
+     if self.cancel.is_set():self.state='stopped';break
+    else:self.adapter.perform(target,row)
+    self.completed+=1
    else:self.state='completed';self.result='Reviewed input submitted. Task outcome needs source readback.'
   except Exception as e:self.state='blocked';self.result=str(e)[:200];raise
   finally:self.pending=None
@@ -53,6 +65,17 @@ class WindowsAdapter:
  def __init__(self):
   import os
   if os.name!='nt':raise RuntimeError('Desktop input is Windows-only')
+ def windows(self):
+  import os
+  from pywinauto import Desktop
+  out=[]
+  for w in Desktop(backend='uia').windows():
+   try:
+    if w.process_id()==os.getpid()or not w.is_visible()or not w.window_text():continue
+    row=self.observe(w.handle)
+    if row['width']>=50 and row['height']>=30:out.append(row)
+   except Exception:continue
+  return out[:60]
  def observe(self,hwnd):
   from pywinauto import Desktop
   w=Desktop(backend='uia').window(handle=hwnd).wrapper_object();r=w.client_rect();return {'hwnd':hwnd,'pid':w.process_id(),'title':w.window_text(),'width':r.width(),'height':r.height()}
