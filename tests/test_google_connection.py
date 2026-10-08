@@ -14,7 +14,10 @@ class Tests(unittest.TestCase):
  def test_end_to_end_loopback_fixture_and_disconnect(self):
   c,s,urls=self.setup_connection()
   try:
-   c.begin('owner@example.com',['calendar-freebusy'],True);q=urllib.parse.parse_qs(urllib.parse.urlsplit(urls[0]).query);url=q['redirect_uri'][0]+'?'+urllib.parse.urlencode({'state':q['state'][0],'code':'fixture-code'})
+   c.begin('owner@example.com',['calendar-freebusy'],True)
+   deadline=time.monotonic()+2
+   while not urls and time.monotonic()<deadline:time.sleep(.01)
+   q=urllib.parse.parse_qs(urllib.parse.urlsplit(urls[0]).query);url=q['redirect_uri'][0]+'?'+urllib.parse.urlencode({'state':q['state'][0],'code':'fixture-code'})
    with urllib.request.urlopen(url,timeout=2)as r:self.assertEqual(r.status,200)
    c.worker.join(3);self.assertFalse(c.busy);self.assertFalse(c.error);self.assertTrue(c.tokens.status('owner@example.com')['credential_present']);c.disconnect(True);self.assertFalse(c.tokens.status('owner@example.com')['credential_present'])
   finally:c.stop()
@@ -24,7 +27,10 @@ class Tests(unittest.TestCase):
   def blocked(payload):entered.set();release.wait(3);return original(payload)
   c.tokens.transport=blocked
   try:
-   c.begin('owner@example.com',['calendar-freebusy'],True);q=urllib.parse.parse_qs(urllib.parse.urlsplit(urls[0]).query);url=q['redirect_uri'][0]+'?'+urllib.parse.urlencode({'state':q['state'][0],'code':'fixture-code'})
+   c.begin('owner@example.com',['calendar-freebusy'],True)
+   deadline=time.monotonic()+2
+   while not urls and time.monotonic()<deadline:time.sleep(.01)
+   q=urllib.parse.parse_qs(urllib.parse.urlsplit(urls[0]).query);url=q['redirect_uri'][0]+'?'+urllib.parse.urlencode({'state':q['state'][0],'code':'fixture-code'})
    with urllib.request.urlopen(url,timeout=2):pass
    self.assertTrue(entered.wait(2));c.stop();release.set();c.worker.join(3);self.assertFalse(c.tokens.status('owner@example.com')['credential_present']);self.assertFalse(c.busy)
   finally:release.set();c.stop()
