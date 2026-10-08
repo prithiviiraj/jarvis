@@ -36,7 +36,25 @@ def run():
   assert urllib.parse.urlsplit(callback).hostname=='127.0.0.1'
   with urllib.request.urlopen(callback,timeout=3)as reply:assert reply.status==200 and reply.headers['Cache-Control']=='no-store'
   connection.worker.join(5);assert not connection.busy and not connection.error,connection.snapshot();assert store.status(key)['present'];assert tokens.access(email,scope)=='fixture-refreshed';assert len(calls)==2
-  assert 'fixture-secret'not in json.dumps(connection.snapshot());connection.disconnect(True);assert not store.status(key)['present'];connection.stop()
-  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'mail_sent':False,'calendar_changed':False}
+  assert 'fixture-secret'not in json.dumps(connection.snapshot())
+  # Real frozen review/journal/encoding/readback with entirely controlled Gmail
+  # transport. No network mail side effect and no owner's account credential.
+  import tempfile,email as mailparser
+  from .google_mail import GoogleMail
+  tokens.save(email,client,'fixture-refresh',[SCOPES['mail-read'],SCOPES['mail-send']],True,secret)
+  tokens.transport=lambda p:{'access_token':'fixture-mail','token_type':'Bearer','expires_in':3600,'scope':SCOPES['mail-read']+' '+SCOPES['mail-send']}
+  fixture_sent={};fixture_posts=[]
+  def mail_transport(method,url,payload):
+   if url.endswith('/profile'):return {'emailAddress':email}
+   if 'messages?'in url:return {'messages':[]}
+   if method=='POST':
+    fixture_posts.append(payload)
+    msg=mailparser.message_from_bytes(__import__('base64').urlsafe_b64decode(payload['raw']+'='*(-len(payload['raw'])%4)),policy=mailparser.policy.default)
+    fixture_sent.update({'id':'fixture-sent','labelIds':['SENT'],'payload':{'mimeType':'text/plain','headers':[{'name':k,'value':str(msg[k])}for k in ('To','Subject','Message-ID')],'body':{'data':__import__('base64').urlsafe_b64encode(msg.get_content().encode()).decode()}}});return {'id':'fixture-sent'}
+   return fixture_sent
+  with tempfile.TemporaryDirectory()as folder:
+   ledger=Path(folder)/'mail.json';mail=GoogleMail(connection,ledger,mail_transport);review=mail.prepare(['friend@example.invalid'],'Fixture review','Exact fixture words');mail.submit(review,True);mail.worker.join(5);assert mail.snapshot()['state']=='completed',mail.snapshot();assert len(fixture_posts)==1;assert GoogleMail(connection,ledger,mail_transport).snapshot()['state']=='completed'
+  connection.disconnect(True);assert not store.status(key)['present'];connection.stop()
+  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'calendar_changed':False}
   Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-google-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(key);store.delete(probe)
