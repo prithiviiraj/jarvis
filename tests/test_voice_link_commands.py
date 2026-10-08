@@ -24,7 +24,7 @@ class VoiceLinks(unittest.TestCase):
 
  def test_off_and_unsupported_browser_commands_consumed_locally(self):
   b=self.bridge()
-  self.assertTrue(b.voice_action('Nova browser open example.com'));self.assertIsNone(b.browser_pending);b.voice.send_text.assert_not_called()
+  self.assertTrue(b.voice_action('Dex browser open example.com'));self.assertIsNone(b.browser_pending);b.voice.send_text.assert_not_called()
   b.browser_enabled=True
   for text in ['browser choose link 21','Dex browser pay stranger','browser open']:
    self.assertTrue(b.voice_action(text));self.assertIsNone(b.browser_pending);b.voice.send_text.assert_not_called()
