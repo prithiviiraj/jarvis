@@ -46,7 +46,11 @@ class BrainSwitch:
   with self.lock:self.generation+=1;self.pending=None;getattr(self,'cancel',threading.Event()).set();self.status='Pending switch stopped; applied route is not undone'
  def clear(self):self.stop();self.verified={}
  def snapshot(self):
-  with self.lock:return {'pending':copy.deepcopy(self.pending),'verified':copy.deepcopy(self.verified),'busy':bool(self.worker and self.worker.is_alive()),'status':self.status,'error':self.error}
+  with self.lock:
+   if not self.verified:return {'pending':copy.deepcopy(self.pending),'verified':{},'busy':bool(self.worker and self.worker.is_alive()),'status':self.status,'error':self.error}
+  with self.lock,self.settings.lock:
+   verified={n:r for n,r in self.verified.items()if self.settings.assignments.get(n)==r['slot'] and self.settings.pinned_local.get(n)==r['slot'] and self.settings.rows.get(r['slot']) and self.settings.rows[r['slot']].provider=='local' and self.settings.rows[r['slot']].model==r['model']}
+   return {'pending':copy.deepcopy(self.pending),'verified':copy.deepcopy(verified),'busy':bool(self.worker and self.worker.is_alive()),'status':self.status,'error':self.error}
 def spoken_request(text):
  if not isinstance(text,str):return None
  m=re.fullmatch(r'\s*(?:(?:hey\s+)?jarvis[,.:]?\s+)?switch (?:your |my )?brain to ([A-Za-z0-9_./-]{1,200})[.!]?\s*',text,re.I)
