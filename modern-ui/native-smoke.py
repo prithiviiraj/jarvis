@@ -150,7 +150,12 @@ try:
    focus_workspace()
    wrapper=control.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
    if wrapper.is_visible() and rect.top>bounds.top+160 and rect.bottom<bounds.bottom-65:
-    wrapper.set_focus();return
+    # Disabled HTML buttons cannot take focus. UIA set_focus can instead move
+    # to a different focusable field and scroll to its panel, corrupting pixels.
+    if wrapper.is_enabled():wrapper.set_focus()
+    time.sleep(.1);settled=control.wrapper_object().rectangle()
+    if settled.top>bounds.top+160 and settled.bottom<bounds.bottom-65:return
+    continue
    # A three-notch wheel can jump over short input fields forever. Keep
    # the pointer inside the actual panel/window and use one-notch settling.
    above=rect.top<bounds.top+160 and rect.width()>0
@@ -265,6 +270,7 @@ try:
  reveal_field(button('Review issue identity/repository/words'));assert not button('Review issue identity/repository/words').is_enabled(), 'Issue review enabled without identity/write gate'
  assert 'Confirm create issue and repository notifications'not in ui_text(), 'Issue final submission visible without review'
  window.capture_as_image().save('ui-evidence/native-github-issue-inert.png');checks.append('native issue identity/words panel inert without identity/write grant; no real issue or notification')
+ reveal_field(window.child_window(title='Design title',control_type='Edit'));window.capture_as_image().save('ui-evidence/native-design-draft-upper-inert.png')
  reveal_field(button('Review exact local poster'));assert not button('Review exact local poster').is_enabled();assert 'Save exact local editable SVG'not in ui_text();window.capture_as_image().save('ui-evidence/native-design-draft-inert.png');checks.append('native local design draft empty review disabled, no Canva account/automatic SVG save/open')
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
