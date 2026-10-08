@@ -38,6 +38,9 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.a.start(self.root,r,True)
   self.a.launching=False
 
+ def test_cloud_claimed_reply_refused_even_same_model(self):
+  self.a.generate=lambda m,*a:{'text':'reply','model':m,'cloud':True};r=self.prepare();self.a.start(self.root,r,True);self.a.worker.join(3);self.assertIsNone(self.a.result)
+
 class BridgeTests(unittest.TestCase):
  def test_no_source_inert_and_stop(self):
   from jarvis.ui_bridge import Bridge
