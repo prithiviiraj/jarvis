@@ -52,7 +52,7 @@ class VoiceRuntime:
             from .wake_address import ambiguous
             from .workspace_voice import VOICES
             if ambiguous(text,VOICES):
-                self.notify('error','Recognition contains two adjacent teammate names. I did not choose a persona or run the request. Say Hey Jarvis, Hey Sila, or type the intended name.')
+                self.notify('error','Recognition contains two adjacent teammate names. I did not choose a persona or run the request. Say Hey Jarvis, Hey Lyra, Hey Dex, or type the intended name.')
                 return
             # Browser mode uses only explicit commands, not model decisions or page text.
             handler=getattr(self,'action_handler',None)
@@ -107,7 +107,7 @@ class VoiceRuntime:
             from .workspace_voice import VOICES
             names='|'.join(re.escape(n)for n in VOICES)
             match=re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?('+names+r')\b',text,re.I)
-            if not match:match=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+(jarvis|nova|sila|lyra|dex)\b',text,re.I)
+            if not match:match=re.search(r'\b(?:talk|speak|chat)\s+(?:to|with)\s+(jarvis|lyra|dex)\b',text,re.I)
             actor=match.group(1).upper()if match else ('JARVIS'if re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?laya\b',text,re.I)else self.persona)
             if actor!=self.persona:
                 select=getattr(self.speaker,'select_profile',None)
