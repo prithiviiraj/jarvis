@@ -1,5 +1,5 @@
 """Dedicated exact reviewed GitHub issue creation. No model/chat entry or auto retries."""
-import json,re,ssl,threading,urllib.request
+import json,re,ssl,threading,time,urllib.request
 from .connector_journal import ConnectorJournal
 from .project_connectors import NoRedirect
 class GitHubIssue:
@@ -17,7 +17,8 @@ class GitHubIssue:
   if not isinstance(body,str)or not 1<=len(body)<=10000 or '\x00'in body:raise ValueError('Review bounded exact issue body')
   payload={'kind':'github-issue','identity':identity,'owner':owner,'repo':repo,'title':title.strip(),'body':body,'scope':'Creates one GitHub issue and triggers repository notifications. No PR/code changes, labels, assignees, attachments or model content. Token must have Issues write; no scope upgrade performed.'}
   ledger=self.journal()
-  if ledger.job.state=='completed' and ledger.job.plan and ledger.job.plan['payload']==payload:raise ValueError('Exact last issue already completed; inspect its URL instead of creating a duplicate')
+  if ledger.job.state=='completed' and ledger.job.plan and {k:v for k,v in ledger.job.plan['payload'].items()if k!='expires_at'}==payload:raise ValueError('Exact last issue already completed; inspect its URL instead of creating a duplicate')
+  payload['expires_at']=time.time()+120
   self.error='';return ledger.prepare(payload)
  def request(self,method,path,token,payload=None):
   if not re.fullmatch(r'/repos/[A-Za-z0-9-]{1,39}/[A-Za-z0-9_.-]{1,100}(?:/issues(?:/[1-9][0-9]*)?)?',path)or '..'in path or method not in ('GET','POST')or method=='POST'and not path.endswith('/issues'):raise ValueError('Unsupported issue destination')
@@ -32,6 +33,7 @@ class GitHubIssue:
   if not isinstance(row,dict):raise ValueError('Invalid issue response')
   return row
  def validate(self,p,ticket,project_ticket):
+  if time.time()>=p['expires_at']:raise ValueError('Issue review expired; prepare again')
   if self.generation!=ticket or self.projects.generation!=project_ticket or self.projects.busy or self.projects.accounts.get('github')!=p['identity']:raise ValueError('Project identity/session changed')
   token=self.projects.secure().get(self.projects.key('github',p['identity']))
   if not token:raise ValueError('Credential unavailable')
@@ -63,5 +65,9 @@ class GitHubIssue:
   self.generation+=1
   if self.ledger and self.ledger.job.state in ('review','submitting','uncertain'):self.ledger.cancel()
  def snapshot(self):
-  if self.ledger is None and self.path.exists():self.journal()
-  return {'busy':self.busy,'error':self.error,**(self.ledger.snapshot()if self.ledger else{'state':'idle','plan':None,'result':None}),'scope':'Exact UI-reviewed issue only. Private local draft ledger, no startup sends. Uncertain effect is not retryable; inspect GitHub manually.'}
+  try:
+   if self.ledger is None and self.path.exists():self.journal()
+   state=self.ledger.snapshot()if self.ledger else {'state':'idle','plan':None,'result':None}
+  except Exception:
+   state={'state':'blocked','plan':None,'result':None};self.error='Local issue ledger invalid. Preserve it and inspect external state; no action or retry.'
+  return {'busy':self.busy,'error':self.error,**state}
