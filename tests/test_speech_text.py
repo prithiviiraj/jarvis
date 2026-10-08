@@ -1,30 +1,30 @@
 import unittest
 from jarvis.speech_text import speech_text
 class SpeechTextTests(unittest.TestCase):
- def test_prefix_emoji_format(self):self.assertEqual(speech_text('[NOVA] **Hello** 👋, [site](https://example.com)!'),'Hello , site!')
+ def test_prefix_emoji_format(self):self.assertEqual(speech_text('[DEX] **Hello** 👋, [site](https://example.com)!'),'Hello , site!')
  def test_thinking_hidden(self):self.assertEqual(speech_text('<think>secret</think>[DEX] Ready ✅'),'Ready')
  def test_code_not_read(self):self.assertEqual(speech_text('Use this: ```python\nx=1\n```'),'Use this: Code is shown in the chat.')
  def test_speaker_receives_cleaned_only(self):
   from jarvis.experimental.kokoro_speaker import KokoroSpeaker
   from unittest.mock import Mock
-  synth=Mock();synth.synthesize.return_value=([0.0],24000);output=Mock();s=KokoroSpeaker(synth,lambda sr:output);s.speak('[NOVA] **Hi** 👋');synth.synthesize.assert_called_once_with('Hi')
+  synth=Mock();synth.synthesize.return_value=([0.0],24000);output=Mock();s=KokoroSpeaker(synth,lambda sr:output);s.speak('[DEX] **Hi** 👋');synth.synthesize.assert_called_once_with('Hi')
  def test_profile_selection_distinct(self):
   from jarvis.experimental.kokoro_speaker import KokoroSpeaker
   from unittest.mock import Mock
-  a=Mock();b=Mock();s=KokoroSpeaker(a);s.profiles={'JARVIS':a,'NOVA':b};s.select_profile('NOVA');self.assertIs(s.synth,b);self.assertEqual(s.profile,'NOVA')
+  a=Mock();b=Mock();s=KokoroSpeaker(a);s.profiles={'JARVIS':a,'DEX':b};s.select_profile('DEX');self.assertIs(s.synth,b);self.assertEqual(s.profile,'DEX')
  def test_voice_direct_address_actual_actor(self):
   from jarvis.runtime import VoiceRuntime
   from unittest.mock import Mock
-  stt=Mock();stt.transcribe.return_value='Hey NOVA are you there?';router=Mock();router.ask.return_value={'text':'Ready'};speaker=Mock();v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock();v.enable(True);v.turn([],v.generation,False,[]);speaker.select_profile.assert_called_once_with('NOVA');self.assertEqual(v.persona,'NOVA');self.assertIn('You are NOVA',router.ask.call_args.args[0][0]['content'])
+  stt=Mock();stt.transcribe.return_value='Hey DEX are you there?';router=Mock();router.ask.return_value={'text':'Ready'};speaker=Mock();v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock();v.enable(True);v.turn([],v.generation,False,[]);speaker.select_profile.assert_called_once_with('DEX');self.assertEqual(v.persona,'DEX');self.assertIn('You are DEX',router.ask.call_args.args[0][0]['content'])
  def test_same_runtime_two_distinct_personas(self):
   from jarvis.runtime import VoiceRuntime
   from unittest.mock import Mock
-  stt=Mock();stt.transcribe.side_effect=['Hi NOVA','Hi DEX'];router=Mock();router.ask.return_value={'text':'Ready'};speaker=Mock();v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock();v.enable(True)
+  stt=Mock();stt.transcribe.side_effect=['Hi LYRA','Hi DEX'];router=Mock();router.ask.return_value={'text':'Ready'};speaker=Mock();v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock();v.enable(True)
   for i in range(2):v.turn([],v.generation,False,list(v.history))
-  self.assertEqual([x.args[0]for x in speaker.select_profile.call_args_list],['NOVA','DEX']);self.assertEqual(v.mic.start.call_count,1)
+  self.assertEqual([x.args[0]for x in speaker.select_profile.call_args_list],['LYRA','DEX']);self.assertEqual(v.mic.start.call_count,1)
  def test_short_reply_prompt(self):
   from jarvis.personas import prompt
-  self.assertIn('one or two short',prompt('NOVA'))
+  self.assertIn('one or two short',prompt('DEX'))
  def test_proactive_status_gates(self):
   from jarvis.proactive import ProactiveJudge
   from unittest.mock import Mock
@@ -34,6 +34,6 @@ class SpeechTextTests(unittest.TestCase):
 class PersonaPronunciation(unittest.TestCase):
  def test_names_spoken_as_words_without_display_change(self):
   from jarvis.speech_text import speech_text
-  text='JARVIS calls N O V A and SILA. LYRA agrees with DEX.'
-  self.assertEqual(speech_text(text),'Jarvis calls Nova and Sila. Lyra agrees with Dex.')
-  self.assertEqual(text,'JARVIS calls N O V A and SILA. LYRA agrees with DEX.')
+  text='JARVIS calls D E X and LYRA. LYRA agrees with DEX.'
+  self.assertEqual(speech_text(text),'Jarvis calls Dex and Lyra. Lyra agrees with Dex.')
+  self.assertEqual(text,'JARVIS calls D E X and LYRA. LYRA agrees with DEX.')
