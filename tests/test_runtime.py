@@ -57,37 +57,30 @@ class RuntimeTests(unittest.TestCase):
  def test_no_output_adapter_does_not_invent_measurement(self):
   events=[];self.v.notify=lambda *a:events.append(a);self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
   metric=[v for k,v in events if k=='metrics'and v][-1];self.assertNotIn('first_output_write_s',metric)
- def test_spoken_address_punctuation_selects_sila_not_previous_dex(self):
-  self.v.persona='DEX';self.v.stt.transcribe.return_value='Hey, Sila. Can you hear me?';self.v.enable(True);self.v.turn([0],self.v.generation,False,[]);self.assertEqual(self.v.persona,'SILA');self.v.speaker.select_profile.assert_called_once_with('SILA');self.v.router.select_persona.assert_called_once_with('SILA')
+ def test_spoken_address_punctuation_selects_lyra_not_previous_dex(self):
+  self.v.persona='DEX';self.v.stt.transcribe.return_value='Hey, Lyra. Can you hear me?';self.v.enable(True);self.v.turn([0],self.v.generation,False,[]);self.assertEqual(self.v.persona,'LYRA');self.v.speaker.select_profile.assert_called_once_with('LYRA');self.v.router.select_persona.assert_called_once_with('LYRA')
  def test_discuss_among_yourselves_six_actual_replies_and_leader_report(self):
-  self.v.stt.transcribe.return_value='Discuss among yourselves how to help me study';self.v.router.ask.side_effect=[{'text':'reply'+str(i)}for i in range(6)];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
-  self.assertEqual(self.v.router.ask.call_count,6);self.assertEqual([c.args[0]for c in self.v.speaker.select_profile.call_args_list],['JARVIS','NOVA','LYRA','SILA','DEX','JARVIS']);self.assertEqual(self.v.speaker.speak.call_count,6);self.assertEqual(self.v.persona,'JARVIS');self.assertIn('[NOVA] reply1',str(self.v.router.ask.call_args_list[-1]))
+  self.v.stt.transcribe.return_value='Discuss among yourselves how to help me study';self.v.router.ask.side_effect=[{'text':'reply'+str(i)}for i in range(4)];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertEqual(self.v.router.ask.call_count,4);self.assertEqual([c.args[0]for c in self.v.speaker.select_profile.call_args_list],['JARVIS','LYRA','DEX','JARVIS']);self.assertEqual(self.v.speaker.speak.call_count,4);self.assertEqual(self.v.persona,'JARVIS');self.assertIn('[LYRA] reply1',str(self.v.router.ask.call_args_list[-1]))
  def test_discussion_stop_drops_late_reply(self):
   self.v.stt.transcribe.return_value='Talk among yourselves';self.v.router.ask.side_effect=lambda *a,**kw:(self.v.pause()or{'text':'late'});self.v.enable(True);self.v.turn([0],self.v.generation,False,[]);self.v.speaker.speak.assert_not_called();self.assertEqual(self.v.router.ask.call_count,1)
 
  def test_banter_is_bounded_and_leader_settles_before_apologies(self):
-  self.v.stt.transcribe.return_value='Talk among yourselves and bicker playfully';self.v.router.ask.side_effect=[{'text':'reply'+str(i)}for i in range(9)];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
-  self.assertEqual(self.v.router.ask.call_count,9);self.assertEqual([c.args[0]for c in self.v.speaker.select_profile.call_args_list],['JARVIS','NOVA','DEX','JARVIS','NOVA','LYRA','SILA','DEX','JARVIS']);self.assertIn('Stop all!',str(self.v.router.ask.call_args_list[3]));self.assertIn('short apology',str(self.v.router.ask.call_args_list[4]));self.assertIn('final one-line',str(self.v.router.ask.call_args_list[-1]))
+  self.v.stt.transcribe.return_value='Talk among yourselves and bicker playfully';self.v.router.ask.side_effect=[{'text':'reply'+str(i)}for i in range(7)];self.v.enable(True);self.v.turn([0],self.v.generation,False,[])
+  self.assertEqual(self.v.router.ask.call_count,7);self.assertEqual([c.args[0]for c in self.v.speaker.select_profile.call_args_list],['JARVIS','LYRA','DEX','JARVIS','LYRA','DEX','JARVIS']);self.assertIn('Stop all!',str(self.v.router.ask.call_args_list[3]));self.assertIn('short apology',str(self.v.router.ask.call_args_list[4]));self.assertIn('final one-line',str(self.v.router.ask.call_args_list[-1]))
 
 class ArgumentDynamicsTests(unittest.TestCase):
- def test_sila_recorder_and_nova_temper_and_dex_closer_instructions(self):
+ def test_current_argument_roles(self):
   from jarvis.team_discussion import messages
-  m=messages('SILA','argue about chores',[],0)
-  self.assertIn('introverted researcher and experienced manager',m[-1]['content']);self.assertIn('do not invent mistakes',m[-1]['content'])
-  m=messages('NOVA','bicker about chores',[],1)
-  self.assertIn('hot-tempered',m[-1]['content'])
-  m=messages('DEX','argument about plans',[],2)
-  self.assertIn('ends the debate',m[-1]['content'])
- def test_persona_argument_roles_present(self):
-  from jarvis.personas import prompt
-  sila=prompt('SILA');nova=prompt('NOVA');dex=prompt('DEX');jarvis=prompt('JARVIS')
-  self.assertIn('experienced manager',sila);self.assertIn('Most introverted',sila)
-  self.assertIn('Why bring up the past',nova);self.assertIn('hot temper',nova)
-  self.assertIn('fear debating you',dex)
-  self.assertIn('Master is watching',jarvis);self.assertIn('hold back longer',jarvis);self.assertIn('bad word',jarvis)
+  from jarvis.personas import prompt,ROLES
+  self.assertEqual(tuple(ROLES),('JARVIS','LYRA','DEX'))
+  self.assertIn('ends the debate',messages('DEX','argument about plans',[],2)[-1]['content'])
+  self.assertIn('fear debating you',prompt('DEX'))
+  self.assertIn('Master is watching',prompt('JARVIS'))
+  self.assertIn('affectionate',prompt('LYRA'))
  def test_profanity_bound_never_at_master(self):
   from jarvis.personas import prompt
-  for name in ('JARVIS','NOVA','SILA','LYRA','DEX'):
+  for name in ('JARVIS','LYRA','DEX'):
    self.assertIn('never direct insults or profanity at master',prompt(name))
 
 class BargeInTests(unittest.TestCase):
@@ -128,7 +121,7 @@ class VoiceTeamStreaming(unittest.TestCase):
    yield {'text':' Second thought.','provider':'fixture','model':'controlled'}
   v.router.stream.side_effect=stream;v.speaker.speak.side_effect=lambda *a,**kw:release.set()
   v.enable(True);thread=threading.Thread(target=v.turn,args=([0],v.generation,False,[]));thread.start();self.assertTrue(entered.wait(1));thread.join(3)
-  self.assertFalse(thread.is_alive());self.assertEqual(len(calls),11);v.router.ask.assert_not_called()
+  self.assertFalse(thread.is_alive());self.assertEqual(len(calls),7);v.router.ask.assert_not_called()
   self.assertIn('[JARVIS] First useful sentence. Second thought.',str(calls[1]));self.assertTrue(any(k=='answer' and x.get('stream_id')for k,x in events));self.assertEqual(v.speaker.speak.call_args_list[0].args[0],'First useful sentence.');v.close()
  def test_exact_voice_phrase_pause_drops_late_stream_and_next_actor(self):
   v=VoiceRuntime(Mock(),Mock(),Mock(),Mock());v.mic=Mock();v.stt.transcribe.return_value='talk to each other about this';v.streaming=True
