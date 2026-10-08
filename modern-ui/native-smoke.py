@@ -122,7 +122,7 @@ try:
   # Animated Tools tiles include live status and descriptions in their UIA names.
   tiles=('Laya activate','Camera','Live screen','Proactive')
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
-  item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
+  item=(root or window).child_window(title_re=pattern,control_type='Button',visible_only=False);item.wait('exists',timeout=20);return item
  def ui_text(root=None):
   # WebView2 may detach a UIA node during React updates. pywinauto's class
   # lookup then raises KeyError(None). Retry that specific snapshot race only.
@@ -228,38 +228,38 @@ try:
  reveal_field(email_field)
  window.capture_as_image().save('ui-evidence/native-google-connection-inert.png')
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
- drive_read=window.child_window(title='Review Drive metadata read',control_type='Button');reveal_field(drive_read);assert not drive_read.is_enabled()
+ drive_read=window.child_window(title='Review Drive metadata read',control_type='Button',visible_only=False);reveal_field(drive_read);assert not drive_read.is_enabled()
  sheets_read=window.child_window(title='Review Sheets values read',control_type='Button',visible_only=False);reveal_field(sheets_read);assert not sheets_read.is_enabled()
  reveal_field(window.child_window(title='Drive new text name',control_type='Edit'))
- assert not button('Capture Drive identity and private root').is_enabled(), 'Drive upload review enabled without account/access'
+ reveal_field(button('Capture Drive identity and private root'));assert not button('Capture Drive identity and private root').is_enabled(), 'Drive upload review enabled without account/access'
  assert 'Confirm exact private text upload'not in ui_text(), 'Drive upload final confirmation without review'
  window.capture_as_image().save('ui-evidence/native-drive-text-inert.png');checks.append('native Drive text upload inert without account/access; no live file')
  reveal_field(window.child_window(title='Write spreadsheet ID',control_type='Edit'))
- assert not button('Capture sheet identity and prior cells').is_enabled(), 'Sheet overwrite review enabled without account/write scope'
+ reveal_field(button('Capture sheet identity and prior cells'));assert not button('Capture sheet identity and prior cells').is_enabled(), 'Sheet overwrite review enabled without account/write scope'
  assert 'Confirm exact cell overwrite'not in ui_text(), 'Sheet final confirmation without prior/new cells review'
  window.capture_as_image().save('ui-evidence/native-sheets-write-inert.png');checks.append('native RAW sheet update inert without account/write scope; no live cells changed')
  reveal_field(window.child_window(title='Spreadsheet ID',control_type='Edit'))
  window.capture_as_image().save('ui-evidence/native-drive-sheets-inert.png');checks.append('native Drive/Sheets reviewed-read controls inert without account; no real read/write/download')
  gmail_to=window.child_window(title='Gmail To addresses',control_type='Edit');reveal_field(gmail_to)
- assert not button('Prepare Gmail review').is_enabled(), 'Gmail review enabled without connected account'
+ reveal_field(button('Prepare Gmail review'));assert not button('Prepare Gmail review').is_enabled(), 'Gmail review enabled without connected account'
  window.capture_as_image().save('ui-evidence/native-gmail-inert.png')
  checks.append('native Gmail review form disabled without connected account; no send started')
  calendar_title=window.child_window(title='Google event title',control_type='Edit');reveal_field(calendar_title)
- assert not button('Prepare solo event review').is_enabled(), 'Calendar review enabled without connected account'
+ reveal_field(button('Prepare solo event review'));assert not button('Prepare solo event review').is_enabled(), 'Calendar review enabled without connected account'
  window.capture_as_image().save('ui-evidence/native-gcal-inert.png')
  checks.append('native solo calendar review form disabled without connected account; no event creation started')
- reveal_field(window.child_window(title='Recheck event and prepare Telegram draft',control_type='Button'))
+ reveal_field(window.child_window(title='Recheck event and prepare Telegram draft',control_type='Button',visible_only=False))
  assert not button('Recheck event and prepare Telegram draft').is_enabled(), 'Handoff enabled without verified event/Telegram'
  window.capture_as_image().save('ui-evidence/native-calendar-telegram-inert.png');checks.append('native calendar-to-Telegram handoff inert without completed event/pairing, no send')
  reveal_field(window.child_window(title='Project identity',control_type='Edit'))
  project_read=window.child_window(title='Review GitHub source read',control_type='Button',visible_only=False);reveal_field(project_read);assert not project_read.is_enabled()
  window.capture_as_image().save('ui-evidence/native-project-read-inert.png');checks.append('native GitHub/Notion read panel inert; no token or external access')
  reveal_field(window.child_window(title='Notion paragraph block UUID',control_type='Edit'))
- assert not button('Capture Notion block identity and prior text').is_enabled(), 'Notion update review enabled without bot/write gate'
+ reveal_field(button('Capture Notion block identity and prior text'));assert not button('Capture Notion block identity and prior text').is_enabled(), 'Notion update review enabled without bot/write gate'
  assert 'Confirm exact paragraph replacement'not in ui_text(), 'Notion final confirmation before prior/new text review'
  window.capture_as_image().save('ui-evidence/native-notion-text-inert.png');checks.append('native plain Notion update inert without bot/write gate; no live paragraph changed')
  reveal_field(window.child_window(title='Issue repository owner',control_type='Edit'))
- assert not button('Review issue identity/repository/words').is_enabled(), 'Issue review enabled without identity/write gate'
+ reveal_field(button('Review issue identity/repository/words'));assert not button('Review issue identity/repository/words').is_enabled(), 'Issue review enabled without identity/write gate'
  assert 'Confirm create issue and repository notifications'not in ui_text(), 'Issue final submission visible without review'
  window.capture_as_image().save('ui-evidence/native-github-issue-inert.png');checks.append('native issue identity/words panel inert without identity/write grant; no real issue or notification')
  # Actual fixed Windows app launch: review before execution, window observed.
