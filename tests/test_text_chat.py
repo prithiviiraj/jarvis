@@ -9,8 +9,8 @@ class TextChatTests(unittest.TestCase):
   c,r=self.controller();c.send_text('Hello').join(2)
   self.assertIsNone(c.runtime);c.factory.assert_not_called();self.assertFalse(r.stream.call_args.kwargs['cloud_consent']);self.assertEqual(c.memory.snapshot(),[('JARVIS','Hello','Local reply')]);self.assertFalse(c.busy)
  def test_shared_context_profile_identity(self):
-  c,r=self.controller();c.memory.append('JARVIS','first','answer');c.select('NOVA');c.send_text('What was said?').join(2)
-  m=r.stream.call_args.args[0];self.assertIn('You are NOVA',m[0]['content']);self.assertEqual(m[2]['content'],'[JARVIS] answer');self.assertEqual(c.memory.snapshot()[-1][0],'NOVA')
+  c,r=self.controller();c.memory.append('JARVIS','first','answer');c.select('DEX');c.send_text('What was said?').join(2)
+  m=r.stream.call_args.args[0];self.assertIn('You are DEX',m[0]['content']);self.assertEqual(m[2]['content'],'[JARVIS] answer');self.assertEqual(c.memory.snapshot()[-1][0],'DEX')
  def test_blank_and_size(self):
   c,r=self.controller()
   for t in ['', '  ', 'a'*2001,None]:
@@ -28,7 +28,7 @@ class TextChatTests(unittest.TestCase):
    c,r=self.controller();entered=threading.Event();release=threading.Event()
    def answer(*a,**k):entered.set();release.wait(2);yield {'text':'stale','provider':'local'}
    r.stream.side_effect=answer;w=c.send_text('private');self.assertTrue(entered.wait(1))
-   if operation=='select':c.select('NOVA')
+   if operation=='select':c.select('DEX')
    else:getattr(c,operation)()
    release.set();w.join(2);self.assertEqual(c.memory.snapshot(),[]);self.assertFalse(any(k=='answer' for k,v in c.events.queue))
  def test_failed_reply_not_recorded(self):
@@ -48,8 +48,8 @@ class SinglePersonaRoutingTests(unittest.TestCase):
  def test_manual_keeps_selected(self):
   from unittest.mock import Mock
   from jarvis.workspace_voice import WorkspaceVoice
-  r=Mock();r.stream.return_value=iter([{'text':'one answer'}]);c=WorkspaceVoice(Mock(),Mock(return_value=r));c.select('NOVA');c.send_text('debug code',auto_pick=False).join(2)
-  self.assertIn('You are NOVA',r.stream.call_args.args[0][0]['content']);self.assertEqual(r.stream.call_count,1)
+  r=Mock();r.stream.return_value=iter([{'text':'one answer'}]);c=WorkspaceVoice(Mock(),Mock(return_value=r));c.select('DEX');c.send_text('debug code',auto_pick=False).join(2)
+  self.assertIn('You are DEX',r.stream.call_args.args[0][0]['content']);self.assertEqual(r.stream.call_count,1)
 
 class IncrementalChatTests(unittest.TestCase):
  def test_visible_partial_then_final_same_turn(self):
@@ -66,12 +66,12 @@ class IncrementalChatTests(unittest.TestCase):
   r=Mock()
   def chunks(*a,**k):yield {'text':'Partial','provider':'local'};raise RuntimeError('stream stopped')
   r.stream.side_effect=chunks;c=WorkspaceVoice(text_factory=lambda:r);b=Bridge(c);c.send_text('hi').join(2);s=b.execute({'command':'status'})
-  self.assertTrue(any(m['text']=='Partial'for m in s['messages']));self.assertFalse(any(m['name']=='SILA'for m in s['messages']));self.assertIn('stream stopped',s['failure_detail']['detail']);self.assertIn('Local model did not answer',s['error']);self.assertEqual(c.memory.snapshot(),[]);b.close()
+  self.assertTrue(any(m['text']=='Partial'for m in s['messages']));self.assertFalse(any(m['name']=='LYRA'for m in s['messages']));self.assertIn('stream stopped',s['failure_detail']['detail']);self.assertIn('Local model did not answer',s['error']);self.assertEqual(c.memory.snapshot(),[]);b.close()
 
 class OwnProfileRetry(unittest.TestCase):
  def test_narrated_other_reply_retried_without_fake_bubble(self):
-  r=Mock();r.stream.return_value=iter([{'text':'Nova argues humans are computers.','provider':'local'}]);r.ask.return_value={'text':'Humans learn through experience.','provider':'local'};v=WorkspaceVoice(text_factory=lambda:r)
-  v.send_text('Explain humans').join(2);r.ask.assert_called_once();answers=[a for k,a in list(v.events.queue)if k=='answer'];self.assertEqual(len(answers),1);self.assertEqual(answers[0]['profile'],'JARVIS');self.assertNotIn('Nova argues',answers[0]['text']);self.assertEqual(v.memory.snapshot()[0][2],'Humans learn through experience.');v.close()
+  r=Mock();r.stream.return_value=iter([{'text':'Dex argues humans are computers.','provider':'local'}]);r.ask.return_value={'text':'Humans learn through experience.','provider':'local'};v=WorkspaceVoice(text_factory=lambda:r)
+  v.send_text('Explain humans').join(2);r.ask.assert_called_once();answers=[a for k,a in list(v.events.queue)if k=='answer'];self.assertEqual(len(answers),1);self.assertEqual(answers[0]['profile'],'JARVIS');self.assertNotIn('Dex argues',answers[0]['text']);self.assertEqual(v.memory.snapshot()[0][2],'Humans learn through experience.');v.close()
 
 class GenerationCleanup(unittest.TestCase):
  def test_old_worker_cannot_clear_new_busy(self):
