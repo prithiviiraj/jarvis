@@ -43,7 +43,7 @@ def capture(target):
 class LocalGameModel:
  def __init__(self,model,opener=None,gate=None):
   if not isinstance(model,str)or not model.strip()or len(model)>200:raise ValueError('Choose a loaded local vision model')
-  self.model=model;self.http=opener or local_http();self.gate=gate
+  self.model=model;self.http=opener or local_http();self.gate=gate;self.system=SYSTEM
  def verify(self):
   with self.http.open('http://127.0.0.1:1234/api/v1/models',timeout=3)as r:raw=r.read(262145)
   if len(raw)>262144:raise ValueError('Oversize model list')
@@ -58,7 +58,7 @@ class LocalGameModel:
  def _analyze(self,frame):
   self.verify()
   from urllib.request import Request
-  data={'model':self.model,'temperature':0.3,'max_tokens':120,'messages':[{'role':'system','content':SYSTEM},{'role':'user','content':[{'type':'text','text':'One recent selected-window frame. Describe cautiously.'},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(frame).decode()}}]}]}
+  data={'model':self.model,'temperature':0.3,'max_tokens':120,'messages':[{'role':'system','content':self.system},{'role':'user','content':[{'type':'text','text':'One recent selected-window frame. Describe cautiously.'},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(frame).decode()}}]}]}
   req=Request('http://127.0.0.1:1234/v1/chat/completions',data=json.dumps(data).encode(),headers={'Content-Type':'application/json'})
   with self.http.open(req,timeout=8)as r:raw=r.read(32769)
   if len(raw)>32768:raise ValueError('Oversize game reply')
