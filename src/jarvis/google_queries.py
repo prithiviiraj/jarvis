@@ -6,11 +6,11 @@ class GoogleQueries:
  def __init__(self,connection,transport=None):self.connection=connection;self.transport=transport;self.generation=0;self.busy=False;self.error='';self.result=None;self.lock=threading.RLock();self.worker=None
  def start(self,kind,params,consent=False):
   if consent is not True:raise ValueError('Review the Google read request first')
-  if kind not in ('gmail-list','gmail-message','calendar-freebusy'):raise ValueError('Unsupported Google read')
+  if kind not in ('gmail-list','gmail-message','calendar-freebusy','drive-list','sheets-values'):raise ValueError('Unsupported Google read')
   if not isinstance(params,dict):raise ValueError('Invalid Google read parameters')
   email=self.connection.account
   if not email:raise ValueError('Choose a connected Google account')
-  scope=SCOPES['calendar-freebusy'if kind=='calendar-freebusy'else'mail-read']
+  scope=SCOPES[{'calendar-freebusy':'calendar-freebusy','drive-list':'drive-metadata-read','sheets-values':'sheets-read'}.get(kind,'mail-read')]
   with self.lock:
    if self.busy:raise ValueError('Previous Google read still stopping; wait')
    self.generation+=1;ticket=self.generation;connection_ticket=self.connection.generation;self.busy=True;self.result=None;self.error=''
@@ -31,12 +31,16 @@ class GoogleQueries:
      if message_id not in observed:raise ValueError('Choose a message ID returned for this account')
      from .google_mail_draft import plain_message
      row=connector.read_message(message_id)['message'];result={'kind':kind,**plain_message(row,email)}
+    elif kind in ('drive-list','sheets-values'):
+     from .google_workspace_read import WorkspaceRead
+     reader=WorkspaceRead(lambda:self.connection.tokens.access(email,scope),email,self.transport)
+     result={'kind':kind,**(reader.files(params.get('query',''))if kind=='drive-list'else reader.values(params.get('file_id'),params.get('range')))}
     else:result={'kind':kind,**connector.freebusy(params.get('calendar_ids'),params.get('start'),params.get('end'),True)}
     with self.lock:
      if self.generation==ticket and self.connection.account==email and self.connection.generation==connection_ticket:self.result=result
    except Exception:
     with self.lock:
-     if self.generation==ticket:self.error='Google read failed or scope/account changed. No mail or calendar write performed.'
+     if self.generation==ticket:self.error='Google read failed or scope/account changed. No external write performed.'
    finally:
     with self.lock:self.busy=False
   self.worker=threading.Thread(target=work,name='google-read',daemon=True);self.worker.start()
