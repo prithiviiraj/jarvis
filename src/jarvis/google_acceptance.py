@@ -85,6 +85,25 @@ def run():
     return [{'number':1,'title':'Controlled issue','body':'Untrusted fixture only'}]
    projects=ProjectConnectors(projects_store,project_transport);projects.connect('github',project_identity,'fixture-project-token',True);projects.worker.join(5);assert not projects.error
    projects.read('github',{'kind':'issues','owner':'fixture','repo':'fixture'},True);projects.worker.join(5);assert not projects.error and len(projects.result['issues'])==1
+   from .github_issue import GitHubIssue
+   issue_calls=[];created={}
+   def issue_transport(method,url,payload,token):
+    assert token=='fixture-project-token';issue_calls.append((method,url,payload))
+    if not '/issues' in url:return {'full_name':'fixture/fixture','has_issues':True,'archived':False}
+    if method=='POST':created.update(payload,number=7,html_url='https://github.com/fixture/fixture/issues/7',user={'login':project_identity})
+    return dict(created)
+   with tempfile.TemporaryDirectory()as folder:
+    issue=GitHubIssue(projects,Path(folder)/'issue.json',issue_transport)
+    try:issue.prepare('fixture','fixture','Controlled title','Controlled exact fixture body',False)
+    except ValueError:pass
+    else:raise AssertionError('Issue read permission became write')
+    review=issue.prepare('fixture','fixture','Controlled title','Controlled exact fixture body',True);assert not issue_calls
+    issue.submit(review,True);issue.worker.join(5);assert issue.snapshot()['state']=='completed',issue.snapshot()
+    assert [x[0]for x in issue_calls]==['GET','POST','GET']
+    assert GitHubIssue(projects,issue.path,issue_transport).snapshot()['state']=='completed'
+    try:issue.prepare('fixture','fixture','Controlled title','Controlled exact fixture body',True)
+    except ValueError:pass
+    else:raise AssertionError('Completed issue duplicated')
    restarted=ProjectConnectors(projects_store,project_transport);assert not restarted.accounts;restarted.connect('github',project_identity,'',True);restarted.worker.join(5);assert not restarted.error;restarted.disconnect('github',True);assert not projects_store.get(project_key)
   finally:projects_store.delete(project_key)
   from .focus_session import FocusSession
@@ -99,6 +118,6 @@ def run():
   from .obsidian import Vault
   with tempfile.TemporaryDirectory()as folder:
    root=Path(folder).resolve();(root/'.obsidian').mkdir();(root/'source.md').write_text('Controlled quote');note={'name':'source.md','vault_folder':str(root),'text':'Controlled quote','sha256':hashlib.sha256(b'Controlled quote').hexdigest(),'truncated':False};answer=SourceAnswer(threading.Lock(),lambda:[{'id':'fixture-local'}],lambda m,q,n,c:{'text':'Controlled draft','model':m});source_review=answer.prepare(root,note,'Question','fixture-local');answer.start(root,source_review,True);answer.worker.join(5);assert answer.result['source_sha256']==note['sha256'];answer.stop();assert answer.result is None
-  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False,'reviewed_project_read_secure_resume_fixture':True,'live_projects':False,'local_focus_timer_review_pause_checkin_fixture':True,'local_reflex_five_questions_no_effect_fixture':True,'exact_local_brain_switch_no_cloud_fixture':True,'reviewed_single_source_local_answer_fixture':True}
+  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False,'reviewed_project_read_secure_resume_fixture':True,'live_projects':False,'reviewed_GitHub_issue_write_gate_readback_restart_fixture':True,'live_issue_created':False,'local_focus_timer_review_pause_checkin_fixture':True,'local_reflex_five_questions_no_effect_fixture':True,'exact_local_brain_switch_no_cloud_fixture':True,'reviewed_single_source_local_answer_fixture':True}
   Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-google-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(key);store.delete(probe)
