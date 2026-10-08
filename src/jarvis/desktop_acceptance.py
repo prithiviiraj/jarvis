@@ -14,7 +14,8 @@ def run():
  controller=DesktopController()
  try:
   w=Desktop(backend='uia').window(title=TITLE);w.wait('visible',timeout=15)
-  windows=controller.discover(True);target=next(x for x in windows if x['hwnd']==w.handle)
+  windows=controller.discover(True);matches=[x for x in windows if x['title']==TITLE];assert len(matches)==1,windows;target=matches[0]
+  assert target['pid']==child.pid,target
   # Focus the actual edit via mouse, not a fixture adapter or direct text injection.
   field=w.child_window(control_type='Edit').wrapper_object();rect=field.rectangle();point=w.wrapper_object().client_to_screen((0,0));x=rect.left-point[0]+12;y=rect.top-point[1]+rect.height()//2
   text='Literal +^%{} sample 123'
