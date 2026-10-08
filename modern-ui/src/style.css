@@ -137,3 +137,11 @@ html.pill-root,html.pill-root body,#root:has(.pill-shell){background:transparent
 [aria-label="Unverified source answer draft"]{color:#d9e7ed;opacity:1}[aria-label="Unverified source answer draft"] p,[aria-label="Unverified source answer draft"] small{color:#d9e7ed;opacity:1}
 
 .phone-control label{display:block;margin:10px 0}.phone-control input:not([type="checkbox"]){display:block;box-sizing:border-box;width:100%;padding:10px;background:#0a171d;border:1px solid #2b4652;border-radius:8px;color:#d9e7ed}
+
+/* Reviewed project forms: readable full-width text, native-size consent checks. */
+.project-control input:not([type=checkbox]),.project-control textarea{display:block;width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #344c54;border-radius:8px;background:#0a141a;color:#d6e2e4}
+.project-control textarea{min-height:110px;resize:vertical}
+.project-control input[type=checkbox]{width:auto;min-width:0;padding:0;margin:0 8px 0 0;vertical-align:middle}
+.project-control [role=region]{border:1px solid #4a6775;border-radius:14px;padding:16px;margin:12px 0;color:#d4e3e6}
+.project-control [role=region] p,.project-control h3{color:#c4d7df}
+.project-control>label:has(input[type=checkbox]){display:block;line-height:1.6}
