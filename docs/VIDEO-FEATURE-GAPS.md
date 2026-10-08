@@ -1,6 +1,6 @@
 # Required video feature coverage
 
-Owner steering8October2026: all features from both reference videos are required. This is a gap list, not a finished-parity claim. Preserve working API area, Obsidian connection/data, JARVIS leader, LYRA and DEX and Kokoro while filling it.
+Owner steering8October2026: the owner requested all listed features and one final file, then explicitly excluded gestures. This ledger is a researched breakdown, not independent owner authority. This is a gap list, not a finished-parity claim. Preserve working API area, Obsidian connection/data, JARVIS leader, LYRA and DEX and Kokoro while filling it.
 
 Sources: https://www.youtube.com/watch?v=zdnijkAbknA&t=60s and https://www.youtube.com/watch?v=D5v4UuvtUXc&t=452s . Full audio plus sampled visuals were reviewed, not every frame. Telephone business calling, some modes, broad tool stack and cost/speed claims are partly presenter descriptions, not audited completed flows.
 
