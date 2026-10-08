@@ -37,3 +37,8 @@ class Tests(unittest.TestCase):
   try:
    os.chdir(self.tmp.name);run();report=json.loads(pathlib.Path('ui-evidence/frozen-local-draft-contracts.json').read_text());self.assertTrue(report['synthetic_text_only']);self.assertIn('physical phone',report['unrun'])
   finally:os.chdir(prior)
+
+ def test_linebreaks_preserved_and_blank_lines_counted(self):
+  self.f['body']='first\nsecond';svg=self.d.prepare(self.f,True)['svg'];self.assertIn('y="540"',svg);self.assertIn('y="583"',svg)
+  self.f['body']='a\n'*15
+  with self.assertRaises(ValueError):self.d.prepare(self.f,True)
