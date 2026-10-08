@@ -111,6 +111,14 @@ try:
   tiles=('Laya activate','Camera','Live screen','Proactive')
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
   item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
+ def ui_text(root=None):
+  # WebView2 may detach a UIA node during React updates. pywinauto's class
+  # lookup then raises KeyError(None). Retry that specific snapshot race only.
+  for attempt in range(5):
+   try:return ' '.join(x.window_text() for x in (root or window).descendants())
+   except KeyError as error:
+    if error.args!=(None,) or attempt==4:raise
+    time.sleep(.05)
  def focus_workspace():
   # Edge startup can steal focus after an earlier successful set_focus.
   # Verify the OS foreground owner immediately before every mouse action.
@@ -208,7 +216,7 @@ try:
  auto_root=pathlib.Path(os.path.expandvars(download_path))/'Brain of Brain'
  deadline=time.monotonic()+30
  while time.monotonic()<deadline:
-  content=' '.join(x.window_text()for x in window.descendants())
+  content=ui_text()
   if all((auto_root/f).is_file() for f in ['Team/LYRA.md','Active Work.md','Modes/Current settings.md','Brain of Brain.canvas']) and 'Setting up your data centre' not in content and 'Local vault ready; manual sync only.' in content:break
   time.sleep(.2)
  else:raise RuntimeError('Async AUTO vault setup did not settle')
@@ -223,7 +231,7 @@ try:
  button('Check LM Studio connection').wait('exists',timeout=10);click('Check LM Studio connection')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
-  connection_text=' '.join(x.window_text()for x in window.descendants())
+  connection_text=ui_text()
   if 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text:break
   time.sleep(.2)
  assert 'ready' in connection_text and 'qwen2.5-vl-3b-instruct' in connection_text, 'Connection check must discover actual current loopback model'
@@ -317,8 +325,8 @@ try:
   raise RuntimeError('Native speech engine option not selected: '+label)
  choose_engine('Kokoro - default','{HOME}')
  assert engine.wrapper_object().selected_text().startswith('Kokoro')
- assert 'Kitten nano int8' not in ' '.join(x.window_text()for x in window.descendants())
- assert 'Downloading 'not in' '.join(x.window_text()for x in window.descendants())
+ assert 'Kitten nano int8' not in ui_text()
+ assert 'Downloading 'not in ui_text()
  button('Mic ON / start local voice').wait('exists',timeout=10)
  checks.append('native Kokoro-only speech option; exact download review canceled; no download or microphone start')
  # Actual temporary-vault UI flow, no owner's files. Reviews must fire nothing.
@@ -333,9 +341,9 @@ try:
   click('Connect local vault');click('Confirm vault connection')
   deadline=time.monotonic()+10
   while time.monotonic()<deadline:
-   if 'Connected locally: '+str(vault_root.resolve()) in' '.join(x.window_text()for x in window.descendants()):break
+   if 'Connected locally: '+str(vault_root.resolve()) in ui_text():break
    time.sleep(.1)
-  assert 'Connected locally: '+str(vault_root.resolve()) in' '.join(x.window_text()for x in window.descendants())
+  assert 'Connected locally: '+str(vault_root.resolve()) in ui_text()
   window.child_window(title='Search vault',control_type='Edit').wrapper_object().set_edit_text('native-vault-fixture');click('Search local notes');button('seed.md').wait('exists',timeout=10)
   button('seed.md').wrapper_object().set_focus();window.type_keys('{TAB}');time.sleep(.3)
   name_field=window.child_window(title='New note path',control_type='Edit');name_field.wrapper_object().set_edit_text('native-created.md')
@@ -365,15 +373,15 @@ try:
   except Exception:
    window.capture_as_image().save('ui-evidence/native-advanced-expand-failure.png')
    if attempt==2:raise
- click('Download Laya model');button('Confirm Laya model download').wait('exists',timeout=10);button('Confirm Laya model download').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-managed-laya-download-review.png');click('Cancel Laya model download');window.child_window(title='Confirm Laya model download',control_type='Button').wait_not('exists',timeout=10);assert 'Laya model missing; review Download Laya model'in' '.join(x.window_text()for x in window.descendants());assert not button('Load inbuilt Laya').wrapper_object().is_enabled();click('Stop Laya setup / engine');checks.append('native inbuilt Laya exact pinned download review/cancel and stop; no model download or engine loading')
- click('Enable shared Laya');button('Confirm Laya permission').wait('exists',timeout=10);button('Confirm Laya permission').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-laya-permission-review.png');click('Cancel Laya permission');window.child_window(title='Confirm Laya permission',control_type='Button').wait_not('exists',timeout=10);click('Enable shared Laya');click('Confirm Laya permission');time.sleep(.3);assert 'inbuilt Laya engine not loaded'in' '.join(x.window_text()for x in window.descendants());click('Stop Laya proposals');assert 'Silent shared action log'in' '.join(x.window_text()for x in window.descendants());click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
+ click('Download Laya model');button('Confirm Laya model download').wait('exists',timeout=10);button('Confirm Laya model download').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-managed-laya-download-review.png');click('Cancel Laya model download');window.child_window(title='Confirm Laya model download',control_type='Button').wait_not('exists',timeout=10);assert 'Laya model missing; review Download Laya model'in ui_text();assert not button('Load inbuilt Laya').wrapper_object().is_enabled();click('Stop Laya setup / engine');checks.append('native inbuilt Laya exact pinned download review/cancel and stop; no model download or engine loading')
+ click('Enable shared Laya');button('Confirm Laya permission').wait('exists',timeout=10);button('Confirm Laya permission').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-laya-permission-review.png');click('Cancel Laya permission');window.child_window(title='Confirm Laya permission',control_type='Button').wait_not('exists',timeout=10);click('Enable shared Laya');click('Confirm Laya permission');time.sleep(.3);assert 'inbuilt Laya engine not loaded'in ui_text();click('Stop Laya proposals');assert 'Silent shared action log'in ui_text();click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
  button('Confirm browser permission').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-browser-permission-review.png')
  click('Cancel browser permission');window.child_window(title='Confirm browser permission',control_type='Button').wait_not('exists',timeout=10)
  click('Enable browser commands');click('Confirm browser permission');time.sleep(.5)
  browser_field=window.child_window(title='Browser command',control_type='Edit');browser_field.wrapper_object().set_edit_text('browser open example.com');click('Prepare browser command');button('Review / run browser command').wait('exists',timeout=10)
  click('Review / run browser command');button('Confirm browser command').wait('exists',timeout=10)
- assert 'https://example.com'in' '.join(x.window_text()for x in window.descendants())
+ assert 'https://example.com'in ui_text()
  button('Confirm browser command').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-browser-command-review.png')
  click('Cancel browser command');window.child_window(title='Confirm browser command',control_type='Button').wait_not('exists',timeout=10)
@@ -384,7 +392,7 @@ try:
  button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Activate team').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS. OPEN. BROWSER.');click('Add local draft')
  button('Confirm Team browser action').wait('exists',timeout=10)
- assert 'open-window'in' '.join(x.window_text()for x in window.descendants())
+ assert 'open-window'in ui_text()
  window.capture_as_image().save('ui-evidence/native-dotted-jarvis-browser-review.png');click('Cancel Team browser action')
  checks.append('exact JARVIS. OPEN. BROWSER. punctuation phrase prepares browser-open review; cancel leaves browser unopened')
  # Cancel is a full browser-stop and revokes session permission. Re-enable explicitly.
@@ -394,7 +402,7 @@ try:
  field.wrapper_object().set_edit_text('J.A.R.V.I.S. Open the browser.');click('Add local draft');click('Confirm Team browser action');click('Settings');click('Advanced');click('Advanced browser controls');click('Expand advanced browser controls')
  deadline=time.monotonic()+30
  while time.monotonic()<deadline:
-  content=' '.join(x.window_text()for x in window.descendants())
+  content=ui_text()
   if 'about:blank'in content and 'ready'in content:break
   if 'Browser reports error' in content:raise RuntimeError('Actual isolated Edge startup failed: '+content)
   time.sleep(.3)
@@ -405,7 +413,7 @@ try:
 
  click('Team room');field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft')
  button('Confirm Team browser action').wait('exists',timeout=10)
- assert 'https://www.youtube.com/'in' '.join(x.window_text()for x in window.descendants())
+ assert 'https://www.youtube.com/'in ui_text()
  window.capture_as_image().save('ui-evidence/native-team-browser-review.png');click('Cancel Team browser action')
  checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Advanced');click('Advanced browser controls');click('Stop browser control')
 
@@ -416,7 +424,7 @@ try:
  deadline=time.monotonic()+20
  while time.monotonic()<deadline:
   turns=[r for r in requests[before:] if phrase in str(r.get('body',''))]
-  if len(turns)>=5 and 'JARVIS actual politics discussion turn' in ' '.join(x.window_text()for x in window.descendants()):break
+  if len(turns)>=5 and 'JARVIS actual politics discussion turn' in ui_text():break
   time.sleep(.2)
  else:raise RuntimeError('Exact laptop sentence failed to start five actual team turns')
  actors=[__import__('re').match(r'Your current speaker is ([A-Z0-9_-]+)\.',r['body']['messages'][0]['content']).group(1) for r in turns]
@@ -430,14 +438,14 @@ try:
  click('Add local draft')
  deadline=time.monotonic()+8
  while time.monotonic()<deadline:
-  text=' '.join(x.window_text() for x in window.descendants())
+  text=ui_text()
   if 'Packaged local ' in text and 'Packaged local chat round-trip confirmed.' not in text:break
   time.sleep(.1)
  else:raise RuntimeError('Incremental reply was not visible before completion')
  window.capture_as_image().save('ui-evidence/tauri-chat-streaming-partial.png')
  checks.append('actual partial streamed text visible before completion')
  time.sleep(3)
- text=' '.join(x.window_text() for x in window.descendants())
+ text=ui_text()
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  assert 'Local · LM Studio · qwen2.5-vl-3b-instruct'in text,'True local provider/model source label missing'
  checks.append('native true local route/model visible on reply')
@@ -446,7 +454,7 @@ try:
  field.wrapper_object().set_edit_text('empty-stream-probe');click('Add local draft')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
-  text=' '.join(x.window_text() for x in window.descendants())
+  text=ui_text()
   if 'Local nonstream retry confirmed.' in text:break
   time.sleep(.1)
  else:raise RuntimeError('Empty stream nonstream retry failed: '+text)
@@ -454,7 +462,7 @@ try:
  field.wrapper_object().set_edit_text('scaffold-probe');click('Add local draft')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
-  text=' '.join(x.window_text()for x in window.descendants())
+  text=ui_text()
   assert 'INTERNAL SCAFFOLD LEAK'not in text and "Here's a thinking process"not in text
   if 'Safe final answer recovered.'in text:break
   time.sleep(.1)
@@ -462,14 +470,14 @@ try:
  window.capture_as_image().save('ui-evidence/native-scaffold-suppressed-final-retry.png');checks.append('untagged split scaffold withheld; one direct nonstream retry shows only final answer')
  field.wrapper_object().set_edit_text('length-probe');click('Add local draft')
  for i in range(80):
-  text=' '.join(x.window_text() for x in window.descendants())
+  text=ui_text()
   if 'Final visible truncated answer.' in text and 'Reply reached the completion limit' in text:break
   time.sleep(.2)
  else:raise RuntimeError('Truncation handling failed: '+text)
  if 'PRIVATE REASONING' in text:raise RuntimeError('Thinking leaked into UI')
  window.capture_as_image().save('ui-evidence/tauri-final-truncated.png');checks.append('length retains final answer, marks incomplete, split thinking tags suppressed')
  field.wrapper_object().set_edit_text('failure-probe');click('Add local draft');time.sleep(4)
- text=' '.join(x.window_text() for x in window.descendants())
+ text=ui_text()
  assert 'Local model did not answer.' in text, 'Failure not persistently visible: '+text
  window.capture_as_image().save('ui-evidence/tauri-chat-error.png');checks.append('model error remains visible after idle polling')
  pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
@@ -477,15 +485,15 @@ try:
  click('Team room');click('New chat')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
-  if 'Packaged local chat round-trip confirmed.'not in' '.join(x.window_text()for x in window.descendants()):break
+  if 'Packaged local chat round-trip confirmed.'not in ui_text():break
   time.sleep(.1)
- assert 'Packaged local chat round-trip confirmed.' not in ' '.join(x.window_text()for x in window.descendants())
+ assert 'Packaged local chat round-trip confirmed.' not in ui_text()
  saved=window.child_window(title='packaged-chat-probe',control_type='Button');saved.wait('exists',timeout=10);saved.wrapper_object().invoke()
  deadline=time.monotonic()+5
  while time.monotonic()<deadline:
-  if 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()):break
+  if 'Packaged local chat round-trip confirmed.' in ui_text():break
   time.sleep(.1)
- assert 'Packaged local chat round-trip confirmed.' in ' '.join(x.window_text()for x in window.descendants()),'Archived actual reply not restored'
+ assert 'Packaged local chat round-trip confirmed.' in ui_text(),'Archived actual reply not restored'
  window.capture_as_image().save('ui-evidence/native-history-restored.png')
  checks.append('native new chat clears active context; saved conversation reopens actual reply')
  click('Transcript ON');click('Team room');window.minimize();overlay_text=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Live captions');overlay_text.wait('visible',timeout=10)
@@ -561,7 +569,7 @@ try:
  image=window.capture_as_image();dark=sum(max(x)<90 for x in image.resize((100,75)).convert('RGB').getdata())
  if dark<800:raise RuntimeError('Native content blank')
  # Inspect actual accessibility text to verify Stop status, not merely click success.
- text=' '.join(x.window_text() for x in window.descendants())
+ text=ui_text()
  if 'Apps: off' not in ' '.join(text.split()) or 'Judgment off' not in ' '.join(text.split()):raise RuntimeError('Stop state not confirmed: '+text[-1200:])
  pathlib.Path('ui-evidence/native-checks.json').write_text(json.dumps({'host':'actual Windows Tauri/WebView2','checks':checks,'stop_state_confirmed':True,'unrun':['physical webcam/mic/audio','real model response','resources/24h','physical microphone interruption']},indent=2))
 except Exception:
