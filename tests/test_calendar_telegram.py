@@ -18,3 +18,10 @@ class Tests(unittest.TestCase):
    if stop:self.a.stop()
    else:self.out.connection.generation+=1
    release.set();self.a.worker.join(3);self.assertFalse(self.drafts)
+
+ def test_output_stop_generation_during_live_read_refuses_draft(self):
+  self.out.generation=0;self.out.lock=threading.RLock();begun=threading.Event();release=threading.Event()
+  def read(*a,**k):begun.set();release.wait(3);return {'id':'event'}
+  self.cal.request=read;self.a.prepare(True);self.assertTrue(begun.wait(2))
+  with self.out.lock:self.out.generation+=1
+  release.set();self.a.worker.join(3);self.assertFalse(self.drafts)
