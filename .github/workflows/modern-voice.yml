@@ -2,6 +2,10 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      native_art_run:
+        description: Prior native diagnostic run to reuse for fixture-only changes
+        required: false
+        type: string
       native_only:
         description: Native-only diagnostic iteration, not a shipping build
         required: false
@@ -67,6 +71,7 @@ jobs:
           key: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock') }}-${{ github.run_id }}
           restore-keys: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock') }}-
       - name: Build only actual native shell and diagnostic frozen core
+        if: inputs.native_art_run == ''
         shell: pwsh
         run: |
           python -m pip install pyinstaller==6.16.0 numpy==2.2.6 certifi==2026.7.22 tzdata==2025.2 Pillow==11.3.0 pywinauto==0.6.9 opencv-python==4.12.0.88 playwright==1.56.0
@@ -78,6 +83,22 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Actual native shell failed' }
           python package-native-diagnostic.py
           if ($LASTEXITCODE -ne 0) { throw 'Diagnostic core freeze failed' }
+      - name: Reuse exact product diagnostic core
+        if: inputs.native_art_run != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: JARVIS-NATIVE-DIAGNOSTIC-NOT-SHIPPING
+          path: modern-ui/native-diagnostic
+          run-id: ${{ inputs.native_art_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify reused core product source fingerprint and fixture dependencies
+        if: inputs.native_art_run != ''
+        shell: pwsh
+        run: |
+          python -m pip install Pillow==11.3.0 pywinauto==0.6.9
+          if ($LASTEXITCODE -ne 0) { throw 'Native fixture dependencies failed' }
+          python package-native-diagnostic.py --verify-reuse
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot reuse changed product sources' }
       - name: ENTIRE actual Windows native smoke sequence
         shell: pwsh
         run: |
