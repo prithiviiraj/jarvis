@@ -16,9 +16,9 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
   text=user_texts[-2] if user_texts[-1].startswith('Your previous response did not include a final answer.') else user_texts[-1]
   if text=='Say ready in one word.':
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers();self.wfile.write(b'data: {"choices":[{"delta":{"content":"Ready"}}]}\n\ndata: [DONE]\n\n');return
-  if 'Can you speak with NOVA together? Speak about why politics is important?' in text:
+  if 'Can you speak with DEX together? Speak about why politics is important?' in text:
    actor=__import__('re').match(r'Your current speaker is ([A-Z0-9_-]+)\.',body['messages'][0]['content']).group(1)
-   before=sum('Can you speak with NOVA together?'in str(r.get('body','')) for r in requests)
+   before=sum('Can you speak with DEX together?'in str(r.get('body','')) for r in requests)
    reply=actor+' actual politics discussion turn '+str(before)+'.'
    self.send_response(200);self.send_header('Content-Type','text/event-stream');self.end_headers()
    self.wfile.write(('data: '+json.dumps({'choices':[{'delta':{'content':reply}}]})+'\n\ndata: [DONE]\n\n').encode());return
@@ -52,6 +52,10 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
    self.wfile.write(('data: '+json.dumps({'choices':[{'delta':{'content':part}}]})+'\n\n').encode());self.wfile.flush();time.sleep(1)
   self.wfile.write(b'data: [DONE]\n\n')
 server=http.server.ThreadingHTTPServer(('127.0.0.1',1234),LocalFixture);threading.Thread(target=server.serve_forever,daemon=True).start()
+exe=pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve()
+core=exe.parent/'backend'/'jarvis-local-core.exe'
+assert core.is_file(),'Frozen core required for real desktop input acceptance'
+subprocess.run([str(core),'--desktop-self-test'],check=True,timeout=60)
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
 try:
@@ -284,12 +288,12 @@ try:
     time.sleep(.1)
   window.capture_as_image().save('ui-evidence/native-agent-field-failure.png')
   raise AssertionError(('Native field value mismatch',name,control.wrapper_object().get_value()))
- fill_named('New agent name','MIRA');fill_named('New agent personality','Curious patient tutor.')
- click('Review new agent');button('Confirm create agent').wait('exists',timeout=10);click('Cancel agent review')
- assert not window.child_window(title='Confirm create agent',control_type='Button').exists(),'Creator cancel failed'
- click('Review new agent');button('Confirm create agent').wrapper_object().set_focus();time.sleep(.2);assert window.child_window(title='MIRA',control_type='Text').exists(),'Exact reviewed agent name missing';window.capture_as_image().save('ui-evidence/native-agent-create-review.png');click('Confirm create agent');time.sleep(1)
- button('MIRA Custom teammate').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-agent-created-team.png')
- checks.append('native custom creator exact review/cancel/create joins Team; no mic/model starts')
+ assert not window.child_window(title='New agent name',control_type='Edit').exists(),'Retired creator must not activate a fourth profile'
+ for retired in ('NOVA Secretary','SILA Researcher','MIRA Custom teammate'):
+  assert not window.child_window(title=retired,control_type='Button').exists(),retired
+ window.child_window(title='Your team',control_type='Text').wait('exists',timeout=10)
+ window.capture_as_image().save('ui-evidence/native-three-agent-team.png')
+ checks.append('exact three active profiles; custom creator archived without deleting saved data')
  click('Team room')
  click('DEX Coder')
  click('Voice setup')
@@ -438,7 +442,7 @@ try:
 
  # The owner's exact live-test sentence must invoke actual multi-round IPC, not solo chat.
  click('Team room');click('JARVIS Team leader');click('New chat');time.sleep(.5)
- phrase='Can you speak with NOVA together? Speak about why politics is important?'
+ phrase='Can you speak with DEX together? Speak about why politics is important?'
  before=len(requests);field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text(phrase);click('Add local draft')
  deadline=time.monotonic()+20
  while time.monotonic()<deadline:
@@ -447,10 +451,10 @@ try:
   time.sleep(.2)
  else:raise RuntimeError('Exact laptop sentence failed to start five actual team turns')
  actors=[__import__('re').match(r'Your current speaker is ([A-Z0-9_-]+)\.',r['body']['messages'][0]['content']).group(1) for r in turns]
- assert actors==['JARVIS','NOVA','JARVIS','NOVA','JARVIS'],actors
- assert any('[NOVA]'in str(m)for m in turns[2]['body']['messages']),'Prior teammate reply missing from next actual request'
+ assert actors==['JARVIS','DEX','JARVIS','DEX','JARVIS'],actors
+ assert any('[DEX]'in str(m)for m in turns[2]['body']['messages']),'Prior teammate reply missing from next actual request'
  window.capture_as_image().save('ui-evidence/native-laptop-phrase-dialogue.png')
- checks.append('exact laptop speak-with-NOVA-together sentence starts five actual routed turns; previous teammate reply included, no audio/microphone starts')
+ checks.append('exact laptop speak-with-DEX-together sentence starts five actual routed turns; previous teammate reply included, no audio/microphone starts')
  # Isolate real chat archive title from earlier explicit action-routing messages.
  click('Team room');click('New chat');time.sleep(.5)
  field=window.child_window(title='Message draft',control_type='Edit');field.wait('exists',timeout=10);field.wrapper_object().set_edit_text('packaged-chat-probe')
