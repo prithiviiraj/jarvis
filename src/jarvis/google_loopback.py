@@ -41,11 +41,11 @@ class GoogleLoopback:
     with parent.lock:
      if parent.server is server:parent.server=None
   self.thread=threading.Thread(target=wait,name='google-loopback',daemon=True);self.thread.start();return result
- def complete(self,client_secret=None):
+ def complete(self,client_secret=None,save_guard=None):
   with self.lock:
    if not self.callback:raise ValueError('Google browser authorization has not returned')
    callback=self.callback;self.callback=None
-  try:return self.auth.complete(callback,client_secret)
+  try:return self.auth.complete(callback,client_secret,save_guard)
   finally:self.stop()
  def stop(self):
   with self.lock:self.generation+=1;self.callback=None;self.server=None;self.deadline=0
