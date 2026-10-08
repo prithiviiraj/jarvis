@@ -210,7 +210,8 @@ try:
  window.capture_as_image().save('ui-evidence/native-google-connection-inert.png')
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
  drive_read=window.child_window(title='Review Drive metadata read',control_type='Button');reveal_field(drive_read);assert not drive_read.is_enabled()
- sheets_read=window.child_window(title='Review Sheets values read',control_type='Button');reveal_field(sheets_read);assert not sheets_read.is_enabled()
+ sheets_read=window.child_window(title='Review Sheets values read',control_type='Button');assert not sheets_read.is_enabled()
+ reveal_field(window.child_window(title='Spreadsheet ID',control_type='Edit'))
  window.capture_as_image().save('ui-evidence/native-drive-sheets-inert.png');checks.append('native Drive/Sheets reviewed-read controls inert without account; no real read/write/download')
  gmail_to=window.child_window(title='Gmail To addresses',control_type='Edit');reveal_field(gmail_to)
  assert not button('Prepare Gmail review').is_enabled(), 'Gmail review enabled without connected account'
@@ -220,7 +221,8 @@ try:
  assert not button('Prepare solo event review').is_enabled(), 'Calendar review enabled without connected account'
  window.capture_as_image().save('ui-evidence/native-gcal-inert.png')
  checks.append('native solo calendar review form disabled without connected account; no event creation started')
- project_read=window.child_window(title='Review GitHub source read',control_type='Button');reveal_field(project_read);assert not project_read.is_enabled()
+ project_read=window.child_window(title='Review GitHub source read',control_type='Button');assert not project_read.is_enabled()
+ reveal_field(window.child_window(title='Project identity',control_type='Edit'))
  window.capture_as_image().save('ui-evidence/native-project-read-inert.png');checks.append('native GitHub/Notion read panel inert; no token or external access')
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
