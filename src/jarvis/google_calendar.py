@@ -78,7 +78,7 @@ class GoogleCalendar:
   self.worker=threading.Thread(target=work,name='calendar-reviewed-event',daemon=True);self.worker.start()
  def stop(self):
   self.generation+=1
-  if self.ledger:self.ledger.cancel()
+  if self.ledger and self.ledger.job.state in ('review','submitting','uncertain'):self.ledger.cancel()
  def reconcile(self,consent=False):
   ledger=self.journal()
   if consent is not True or self.busy or ledger.job.state!='uncertain':raise ValueError('Review uncertain calendar readback first')
