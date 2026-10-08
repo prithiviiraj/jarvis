@@ -1,5 +1,6 @@
 """Reviewed foreground-bound Windows mouse/keyboard steps. No shell or model code."""
 import threading,time,hashlib,json
+def literal_keys(text):return ''.join('{'+c+'}'if c in '+^%~(){}'else c for c in text)
 ALLOWED_KEYS={'left','right','up','down','home','end','backspace','delete','tab','escape'}
 def validate_steps(steps):
  if not isinstance(steps,list)or not 1<=len(steps)<=30:raise ValueError('Review1to30bounded desktop steps')
@@ -70,5 +71,9 @@ class WindowsAdapter:
    if row['action']=='move':mouse.move(coords=point)
    else:mouse.click(coords=point)
   elif row['action']=='scroll':mouse.scroll(coords=w.client_to_screen((target['width']//2,target['height']//2)),wheel_dist=row['delta']//200)
-  elif row['action']=='type':keyboard.send_keys(''.join('{'+c+'}'if c in '+^%~(){}'else c for c in row['text']),with_spaces=True,with_tabs=False,with_newlines=False,vk_packet=True,turn_off_numlock=False)
+  elif row['action']=='type':
+   from pywinauto.uia_defines import IUIA
+   focused=IUIA().iuia.GetFocusedElement()
+   if focused.CurrentProcessId!=target['pid']or focused.CurrentIsPassword:raise ValueError('Typing target changed or is a protected field')
+   keyboard.send_keys(literal_keys(row['text']),with_spaces=True,with_tabs=False,with_newlines=False,vk_packet=True,turn_off_numlock=False)
   else:keyboard.send_keys('{'+row['key'].upper()+'}')
