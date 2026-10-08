@@ -36,7 +36,7 @@ class BrainSettings:
   self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.live={'state':'not checked','models':[],'checked_at':None,'scope':'loaded-instance discovery only, not inference'};self.live_busy=False;self.live_last=-1e20;self.local_gate=threading.Lock();self.warmup_cancel=threading.Event()
   if self.path and self.path.is_file():
    try:
-    saved=json.loads(self.path.read_text());assignments=saved.get('assignments',{});legacy=''.join(('K','AI'));assignments={('SILA'if n==legacy else n):slot for n,slot in assignments.items()};self.configure(saved.get('slots',[]),assignments,persist=False)
+    saved=json.loads(self.path.read_text());assignments=saved.get('assignments',{});legacy=''.join(('K','AI'));assignments={('SILA'if n==legacy else n):slot for n,slot in assignments.items()};self.archived_assignments={n:slot for n,slot in assignments.items()if n not in ROLES};self.configure(saved.get('slots',[]),{n:slot for n,slot in assignments.items()if n in ROLES},persist=False)
    except Exception:self.rows={};self.assignments={}
  def keys(self):
   if self.store is None:
@@ -58,7 +58,7 @@ class BrainSettings:
   if len(ids)!=len(slots)or any(n not in ROLES or i not in ids for n,i in assignments.items()):raise ValueError('Assignments must select enabled slots')
   with self.lock:self.rows={s.id:s for s in slots};self.assignments=dict(assignments);self.consent=consent;self.free=free;self.cooldowns={}
   if persist and self.path:
-   self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps({'slots':[{'id':s.id,'provider':s.provider,'model':s.model,'enabled':True,'label':s.label}for s in slots],'assignments':assignments},indent=2));tmp.replace(self.path)
+   self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps({'slots':[{'id':s.id,'provider':s.provider,'model':s.model,'enabled':True,'label':s.label}for s in slots],'assignments':{**getattr(self,'archived_assignments',{}),**assignments}},indent=2));tmp.replace(self.path)
  def set_key(self,sid,kind,key):
   if sid not in SLOT_IDS or kind not in KINDS or kind=='local':raise ValueError('Unknown cloud account')
   if not isinstance(key,str)or not key.strip():raise ValueError('API key required')
