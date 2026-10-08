@@ -14,3 +14,20 @@ Sources inspected:
 - https://support.microsoft.com/en-us/windows/apps/phonelink/setting-up-calls-in-the-phone-link : paired Bluetooth phone calling, not a supported automation API.
 
 phone_dial.py prepares an exact reviewed request but never executes it. No companion, call listener or carrier transport installed.
+
+## Current platform limits checked8October evening
+
+Android VOICE_CALL, VOICE_UPLINK and VOICE_DOWNLINK capture requires CAPTURE_AUDIO_OUTPUT, reserved for privileged system components, unavailable to ordinary third-party companion apps. An accessibility microphone permission is not full carrier-call audio access. iOS CallKit provides system UI for the app's own VoIP communication; it does not supply another app's or cellular call audio.
+
+Phone Link supports Bluetooth calling on Windows/phone, but this alone does not establish a supported JARVIS audio/control route or AI speech delivery. Microsoft support pages disagree on iOS minimum15versus16; actual phone/app compatibility must be checked. Phone Link call troubleshooting says Bluetooth headset relay is not supported and dual SIM is not selectable. No unattended dialing or audio-injection guarantee can be made.
+
+No companion, privileged permission workaround, root, call recording or native pairing has been installed. Platform/model and owner-selected transport remain unresolved.
+
+Sources fetched:
+https://developer.android.com/media/platform/sharing-audio-input
+https://developer.android.com/reference/android/media/MediaRecorder.AudioSource
+https://developer.apple.com/documentation/callkit
+https://developer.apple.com/forums/thread/841340
+https://support.microsoft.com/en-us/windows/apps/phonelink/setting-up-calls-in-the-phone-link
+https://support.microsoft.com/en-us/windows/apps/phonelink/phone-link-requirements-and-setup
+https://support.microsoft.com/en-us/Windows/Apps/PhoneLink/troubleshooting-calls-in-the-Phone-Link
