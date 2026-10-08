@@ -22,3 +22,13 @@ class Tests(unittest.TestCase):
   g=GoogleTokens(Store(),lambda p:{'error':'fixture-secret-error'});scope=SCOPES['mail-read'];g.save('owner@example.com','fixture.apps.googleusercontent.com','refresh',[scope],True)
   with self.assertRaises(ValueError):g.access('owner@example.com',scope)
   self.assertFalse(g.cache)
+
+ def test_expiry_scope_reduction_cached_and_transport_secret_redaction(self):
+  now=[0];scope=SCOPES['mail-read'];send=SCOPES['mail-send'];calls=[]
+  g=GoogleTokens(Store(),lambda p:(calls.append(p)or{'access_token':'fixture','expires_in':60,'token_type':'Bearer','scope':scope}),lambda:now[0]);g.save('owner@example.com','fixture.apps.googleusercontent.com','refresh',[scope,send],True);g.access('owner@example.com',scope)
+  with self.assertRaises(ValueError):g.access('owner@example.com',send)
+  now[0]=31;g.access('owner@example.com',scope);self.assertEqual(len(calls),2)
+  def failed(p):raise RuntimeError('private fixture token')
+  g.transport=failed;g.cache.clear()
+  with self.assertRaises(ValueError)as e:g.access('owner@example.com',scope)
+  self.assertNotIn('private fixture token',str(e.exception))
