@@ -19,3 +19,9 @@ class Tests(unittest.TestCase):
  def test_symlink_folder_rejected(self):
   dest=pathlib.Path(self.t.name)/'target';dest.mkdir();self.j.root.symlink_to(dest,target_is_directory=True);r=self.j.prepare(invoice.Tests().facts())
   with self.assertRaises(ValueError):self.j.save(r,True)
+ def test_open_only_exact_unchanged_saved_local_draft(self):
+  calls=[];self.j.opener=lambda p:calls.append(p);r=self.j.prepare(invoice.Tests().facts());result=self.j.save(r,True)
+  with self.assertRaises(ValueError):self.j.open_saved(result)
+  self.j.open_saved(result,True);self.assertEqual(len(calls),1);pathlib.Path(result['path']).write_text('Changed')
+  with self.assertRaises(ValueError):self.j.open_saved(result,True)
+  self.assertEqual(len(calls),1)
