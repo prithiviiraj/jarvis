@@ -230,6 +230,10 @@ try:
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
  drive_read=window.child_window(title='Review Drive metadata read',control_type='Button');reveal_field(drive_read);assert not drive_read.is_enabled()
  sheets_read=window.child_window(title='Review Sheets values read',control_type='Button');assert not sheets_read.is_enabled()
+ reveal_field(window.child_window(title='Drive new text name',control_type='Edit'))
+ assert not button('Capture Drive identity and private root').is_enabled(), 'Drive upload review enabled without account/access'
+ assert 'Confirm exact private text upload'not in ui_text(), 'Drive upload final confirmation without review'
+ window.capture_as_image().save('ui-evidence/native-drive-text-inert.png');checks.append('native Drive text upload inert without account/access; no live file')
  reveal_field(window.child_window(title='Write spreadsheet ID',control_type='Edit'))
  assert not button('Capture sheet identity and prior cells').is_enabled(), 'Sheet overwrite review enabled without account/write scope'
  assert 'Confirm exact cell overwrite'not in ui_text(), 'Sheet final confirmation without prior/new cells review'
