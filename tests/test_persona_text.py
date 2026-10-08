@@ -5,12 +5,12 @@ from jarvis.personas import prompt,ROLES
 class SpeakerTagTests(unittest.TestCase):
  def test_strips_own_and_foreign_leading_tags(self):
   self.assertEqual(strip_speaker_tag('[JARVIS] Hello master.'),'Hello master.')
-  self.assertEqual(strip_speaker_tag('[nova]: hi there'),'hi there')
-  self.assertEqual(strip_speaker_tag('[NOVA][JARVIS] double label'),'double label')
+  self.assertEqual(strip_speaker_tag('[dex]: hi there'),'hi there')
+  self.assertEqual(strip_speaker_tag('[DEX][JARVIS] double label'),'double label')
   self.assertEqual(strip_speaker_tag('  [LYRA] - spaced'),'spaced')
  def test_keeps_other_brackets_and_mid_text_tags(self):
   self.assertEqual(strip_speaker_tag('[thinking] about it'),'[thinking] about it')
-  self.assertEqual(strip_speaker_tag('she said [NOVA] mid sentence'),'she said [NOVA] mid sentence')
+  self.assertEqual(strip_speaker_tag('she said [DEX] mid sentence'),'she said [DEX] mid sentence')
  def test_non_string_passthrough(self):
   self.assertIsNone(strip_speaker_tag(None))
 class SpokenTextFilterTests(unittest.TestCase):
@@ -28,12 +28,12 @@ class SpokenTextFilterTests(unittest.TestCase):
   self.assertEqual(''.join(spoken_chunks(iter(['yes [x','] no']))),'yes  no')
 class ModeratorAddressTests(unittest.TestCase):
  def test_talk_with_persona_routes_to_that_persona(self):
-  self.assertEqual(pick('I want to talk with NOVA')[0],'NOVA')
+  self.assertEqual(pick('I want to talk with DEX')[0],'DEX')
   self.assertEqual(pick('Can I speak to jarvis about dinner')[0],'JARVIS')
   self.assertEqual(pick('let me chat with lyra')[0],'LYRA')
  def test_existing_patterns_still_work(self):
-  self.assertEqual(pick('Hey NOVA, debug this code')[0],'NOVA')
-  self.assertEqual(pick('What did NOVA say?')[0],'JARVIS')
+  self.assertEqual(pick('Hey DEX, debug this code')[0],'DEX')
+  self.assertEqual(pick('What did DEX say?')[0],'JARVIS')
 class PersonaPromptTests(unittest.TestCase):
  def test_grounded_apology_rule_present(self):
   for name in ROLES:
@@ -48,12 +48,12 @@ class PersonaPromptTests(unittest.TestCase):
  def test_jarvis_loyalty_and_friction(self):
   text=prompt('JARVIS')
   self.assertIn('loyal',text.lower())
-  self.assertIn('never admiration',text)
+  self.assertIn('Take responsibility for the team',text)
   self.assertIn('soft spot',text)
 class ReportSuppression(unittest.TestCase):
  def test_report_retained_display_but_not_spoken(self):
-  text='Nova here.\nReport to master: Nova is online and ready to assist.'
-  self.assertEqual(spoken_text(text),'Nova here.\n');self.assertIn('Report to master',strip_speaker_tag(text))
+  text='Dex here.\nReport to master: Dex is online and ready to assist.'
+  self.assertEqual(spoken_text(text),'Dex here.\n');self.assertIn('Report to master',strip_speaker_tag(text))
  def test_split_report_label_never_escapes(self):
   from jarvis.persona_text import spoken_chunks
   self.assertEqual(''.join(spoken_chunks(['Hello.\nRep','ort to mas','ter: online.\n','What next?'])),'Hello.\n\nWhat next?')
@@ -67,9 +67,9 @@ class ReportSuppression(unittest.TestCase):
 class OwnSpeakerTests(unittest.TestCase):
  def test_attribution_rejected_mentions_allowed(self):
   from jarvis.persona_text import own_reply
-  for t in ('My answer. Nova argues humans are computers.','My answer.\nNOVA: invented'):
+  for t in ('My answer. Dex argues humans are computers.','My answer.\nDEX: invented'):
    with self.assertRaises(ValueError):own_reply(t,'JARVIS')
-  self.assertEqual(own_reply('Nova, what do you think?','JARVIS'),'Nova, what do you think?')
+  self.assertEqual(own_reply('Dex, what do you think?','JARVIS'),'Dex, what do you think?')
  def test_bracketed_teammate_address_rejected(self):
   from jarvis.persona_text import own_reply
-  with self.assertRaises(ValueError):own_reply("[Dex, don't touch my diagnostic partition]",'NOVA')
+  with self.assertRaises(ValueError):own_reply("[Dex, don't touch my diagnostic partition]",'LYRA')
