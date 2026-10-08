@@ -34,3 +34,8 @@ class Tests(unittest.TestCase):
   r=self.prepare();self.a.stop()
   with self.assertRaises(ValueError):self.a.submit(r,True)
   with self.assertRaises(ValueError):self.a.request('POST','/repos/owner/repo/pulls','fixture')
+ def test_expired_review_no_transport(self):
+  from unittest.mock import patch
+  r=self.prepare()
+  with patch('jarvis.github_issue.time.time',return_value=r['payload']['expires_at']+1):self.a.submit(r,True);self.a.worker.join(3)
+  self.assertEqual(self.a.snapshot()['state'],'review');self.assertFalse(self.calls)
