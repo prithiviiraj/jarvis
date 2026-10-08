@@ -145,13 +145,18 @@ try:
   # use actual UIA bounds in either direction; never scroll blindly downward.
   control.wait('exists',timeout=15)
   mouse.scroll(coords=(760,450),wheel_dist=40);time.sleep(.2)
-  for _ in range(80):
+  for _ in range(48):
    focus_workspace()
    wrapper=control.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
    if wrapper.is_visible() and rect.top>bounds.top+160 and rect.bottom<bounds.bottom-65:
     wrapper.set_focus();return
-   direction=3 if rect.top<bounds.top+160 and rect.width()>0 else -3
-   mouse.scroll(coords=(760,450),wheel_dist=direction);time.sleep(.2)
+   # A three-notch wheel can jump over short input fields forever. Keep
+   # the pointer inside the actual panel/window and use one-notch settling.
+   above=rect.top<bounds.top+160 and rect.width()>0
+   distance=(bounds.top+160-rect.top) if above else (rect.bottom-(bounds.bottom-65))
+   step=1 if abs(distance)<260 else 3
+   direction=step if above else -step
+   mouse.scroll(coords=(min(bounds.right-40,bounds.left+760),bounds.top+450),wheel_dist=direction);time.sleep(.2)
   raise RuntimeError('Field could not be brought into Settings viewport: '+control.window_text())
  def expand_advanced():
   # Isolated Edge can own foreground after browser-run. Mouse input must
