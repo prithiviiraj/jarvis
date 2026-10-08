@@ -247,6 +247,10 @@ try:
  reveal_field(window.child_window(title='Project identity',control_type='Edit'))
  project_read=window.child_window(title='Review GitHub source read',control_type='Button');assert not project_read.is_enabled()
  window.capture_as_image().save('ui-evidence/native-project-read-inert.png');checks.append('native GitHub/Notion read panel inert; no token or external access')
+ reveal_field(window.child_window(title='Notion paragraph block UUID',control_type='Edit'))
+ assert not button('Capture Notion block identity and prior text').is_enabled(), 'Notion update review enabled without bot/write gate'
+ assert 'Confirm exact paragraph replacement'not in ui_text(), 'Notion final confirmation before prior/new text review'
+ window.capture_as_image().save('ui-evidence/native-notion-text-inert.png');checks.append('native plain Notion update inert without bot/write gate; no live paragraph changed')
  reveal_field(window.child_window(title='Issue repository owner',control_type='Edit'))
  assert not button('Review issue identity/repository/words').is_enabled(), 'Issue review enabled without identity/write gate'
  assert 'Confirm create issue and repository notifications'not in ui_text(), 'Issue final submission visible without review'
