@@ -81,6 +81,8 @@ jobs:
           python make-icon.py
           npm run tauri build -- --no-bundle
           if ($LASTEXITCODE -ne 0) { throw 'Actual native shell failed' }
+          ./build-mp3.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned MP3 encoder source build failed' }
           python package-native-diagnostic.py
           if ($LASTEXITCODE -ne 0) { throw 'Diagnostic core freeze failed' }
       - name: Reuse exact product diagnostic core
@@ -97,6 +99,8 @@ jobs:
         run: |
           python -m pip install Pillow==11.3.0 pywinauto==0.6.9
           if ($LASTEXITCODE -ne 0) { throw 'Native fixture dependencies failed' }
+          ./build-mp3.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned MP3 encoder source build failed' }
           python package-native-diagnostic.py --verify-reuse
           if ($LASTEXITCODE -ne 0) { throw 'Cannot reuse changed product sources' }
       - name: Match baseline installed Obsidian host prerequisite
@@ -226,7 +230,10 @@ jobs:
           python -m pip install Pillow==11.3.0 pywinauto==0.6.9
       - name: CPU-only speech and native persona frontend
         shell: pwsh
-        run: ./build-speech-native.ps1
+        run: |
+          ./build-mp3.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned MP3 encoder source build failed' }
+          ./build-speech-native.ps1
       - name: Download isolated EmbeddingGemma runtime for bundled delivery
         uses: actions/download-artifact@v4
         with:
