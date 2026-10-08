@@ -17,4 +17,6 @@ class Tests(unittest.TestCase):
   self.b.messages=[{'name':'You','text':'retained'}];s=self.b.execute({'command':'phone-stop'});self.assertEqual(s['messages'],self.b.messages);self.assertFalse(s['phone']['enabled'])
 
  def test_desktop_new_chat_revokes_phone(self):
-  self.b.phone.enable(True);self.b.execute({'command':'history-new'});self.assertFalse(self.b.phone.snapshot()['enabled'])
+  self.b.phone.enable(True)
+  with self.assertRaisesRegex(ValueError,'History unavailable'):self.b.execute({'command':'history-new'})
+  self.assertFalse(self.b.phone.snapshot()['enabled'])
