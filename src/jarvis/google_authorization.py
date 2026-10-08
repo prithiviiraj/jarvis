@@ -39,7 +39,7 @@ class GoogleAuthorization:
    if not requested.issubset(granted)or not granted.issubset(requested|IDENTITY):raise ValueError()
    who=self.identity(row['access_token'])
    if not isinstance(who,dict)or who.get('email_verified')is not True or not isinstance(who.get('email'),str)or address(who['email']).casefold()!=expected.casefold()or not isinstance(who.get('sub'),str)or not who['sub']:raise ValueError()
-   self.tokens.save(expected,payload['client_id'],row.get('refresh_token'),sorted(requested),confirm=True)
+   self.tokens.save(expected,payload['client_id'],row.get('refresh_token'),sorted(requested),confirm=True,client_secret=client_secret)
   except Exception:raise ValueError('Google authorization incomplete or account/scopes mismatched; nothing connected. Review authorization again.')from None
   return {'account':expected,'connected':True,'grants':grants,'scope':'Verified Google identity and saved local refresh credential. No mail/calendar action performed.'}
  def cancel(self):self.oauth.cancel();self.expected=None;self.grants=[]
