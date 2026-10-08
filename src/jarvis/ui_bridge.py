@@ -16,6 +16,8 @@ class Bridge:
   from .knowledge_graph import KnowledgeGraph
   from .knowledge_workspace import KnowledgeWorkspace
   self.knowledge=KnowledgeWorkspace(lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
+  from .desktop_controller import DesktopController
+  self.desktop_control=DesktopController()
   self.knowledge_graph=KnowledgeGraph();self.laya_route={'state':'No request observed'}
   from .embedding_service import EmbeddingService
   self.embedding_service=EmbeddingService()
@@ -106,9 +108,9 @@ class Bridge:
  def time_action(self,text,spoken=False):
   import re,datetime
   from zoneinfo import ZoneInfo
-  if not isinstance(text,str)or not re.fullmatch(r"\s*(?:(?:hey\s+)?(?:jarvis|nova|sila|lyra|dex)[,.:]?\s+)?(?:what(?:'s| is) (?:the )?(?:time|current time)(?: now)?|tell me (?:the )?(?:time|current time)|time now|time)[.!?]*\s*",text,re.I):return False
+  if not isinstance(text,str)or not re.fullmatch(r"\s*(?:(?:hey\s+)?(?:jarvis|lyra|dex)[,.:]?\s+)?(?:what(?:'s| is) (?:the )?(?:time|current time)(?: now)?|tell me (?:the )?(?:time|current time)|time now|time)[.!?]*\s*",text,re.I):return False
   current=datetime.datetime.now(ZoneInfo('Asia/Kolkata'));answer='Master, it is '+current.strftime('%I:%M %p').lstrip('0')+' IST.'
-  target=re.search(r'\b(jarvis|nova|sila|lyra|dex)\b',text,re.I)
+  target=re.search(r'\b(jarvis|lyra|dex)\b',text,re.I)
   actor=target.group(1).upper()if target else self.voice.name
   self.messages.append({'name':actor,'text':answer,'provider':'system-clock','cloud':False});self.archive_dirty=True
   if spoken and self.voice.runtime is not None:
@@ -154,11 +156,11 @@ class Bridge:
  @staticmethod
  def stop_intent(text):
   import re
-  return isinstance(text,str)and bool(re.fullmatch(r'\s*(?:(?:jarvis|nova|sila|lyra|dex)[,.:]?\s+)?(?:stop|stop talking|stop team conversation|quiet|be quiet|cancel conversation)[.!?]*\s*',text,re.I))
+  return isinstance(text,str)and bool(re.fullmatch(r'\s*(?:(?:jarvis|lyra|dex)[,.:]?\s+)?(?:stop|stop talking|stop team conversation|quiet|be quiet|cancel conversation)[.!?]*\s*',text,re.I))
  def teammate_query(self,text):
   import re
   if not self.teammate_awareness.enabled or not isinstance(text,str):return False
-  m=re.fullmatch(r'\s*(DEX|SILA)[,.:]?\s+(?:what(?: are you doing| is your status| did you install| code did you install| app am I using)|status)[?!.]*\s*',text,re.I)
+  m=re.fullmatch(r'\s*(DEX)[,.:]?\s+(?:what(?: are you doing| is your status| did you install| code did you install| app am I using)|status)[?!.]*\s*',text,re.I)
   if not m:return False
   name=m.group(1).upper();state=self.teammate_state();row=state['teammates'][name]
   if 'app'in text.lower():
@@ -213,7 +215,7 @@ class Bridge:
   goal='Prepare a reviewed proposal for the missing '+surface+' capability. Diagnosis: '+answer[:500]+'. No installation or executable actions.'
   self.laya_support={'surface':surface,'diagnosis':answer,'goal':goal,'status':'Starting local DEX proposal generation; no code installed'}
   sila=('Master, indha app la Brave open/control adapter innum illa. Unga laptop la Brave path missing nu naan check pannala. DEX local proposal prepare pannuva. Proposal review pannuveengala, illa DEX kitta neengale pesuveengala? Idhu live install illa.'if surface=='browser'else 'Master, '+answer+' DEX local proposal prepare pannuva; neengalum DEX kitta pesalam.')
-  self.messages.append({'name':'SILA','text':sila,'provider':'verified-app-state','cloud':False})
+  self.messages.append({'name':'DEX','text':sila,'provider':'verified-app-state','cloud':False})
   self.messages.append({'name':'DEX','text':'I am starting a local code proposal for this named gap. It will not install or run a fix. I will report if the local model is unavailable.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
   if not self.evolution_busy:self.execute({'command':'evolution-generate','goal':goal,'consent':True})
   else:self.laya_support['status']='Existing local proposal generation is busy; no second fix started'
@@ -226,7 +228,7 @@ class Bridge:
    self.desktop_pending=None;self.laya_support=None;self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
    self.execute({'command':'browser-stop'});self.reo_event('off','Laya session deactivated. Browser stopped; direct app mode ended.');return True
   self.laya_active=True;self.browser_enabled=True;self.desktop_enabled=True;self.laya_support=None
-  self.messages.append({'name':'SILA','text':'I am assigned to report real Laya capability gaps during this active session. DEX can offer local code proposals; neither of us installs untested fixes.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
+  self.messages.append({'name':'DEX','text':'I am assigned to report real Laya capability gaps during this active session. I can offer local code proposals, but never install untested fixes.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
   self.reo_event('active','LAYA ACTIVE this session: isolated Edge open/navigation/scroll run directly. Notepad, Calculator and Paint open directly. No forms, sending, credentials, payments, files or shell. Local model setup is separate if page reasoning is needed.')
   return True
  def auto_browser(self):
@@ -291,6 +293,7 @@ class Bridge:
   if self.activation_action(text):return True
   if self.support_owner_action(text):return True
   if self.stop_intent(text):
+   self.desktop_control.stop()
    self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False;self.browser_pending=None;self.stop_laya()
    if self.browser:self.browser.close()
    self.browser_enabled=False;self.news_speech.stop();self.game.stop();self.idle.stop();self.interrupt_conversation();return True
@@ -313,7 +316,7 @@ class Bridge:
     self.voice.notify('error','Local vault command failed. Check the connected vault and exact Markdown note path in Settings > Memory.')
    return True
   import re
-  browser_explicit=bool(re.match(r'^\s*(?:(?:hey|hi|hello)\s+)?(?:(?:jarvis|nova|sila|lyra|dex)[, :]+)?browser\s+(?:open|search|scroll|read|choose|select|youtube|click|type|send|pay|buy|upload|delete)\b',text,re.I))
+  browser_explicit=bool(re.match(r'^\s*(?:(?:hey|hi|hello)\s+)?(?:(?:jarvis|lyra|dex)[, :]+)?browser\s+(?:open|search|scroll|read|choose|select|youtube|click|type|send|pay|buy|upload|delete)\b',text,re.I))
   if not self.browser_enabled:
    if browser_explicit:
     self.browser_pending=None;self.voice.notify('error','Browser control is OFF. Enable it in Settings > Tools; nothing opened or sent to a model.');return True
@@ -404,7 +407,7 @@ class Bridge:
   threading.Thread(target=run,daemon=True).start()
  def teammate_state(self):
   sensors=self.context.snapshot();recent=self.voice.memory.snapshot();recent=recent if isinstance(recent,list)else[];states={}
-  for name in ('DEX','SILA'):
+  for name in ('DEX',):
    replies=[answer for actor,user,answer in recent if actor==name]
    states[name]={'role':'coder'if name=='DEX'else'researcher','reply_in_progress':self.voice.busy and self.voice.reply_actor==name,'recent_actual_reply':replies[-1][:1200]if replies else None,'independent_background_work':False}
   if hasattr(self,'evolution'):states['DEX']['code_proposal']={'busy':self.evolution_busy,'status':self.evolution.status,'installed':False,'tests_executed':False}
@@ -412,7 +415,7 @@ class Bridge:
  def stop(self):
   self.embedding_service.stop();self.export_cancel.set()
   self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
-  self.knowledge.stop();self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
+  self.desktop_control.stop();self.knowledge.stop();self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
   self.idle.stop();self.turn_setup.stop()
   self.stop_laya()
   self.local_speed.stop();self.brains.stop_warmup()
@@ -443,7 +446,7 @@ class Bridge:
   if cmd in ('pause','close','browser-stop','laya-stop','laya-cancel','conversation-interrupt'):self.laya_active=False
   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open','pause','conversation-interrupt','close','browser-stop','desktop-cancel'):
    self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
-  allowed={'knowledge-search','knowledge-read','knowledge-speak','knowledge-stop','embedding2-check','embedding2-setup','embedding2-search','embedding2-links','embedding2-stop','awareness-mode','presence-mode','news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','laya-session','proactive-session','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+  allowed={'desktop-windows','desktop-task-preview','desktop-task-run','desktop-task-stop','knowledge-search','knowledge-read','knowledge-speak','knowledge-stop','embedding2-check','embedding2-setup','embedding2-search','embedding2-links','embedding2-stop','awareness-mode','presence-mode','news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','laya-session','proactive-session','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):self.warning=''
   if cmd=='team-dialogue':self.dialogue_metrics=[]
@@ -460,6 +463,10 @@ class Bridge:
   elif cmd=='laya-session':
    if type(request.get('enabled'))is not bool or request.get('consent')is not True:raise ValueError('Choose session permission')
    self.activation_action('activate laya'if request['enabled']else'deactivate laya')
+  elif cmd=='desktop-windows':self.desktop_control.discover(request.get('consent')is True)
+  elif cmd=='desktop-task-preview':self.desktop_control.prepare(request.get('target'),request.get('steps'),request.get('scope'))
+  elif cmd=='desktop-task-run':self.knowledge.stop();self.news_speech.stop();self.desktop_control.run(request.get('reviewed'),request.get('confirm')is True,request.get('effect_approved')is True)
+  elif cmd=='desktop-task-stop':self.desktop_control.stop()
   elif cmd.startswith('knowledge-'):
    root=self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None
    if cmd=='knowledge-stop':self.knowledge.stop()
@@ -825,7 +832,7 @@ class Bridge:
    if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
    self.judge.stop();self.judge.gaming=request.get('gaming',False);self.idle.gaming=self.judge.gaming
    if request['enabled']:self.judge.enable(True,request.get('audio',False))
-  elif cmd=='close':self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.knowledge.close();self.voice.close();self.closed=True
+  elif cmd=='close':self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.knowledge.close();self.desktop_control.close();self.voice.close();self.closed=True
   self.poll()
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
@@ -877,7 +884,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'knowledge':self.knowledge.snapshot(),'laya_route':self.laya_route,'embedding2':self.embedding_service.snapshot(),'knowledge_graph':self.knowledge_graph.snapshot(self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None),'failure_detail':getattr(self,'failure_detail',None),'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'desktop_control':self.desktop_control.snapshot(),'knowledge':self.knowledge.snapshot(),'laya_route':self.laya_route,'embedding2':self.embedding_service.snapshot(),'knowledge_graph':self.knowledge_graph.snapshot(self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None),'failure_detail':getattr(self,'failure_detail',None),'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
@@ -886,7 +893,7 @@ class Bridge:
  def close(self):
   self.export_cancel.set()
   if self.export_worker and self.export_worker is not threading.current_thread():self.export_worker.join(10)
-  self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.knowledge.close();self.voice.close()
+  self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.knowledge.close();self.desktop_control.close();self.voice.close()
 def main():
  bridge=Bridge()
  try:
