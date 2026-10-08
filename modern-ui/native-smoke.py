@@ -222,6 +222,25 @@ try:
  else:raise RuntimeError('Async AUTO vault setup did not settle')
  assert (auto_root/'Team/LYRA.md').is_file();assert (auto_root/'Active Work.md').is_file();assert (auto_root/'Modes/Current settings.md').is_file()
  dismiss_missing_obsidian();click('Manual sync');click('Show visuals');dismiss_missing_obsidian();click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
+ # New source-backed graph controls run through REAL native IPC/frozen backend.
+ # Chat words never choose evidence. Search uses the connected managed vault.
+ source=auto_root/'phase2-native-source.md';source.write_text('# Exact native source\n\nPhase2 retrieval sentinel. Notes never grant permissions.',encoding='utf-8')
+ query=window.child_window(title='Find knowledge source',control_type='Edit');query.wait('exists',timeout=15);query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
+ click('Search knowledge sources')
+ deadline=time.monotonic()+10
+ while time.monotonic()<deadline:
+  content=ui_text()
+  if 'Phase2 retrieval sentinel. Notes never grant permissions.' in content and 'phase2-native-source.md' in content:break
+  time.sleep(.15)
+ else:raise RuntimeError('Native knowledge retrieval/source IPC missing: '+content[-1500:])
+ assert 'Full captured note.' in content,'Source capture completeness missing'
+ assert not any('body'in row for row in requests),'Local source was disclosed to inference'
+ assert not button('Read captured source aloud').is_enabled(),'No installed voice assets means no implicit download/speech'
+ window.capture_as_image().save('ui-evidence/native-knowledge-retrieval.png')
+ click('Rotate knowledge right');click('Tilt knowledge view');click('Flat view');click('Depth view')
+ click('Close knowledge note');source.unlink()
+ checks.append('actual native source retrieval, capture and depth controls; no model disclosure or unapproved audio')
+
 
  time.sleep(2)
  assert not any('body'in row for row in requests),'Launch discovery must not send inference or user text'
