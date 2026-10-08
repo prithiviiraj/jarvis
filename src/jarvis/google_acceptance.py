@@ -75,7 +75,19 @@ def run():
    assert '/fixture_sheet/values/Sheet1%21A1%3AB2?'in url
    return {'range':'Sheet1!A1:B2','majorDimension':'ROWS','values':[['External fixture',2],[3,4]]}
   reads=GoogleQueries(connection,workspace_transport);reads.start('drive-list',{'query':'fixture'},True);reads.worker.join(5);assert not reads.error and not reads.result['complete'];reads.start('sheets-values',{'file_id':'fixture_sheet','range':'Sheet1!A1:B2'},True);reads.worker.join(5);assert not reads.error and reads.result['values'][1][1]==4;assert len(workspace_calls)==2;reads.stop();assert reads.result is None
+  from .project_connectors import ProjectConnectors,ProjectCredentials
+  projects_store=ProjectCredentials();project_identity='fixture-'+uuid.uuid4().hex[:16];project_key=ProjectConnectors.key('github',project_identity)
+  try:
+   project_calls=[]
+   def project_transport(service,method,url,payload,token):
+    project_calls.append(url);assert service=='github'and method=='GET'and payload is None
+    if url.endswith('/user'):return {'login':project_identity}
+    return [{'number':1,'title':'Controlled issue','body':'Untrusted fixture only'}]
+   projects=ProjectConnectors(projects_store,project_transport);projects.connect('github',project_identity,'fixture-project-token',True);projects.worker.join(5);assert not projects.error
+   projects.read('github',{'kind':'issues','owner':'fixture','repo':'fixture'},True);projects.worker.join(5);assert not projects.error and len(projects.result['issues'])==1
+   restarted=ProjectConnectors(projects_store,project_transport);assert not restarted.accounts;restarted.connect('github',project_identity,'',True);restarted.worker.join(5);assert not restarted.error;restarted.disconnect('github',True);assert not projects_store.get(project_key)
+  finally:projects_store.delete(project_key)
   connection.disconnect(True);assert not store.status(key)['present'];connection.stop()
-  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False}
+  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False,'reviewed_project_read_secure_resume_fixture':True,'live_projects':False}
   Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-google-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(key);store.delete(probe)
