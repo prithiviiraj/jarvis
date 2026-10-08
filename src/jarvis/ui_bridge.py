@@ -757,7 +757,7 @@ class Bridge:
   elif cmd=='chat':
    self.error='';self.warning='';self.response_diagnostics=[];text=request.get('text')
    from .laya_routes import evidence
-   self.laya_route=evidence(text)
+   self.laya_route=evidence(text,retrieval=self.knowledge.snapshot())
    self.failure_notices.clear();self.reply_wait=None
    if self.time_action(text):self.messages.insert(max(0,len(self.messages)-1),{'name':'You','text':text});return self.execute({'command':'status'})
    import re
