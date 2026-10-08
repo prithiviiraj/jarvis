@@ -26,3 +26,10 @@ class Tests(unittest.TestCase):
   q=self.fixture(lambda *a:{})
   with self.assertRaises(ValueError):q.start('gmail-list',{})
   self.assertIsNone(q.worker)
+
+ def test_calendar_result_and_account_switch_suppresses_late(self):
+  def transport(method,url,payload):return {'calendars':{'primary':{'busy':[{'start':'2026-10-08T15:00:00+05:30','end':'2026-10-08T15:30:00+05:30'}]}}}
+  q=self.fixture(transport);q.start('calendar-freebusy',{'calendar_ids':['primary'],'start':'2026-10-08T15:00:00+05:30','end':'2026-10-08T16:00:00+05:30'},True);q.worker.join(2);self.assertFalse(q.error);self.assertTrue(q.result['complete']);self.assertEqual(len(q.result['calendars']['primary']),1)
+  entered=threading.Event();release=threading.Event()
+  def blocked(*a):entered.set();release.wait(2);return {'emailAddress':'owner@example.com','messages':[]}
+  q=self.fixture(blocked);q.start('gmail-list',{},True);self.assertTrue(entered.wait(1));q.connection.stop();release.set();q.worker.join(2);self.assertIsNone(q.result)
