@@ -65,3 +65,10 @@ class BridgeTests(unittest.TestCase):
   runtime=Mock();c=WorkspaceVoice(Mock(return_value=runtime));c.endpoint_mode='fast'
   runtime.enable.side_effect=lambda **kw:self.assertEqual(runtime.mic.endpointer.silence_frames,15)
   c.start(True).join(2);runtime.enable.assert_called_once()
+
+class RetiredVoiceAddress(unittest.TestCase):
+ def test_retired_name_cannot_select_missing_synth(self):
+  from jarvis.runtime import VoiceRuntime
+  for name in ('Nova','Sila','Reo'):
+   stt=Mock();stt.transcribe.return_value='I want to talk with '+name;router=Mock();router.ask.return_value={'text':'A current reply'};speaker=Mock();v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock();v.persona='JARVIS';v.enable(True);v.turn([],v.generation,False,[])
+   self.assertEqual(v.persona,'JARVIS');speaker.select_profile.assert_not_called();v.close()
