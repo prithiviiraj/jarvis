@@ -23,7 +23,7 @@ class Bridge:
   self.phone=PhoneController(conversation_busy=lambda:self.voice.busy or self.voice.runtime is not None)
   self.phone_endpoints=PhoneEndpoints(self.phone)
   from .google_connection import GoogleConnection
-  self.google=GoogleConnection()
+  self.google=GoogleConnection(path=data_root()/'google-account.json')
   from .google_queries import GoogleQueries
   self.google_queries=GoogleQueries(self.google)
   self.knowledge_graph=KnowledgeGraph();self.laya_route={'state':'No request observed'}
@@ -481,7 +481,7 @@ class Bridge:
    self.google_queries.start(request.get('kind'),params,request.get('consent')is True)
   elif cmd=='google-read-stop':self.google_queries.stop()
   elif cmd=='google-configure':self.google.configure(request.get('client_id'),request.get('client_secret'),request.get('consent')is True)
-  elif cmd=='google-connect':self.google.begin(request.get('account'),request.get('grants'),request.get('consent')is True)
+  elif cmd=='google-connect':self.google_queries.stop();self.google.begin(request.get('account'),request.get('grants'),request.get('consent')is True)
   elif cmd=='google-stop':self.google.stop()
   elif cmd=='google-disconnect':self.google_queries.stop();self.google.disconnect(request.get('confirm')is True)
   elif cmd=='phone-stop':self.phone_endpoints.stop_local()
