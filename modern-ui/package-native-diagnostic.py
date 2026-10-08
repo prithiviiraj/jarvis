@@ -15,9 +15,15 @@ if '--verify-reuse' in sys.argv:
  print('Diagnostic artifact source fingerprint matches current product sources');sys.exit(0)
 if out.exists():shutil.rmtree(out)
 out.mkdir()
-subprocess.run(['python','-m','PyInstaller','--noconfirm','--clean','--onedir','--console','--name','jarvis-local-core','--paths',str(root.parent/'src'),'--collect-submodules','jarvis','--collect-all','certifi','--collect-all','cv2','--collect-all','playwright','--collect-all','tzdata','--exclude-module','torch','--exclude-module','transformers','--exclude-module','onnxruntime','--exclude-module','ctranslate2','--exclude-module','pocket_tts','--add-data',str(root.parent/'src/jarvis/laya-assets.json')+';jarvis','--add-data',str(root.parent/'src/jarvis/experimental/moonshine-assets.json')+';jarvis/experimental','--distpath',str(root/'diagnostic-dist'),'--workpath',str(root/'diagnostic-work'),str(root/'frozen-entry.py')],check=True)
+subprocess.run(['python','-m','PyInstaller','--noconfirm','--clean','--onedir','--console','--name','jarvis-local-core','--paths',str(root.parent/'src'),'--collect-submodules','jarvis','--collect-all','lameenc','--collect-all','certifi','--collect-all','cv2','--collect-all','playwright','--collect-all','tzdata','--exclude-module','torch','--exclude-module','transformers','--exclude-module','onnxruntime','--exclude-module','ctranslate2','--exclude-module','pocket_tts','--add-data',str(root.parent/'src/jarvis/laya-assets.json')+';jarvis','--add-data',str(root.parent/'src/jarvis/experimental/moonshine-assets.json')+';jarvis/experimental','--distpath',str(root/'diagnostic-dist'),'--workpath',str(root/'diagnostic-work'),str(root/'frozen-entry.py')],check=True)
 shutil.copytree(root/'diagnostic-dist/jarvis-local-core',out/'backend')
 shutil.copy2(root/'src-tauri/target/release/jarvis-modern-ui.exe',out/'JARVIS.exe')
+shutil.copytree(root/'mp3-notices',out/'licenses/mp3',dirs_exist_ok=True)
+import tarfile
+with tarfile.open(out/'licenses/JARVIS-application-source.tar.gz','w:gz')as archive:
+ for name in subprocess.check_output(['git','ls-files'],cwd=root.parent,text=True).splitlines():
+  p=root.parent/name
+  if p.is_file():archive.add(p,arcname=name)
 (out/'DIAGNOSTIC ONLY.txt').write_text('UI/native iteration only. Real frozen core and Win32/WebView2/Edge boundaries. Heavy speech/Laya/embedding runtimes excluded. No shipping, voice, model quality or complete package claim. Full modern-voice baseline remains required.')
 
 (out/'source-fingerprint.txt').write_text(source_fingerprint())
