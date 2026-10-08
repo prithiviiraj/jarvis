@@ -28,7 +28,7 @@ class Tests(unittest.TestCase):
   self.assertFalse(self.calls)
  def test_partial_history_blocks_before_post(self):
   def transport(m,u,p):return {'emailAddress':'owner@example.com'}if u.endswith('/profile')else{'messages':[],'nextPageToken':'partial'}
-  j=self.job(transport);r=j.prepare(['friend@example.com'],'Subject','Body');j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'review');self.assertIn('partial',j.error)
+  j=self.job(transport);r=j.prepare(['friend@example.com'],'Subject','Body');j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'review');self.assertTrue(j.error)
  def test_timeout_persists_uncertainty_no_retry_or_empty_reconcile(self):
   def transport(m,u,p):
    if m=='POST':raise TimeoutError('private error')
@@ -47,3 +47,14 @@ class Tests(unittest.TestCase):
    if u.endswith('/profile'):entered.set();release.wait(2)
    return self.transport(m,u,p)
   j=self.job(blocked);j.stop();r=j.prepare(['friend@example.com'],'Different','Body');j.submit(r,True);self.assertTrue(entered.wait(1));j.stop();release.set();j.worker.join(3);self.assertFalse(any(m=='POST'for m,u,p in self.calls));self.assertEqual(j.snapshot()['state'],'cancelled')
+ def test_paginated_complete_sent_history_passes_and_repeated_token_blocks(self):
+  def transport(m,u,p):
+   if u.endswith('/profile'):return {'emailAddress':'owner@example.com'}
+   if 'messages?'in u:
+    if 'pageToken=next'in u:return {'messages':[]}
+    return {'messages':[],'nextPageToken':'next'}
+   return self.transport(m,u,p)
+  j=self.job(transport);r=j.prepare(['friend@example.com'],'Subject','Body');j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'completed')
+  j.stop();self.c.account='owner@example.com';j.prepare(['friend@example.com'],'Different','Body')
+  def repeated(m,u,p):return {'emailAddress':'owner@example.com'}if u.endswith('/profile')else{'messages':[],'nextPageToken':'repeat'}
+  j.transport=repeated;j.submit(j.journal().job.plan,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'review');self.assertTrue(j.error)
