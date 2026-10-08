@@ -195,6 +195,14 @@ try:
    window.child_window(title=confirmed,control_type='Text').wait('exists',timeout=10)
    button(name).wait('enabled',timeout=10)
   checks.append(name)
+ # Native connection controls are inert until explicit owner review. Never
+ # enter fixture credentials into the product's fixed registered-client slot.
+ click('Settings');click('Advanced')
+ email_field=window.child_window(title='Google account email',control_type='Edit');reveal_field(email_field)
+ assert 'Google not connected'in ui_text(), 'Google falsely connected on launch'
+ button('Registered desktop client').wait('exists',timeout=10)
+ window.capture_as_image().save('ui-evidence/native-google-connection-inert.png')
+ click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
