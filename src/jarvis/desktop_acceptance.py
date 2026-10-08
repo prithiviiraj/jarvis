@@ -40,6 +40,11 @@ def run():
   except ValueError:pass
   else:raise AssertionError('Revoked review accepted')
   assert field.get_value()==text
-  (out/'native-desktop-input.json').write_text(json.dumps({'windows_actual':True,'foreground_bound_actual_input':True,'literal_text_readback':actual,'mouse_click_move_scroll_navigation_keys':True,'revoked_review_rejected':True,'completed_steps':state['task']['completed_steps'],'scope':'Frozen core on Windows synthetic native EDIT fixture; not arbitrary app completion or owner hardware'},indent=2))
+  # Stale real HWND geometry is rejected before any next mouse input.
+  resized=controller.prepare(target,[{'action':'click','x':x,'y':y}],'Isolated resized-window refusal')
+  w.move_window(width=700,height=400)
+  controller.run(resized,True,True).join(5)
+  assert controller.snapshot()['task']['state']=='blocked';assert field.get_value()==text
+  (out/'native-desktop-input.json').write_text(json.dumps({'windows_actual':True,'foreground_bound_actual_input':True,'literal_text_readback':actual,'mouse_click_move_scroll_navigation_keys':True,'revoked_review_rejected':True,'stale_actual_resized_window_refused':True,'completed_steps':state['task']['completed_steps'],'scope':'Frozen core on Windows synthetic native EDIT fixture; not arbitrary app completion or owner hardware'},indent=2))
  finally:
   controller.close();child.terminate();child.wait(5)
