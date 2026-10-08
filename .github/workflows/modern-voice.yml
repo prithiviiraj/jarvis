@@ -143,7 +143,7 @@ jobs:
           if-no-files-found: warn
   windows:
     needs: embedding-runtime
-    if: ${{ !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: windows-latest
     timeout-minutes: 50
     defaults:
@@ -394,7 +394,7 @@ jobs:
           if-no-files-found: error
 
   embedding-runtime:
-    if: ${{ !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -415,7 +415,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   embedding-model:
-    if: ${{ !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
