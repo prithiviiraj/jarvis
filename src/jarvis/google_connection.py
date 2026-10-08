@@ -20,12 +20,11 @@ class GoogleConnection:
   except Exception:raise ValueError('Saved desktop credential invalid')from None
   result=self.loop.begin(client['client_id'],grants,email,True)
   with self.lock:self.generation+=1;ticket=self.generation;self.account=email;self.grants=list(grants);self.busy=True;self.error='';self.status='Waiting for Google browser consent'
-  try:
-   if self.opener(result['authorization_url'])is False:raise ValueError()
-  except Exception:self.stop();raise ValueError('Default browser could not open Google consent; nothing connected')from None
   def work():
    import time
    try:
+    if self.generation!=ticket:return
+    if self.opener(result['authorization_url'])is False:raise ValueError('Default browser could not open Google')
     while self.generation==ticket and self.loop.snapshot()['pending'] and not self.loop.snapshot()['callback_received']:time.sleep(.1)
     if self.generation!=ticket:return
     if not self.loop.snapshot()['callback_received']:raise ValueError('Google authorization expired; nothing connected')
@@ -41,13 +40,16 @@ class GoogleConnection:
     with self.lock:
      if self.generation==ticket:self.error='Google authorization failed, expired or account/scopes changed. Nothing was sent or booked.';self.status='Google connection incomplete'
    finally:
+    self.loop.stop()
     with self.lock:
      if self.generation==ticket:self.busy=False
   self.worker=threading.Thread(target=work,name='google-connect',daemon=True);self.worker.start()
  def idle_worker(self):
   if self.worker and self.worker.is_alive():raise ValueError('Previous authorization is still stopping; wait before reconnecting')
  def stop(self):
-  with self.lock:self.generation+=1;self.busy=False
+  with self.lock:
+   was_busy=self.busy;self.generation+=1;self.busy=False
+   if was_busy:self.status='Google connection stopped. No new account connected.'
   self.loop.stop();self.auth.save_guard=None
  def disconnect(self,confirm=False):
   if confirm is not True:raise ValueError('Review disconnect for this account')
