@@ -2,6 +2,8 @@
 import subprocess,pathlib,time,json,ctypes,os
 from PIL import ImageGrab
 from pywinauto import Desktop,mouse
+# Every acceptance run owns disposable data, never the runner/user default vault.
+os.environ.setdefault('JARVIS_DATA_DIR',str(pathlib.Path('ui-evidence/native-isolated-data').resolve()))
 # Controlled OpenAI-compatible local test server. Not a real model acceptance claim.
 import http.server,threading
 requests=[]
