@@ -30,18 +30,21 @@ class GoogleReadConnector:
   row=self.request('https://gmail.googleapis.com/gmail/v1/users/me/profile');email=row.get('emailAddress')
   if email!=self.expected_email:self.account_verified=False;raise ValueError('Authorized Google email does not match the reviewed account')
   self.account_verified=True;return {'account':email,'verified':True}
- def sent_ids(self,query='',limit=100):
+ def sent_ids(self,query='',limit=100,page_token=None):
   if not self.account_verified:self.verify_mail_account()
   if not isinstance(query,str)or len(query)>500 or type(limit)is not int or not 1<=limit<=100:raise ValueError('Use a bounded sent-history query')
   params={'labelIds':'SENT','maxResults':limit}
   if query:params['q']=query
+  if page_token is not None:
+   if not isinstance(page_token,str)or not page_token or len(page_token)>2000:raise ValueError('Use an observed bounded Google page token')
+   params['pageToken']=page_token
   row=self.request('https://gmail.googleapis.com/gmail/v1/users/me/messages?'+urllib.parse.urlencode(params));items=row.get('messages',[])
   if not isinstance(items,list):raise ValueError('Invalid sent-history response')
   results=[]
   for x in items:
    if not isinstance(x,dict)or not isinstance(x.get('id'),str):raise ValueError('Invalid sent message identity')
    results.append({'message_id':x['id'],'thread_id':x.get('threadId')})
-  return {'account':self.expected_email,'messages':results,'complete':not bool(row.get('nextPageToken')),'scope':'One bounded SENT list page. IDs only, not body equality. Read exact message details before duplicate verdict.'}
+  return {'account':self.expected_email,'messages':results,'complete':not bool(row.get('nextPageToken')),'next_page_token':row.get('nextPageToken'),'scope':'One bounded SENT list page. IDs only, not body equality. Read exact message details before duplicate verdict.'}
  def read_message(self,message_id):
   if not self.account_verified:self.verify_mail_account()
   if not isinstance(message_id,str)or not message_id or len(message_id)>200:raise ValueError('Choose an observed message ID')
