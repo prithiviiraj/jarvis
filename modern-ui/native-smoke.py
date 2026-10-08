@@ -111,6 +111,18 @@ try:
   tiles=('Laya activate','Camera','Live screen','Proactive')
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
   item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
+ def reveal_field(control):
+  # Settings pane keeps scroll across sub-page changes. Start at its top, then
+  # use actual UIA bounds in either direction; never scroll blindly downward.
+  control.wait('exists',timeout=15)
+  mouse.scroll(coords=(760,450),wheel_dist=40);time.sleep(.2)
+  for _ in range(24):
+   wrapper=control.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
+   if wrapper.is_visible() and rect.top>bounds.top+160 and rect.bottom<bounds.bottom-65:
+    wrapper.set_focus();return
+   direction=3 if rect.top<bounds.top+160 and rect.width()>0 else -3
+   mouse.scroll(coords=(760,450),wheel_dist=direction);time.sleep(.2)
+  raise RuntimeError('Field could not be brought into Settings viewport: '+control.window_text())
  def expand_advanced():
   # HTML summary exposes Button semantics but has no Windows UIA Invoke pattern.
   # Use real mouse input, as the already-passing initial expansion does.
@@ -186,13 +198,8 @@ try:
  keyfield=window.child_window(title='slot1 API key',control_type='Edit')
  for attempt in range(3):
   keyfield.wait('exists',timeout=15)
-  for _ in range(16):
-   try:
-    if keyfield.wrapper_object().is_visible():break
-   except Exception:pass
-   mouse.scroll(coords=(760,450),wheel_dist=-3);time.sleep(.2)
   try:
-   keyfield.wait('visible',timeout=10);keyfield.wrapper_object().set_focus();break
+   reveal_field(keyfield);keyfield.wait('visible',timeout=10);break
   except Exception:
    if attempt==2:
     window.capture_as_image().save('ui-evidence/native-account-key-lookup-failure.png');raise
@@ -286,10 +293,7 @@ try:
   vault_root=pathlib.Path(vault_tmp);(vault_root/'.obsidian').mkdir();(vault_root/'seed.md').write_text('native-vault-fixture',encoding='utf-8')
   click('Settings');click('Memory')
   folder=window.child_window(title='Obsidian vault folder',control_type='Edit');folder.wait('exists',timeout=10)
-  for _ in range(12):
-   if folder.wrapper_object().is_visible():break
-   mouse.scroll(coords=(760,450),wheel_dist=-3);time.sleep(.2)
-  folder.wait('visible',timeout=10);folder.wrapper_object().set_focus();window.capture_as_image().save('ui-evidence/native-manual-vault-input-visible.png');folder.wrapper_object().set_edit_text(vault_tmp)
+  reveal_field(folder);folder.wait('visible',timeout=10);window.capture_as_image().save('ui-evidence/native-manual-vault-input-visible.png');folder.wrapper_object().set_edit_text(vault_tmp)
   click('Connect local vault');button('Confirm vault connection').wait('exists',timeout=10)
   click('Cancel vault connection');window.child_window(title='Confirm vault connection',control_type='Button').wait_not('exists',timeout=10)
   click('Connect local vault');click('Confirm vault connection')
