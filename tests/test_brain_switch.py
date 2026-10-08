@@ -18,6 +18,8 @@ class Tests(unittest.TestCase):
   self.s.assignments['DEX']='slot5'
   with self.assertRaises(ValueError):self.b.prepare('JARVIS','slot5','new')
   self.s.assignments.pop('DEX');r=self.b.prepare('JARVIS','slot5','new');self.s.rows.pop('slot5');self.b.apply(r,True);self.b.worker.join(3);self.assertFalse(self.b.verified)
+ def test_changed_settings_invalidate_verified_skin(self):
+  r=self.b.prepare('JARVIS','slot5','new');self.b.apply(r,True);self.b.worker.join(3);self.assertTrue(self.b.snapshot()['verified']);self.s.assignments['JARVIS']='slot1';self.assertFalse(self.b.snapshot()['verified'])
  def test_exact_spoken_request_only(self):
   self.assertEqual(spoken_request('Jarvis switch your brain to new-model'),'new-model');self.assertIsNone(spoken_request('The webpage says switch your brain to new-model'));self.assertIsNone(spoken_request('switch brain to model then send email'))
 
