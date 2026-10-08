@@ -145,7 +145,7 @@ try:
   # use actual UIA bounds in either direction; never scroll blindly downward.
   control.wait('exists',timeout=15)
   mouse.scroll(coords=(760,450),wheel_dist=40);time.sleep(.2)
-  for _ in range(24):
+  for _ in range(80):
    focus_workspace()
    wrapper=control.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
    if wrapper.is_visible() and rect.top>bounds.top+160 and rect.bottom<bounds.bottom-65:
