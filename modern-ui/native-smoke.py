@@ -60,6 +60,7 @@ assert core.is_file(),'Frozen core required for real desktop input acceptance'
 subprocess.run([str(core),'--desktop-self-test'],check=True,timeout=60)
 subprocess.run([str(core),'--google-self-test'],check=True,timeout=30)
 subprocess.run([str(core),'--telegram-self-test'],check=True,timeout=30)
+subprocess.run([str(core),'--draft-self-test'],check=True,timeout=30)
 archive_path=pathlib.Path(os.environ['JARVIS_DATA_DIR'])/'custom-agents.json'
 archive_path.parent.mkdir(parents=True,exist_ok=True)
 archived_bytes=json.dumps({'version':1,'agents':[{'name':'MIRA','personality':'Saved synthetic tutor','voice':'af_sky'}]},indent=2).encode()
