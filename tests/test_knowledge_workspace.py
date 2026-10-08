@@ -35,7 +35,7 @@ class KnowledgeTests(unittest.TestCase):
    def prepare_stream(self,text,generation=None):
     for i in range(0,len(text),120):yield text[i:i+120],b'pcm',24000
    def play_prepared(self,prepared,generation=None):self.spoken.append(prepared[0])
-  self.k.close();speaker=StreamSpeaker();self.k=KnowledgeWorkspace(lambda:speaker);text='Source sentence. '*250;(self.root/'long.md').write_text(text);row=self.k.read(self.root,'long.md');self.k.speak(self.root,row,True).join();self.assertEqual(''.join(speaker.spoken),text);self.assertTrue(all(len(x)<=120 for x in speaker.spoken))
+  self.k.close();speaker=StreamSpeaker();self.k=KnowledgeWorkspace(lambda:speaker);text='Source sentence. '*250;(self.root/'long.md').write_text(text);row=self.k.read(self.root,'long.md');self.k.speak(self.root,row,True).join();self.assertEqual(''.join(speaker.spoken),row['text']);self.assertTrue(all(len(x)<=120 for x in speaker.spoken))
  def test_stop_during_chunks_drops_following_source(self):
   k=self.k
   class StreamSpeaker(Speaker):
