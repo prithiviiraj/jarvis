@@ -8,8 +8,8 @@ Sources: https://www.youtube.com/watch?v=zdnijkAbknA&t=60s and https://www.youtu
 | --- | --- | --- |
 | Desktop typed/spoken conversation and five agents | Present in source/UI | Keep; device audio acceptance |
 | Local Obsidian notes and exact/text search | Present | Keep; preserve owner data |
-| Practical knowledge graph and note focus | Partial | True3D/depth, retrieval-grounded source focus and complete note discovery; current atlas revision local only |
-| Found-note read-aloud | Partial | Explicit source-backed read-aloud handoff |
+| Practical knowledge graph and note focus | Partial | Depth projection and exact source-ID focus implemented in phase2; native acceptance pending. Complete indexed discovery and semantic answer/graph synchronization remain. Source speech capture implemented, device acceptance pending |
+| Found-note read-aloud | Partial | Reviewed source-backed read-aloud handoff implemented; native/device speech acceptance pending |
 | Phone call alerts and call-to-desk continuation | Missing | Free/provider research, telephony runtime, scoped handoff |
 | Business/restaurant phone agents | Missing | Purpose flows and accountable confirmations |
 | Live-calendar conflict check and booking | Missing | External calendar connector; local Markdown calendar is not a substitute |
