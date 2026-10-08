@@ -229,7 +229,7 @@ try:
  window.capture_as_image().save('ui-evidence/native-google-connection-inert.png')
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
  drive_read=window.child_window(title='Review Drive metadata read',control_type='Button');reveal_field(drive_read);assert not drive_read.is_enabled()
- sheets_read=window.child_window(title='Review Sheets values read',control_type='Button');assert not sheets_read.is_enabled()
+ sheets_read=window.child_window(title='Review Sheets values read',control_type='Button');reveal_field(sheets_read);assert not sheets_read.is_enabled()
  reveal_field(window.child_window(title='Drive new text name',control_type='Edit'))
  assert not button('Capture Drive identity and private root').is_enabled(), 'Drive upload review enabled without account/access'
  assert 'Confirm exact private text upload'not in ui_text(), 'Drive upload final confirmation without review'
@@ -252,7 +252,7 @@ try:
  assert not button('Recheck event and prepare Telegram draft').is_enabled(), 'Handoff enabled without verified event/Telegram'
  window.capture_as_image().save('ui-evidence/native-calendar-telegram-inert.png');checks.append('native calendar-to-Telegram handoff inert without completed event/pairing, no send')
  reveal_field(window.child_window(title='Project identity',control_type='Edit'))
- project_read=window.child_window(title='Review GitHub source read',control_type='Button');assert not project_read.is_enabled()
+ project_read=window.child_window(title='Review GitHub source read',control_type='Button');reveal_field(project_read);assert not project_read.is_enabled()
  window.capture_as_image().save('ui-evidence/native-project-read-inert.png');checks.append('native GitHub/Notion read panel inert; no token or external access')
  reveal_field(window.child_window(title='Notion paragraph block UUID',control_type='Edit'))
  assert not button('Capture Notion block identity and prior text').is_enabled(), 'Notion update review enabled without bot/write gate'
