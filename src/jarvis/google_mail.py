@@ -40,15 +40,27 @@ class GoogleMail:
  def validate(self,payload,ticket,connection_ticket):
   if self.generation!=ticket or self.connection.generation!=connection_ticket or self.connection.busy or self.connection.account!=payload['account']:raise ValueError('Account or review changed')
   reader=self.reader(payload['account']);reader.verify_mail_account()
-  # Inspect one bounded complete SENT page. Partial history blocks this first
-  # implementation rather than pretending absence means no duplicate.
-  history=reader.sent_ids(limit=100)
-  if not history['complete']:raise ValueError('Sent history is partial; duplicate check is incomplete. Send manually or narrow in a later version.')
-  for row in history['messages']:
+  # Up to ten provider pages, one thousand IDs and a 30-second preflight.
+  # This is whole-account SENT scope, not a guessed subject/time search.
+  import time
+  deadline=time.monotonic()+30;page=None;seen=set();tokens=set();complete=False
+  for _ in range(10):
    if self.generation!=ticket or self.connection.generation!=connection_ticket:raise ValueError('Review stopped during validation')
-   message=plain_message(reader.read_message(row['message_id'])['message'],payload['account'])
-   if self.same(message,payload):raise ValueError('Exact message already sent; no duplicate send')
-   if message.get('complete')is not True and message.get('to')==payload['to']and message.get('cc')==payload['cc']and message.get('subject')==payload['subject']:raise ValueError('Potential duplicate has unreadable body or attachments; inspect Google Sent before sending')
+   if time.monotonic()>=deadline:raise ValueError('Sent history check reached its limit; no send performed')
+   history=reader.sent_ids(limit=100,page_token=page)
+   for row in history['messages']:
+    if row['message_id']in seen:raise ValueError('Sent history repeated an identity; completeness unknown')
+    seen.add(row['message_id'])
+    if len(seen)>1000 or time.monotonic()>=deadline:raise ValueError('Sent history check reached its limit; no send performed')
+    if self.generation!=ticket or self.connection.generation!=connection_ticket:raise ValueError('Review stopped during validation')
+    message=plain_message(reader.read_message(row['message_id'])['message'],payload['account'])
+    if self.same(message,payload):raise ValueError('Exact message already sent; no duplicate send')
+    if message.get('complete')is not True and message.get('to')==payload['to']and message.get('cc')==payload['cc']and message.get('subject')==payload['subject']:raise ValueError('Potential duplicate has unreadable body or attachments; inspect Google Sent before sending')
+   if history['complete']:complete=True;break
+   page=history.get('next_page_token')
+   if not isinstance(page,str)or not page or page in tokens:raise ValueError('Sent history page invalid; completeness unknown')
+   tokens.add(page)
+  if not complete:raise ValueError('Sent history is partial; duplicate check is incomplete. Send manually or narrow in a later version.')
   if self.generation!=ticket or self.connection.generation!=connection_ticket:raise ValueError('Review stopped during validation')
   return True
  def submit(self,reviewed,confirm=False):
