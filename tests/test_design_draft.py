@@ -42,3 +42,8 @@ class Tests(unittest.TestCase):
   self.f['body']='first\nsecond';svg=self.d.prepare(self.f,True)['svg'];self.assertIn('y="540"',svg);self.assertIn('y="583"',svg)
   self.f['body']='a\n'*15
   with self.assertRaises(ValueError):self.d.prepare(self.f,True)
+
+ def test_renderer_and_frozen_contract_wired_into_CI(self):
+  root=pathlib.Path(__file__).resolve().parents[1];workflow=(root/'.github/workflows/modern-voice.yml').read_text();native=(root/'modern-ui/native-smoke.py').read_text();entry=(root/'modern-ui/frozen-entry.py').read_text()
+  for script in ('phone-handoff-smoke.mjs','design-draft-smoke.mjs'):self.assertIn('node '+script,workflow)
+  self.assertIn("'--draft-self-test'",native);self.assertIn("sys.argv[1]=='--draft-self-test'",entry)
