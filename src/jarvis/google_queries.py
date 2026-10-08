@@ -29,10 +29,8 @@ class GoogleQueries:
      # Only IDs already returned on this account may be read through UI.
      message_id=params.get('message_id');observed=params.get('_observed_ids',[])
      if message_id not in observed:raise ValueError('Choose a message ID returned for this account')
-     row=connector.read_message(message_id)['message'];payload=row.get('payload',{});headers=payload.get('headers',[])
-     if not isinstance(headers,list):raise ValueError('Invalid mail headers')
-     wanted={'from','to','cc','subject','date'}
-     result={'kind':kind,'account':email,'message_id':message_id,'thread_id':row.get('threadId'),'headers':[{ 'name':str(h.get('name',''))[:50],'value':str(h.get('value',''))[:2000]}for h in headers if isinstance(h,dict)and str(h.get('name','')).lower()in wanted],'snippet':str(row.get('snippet',''))[:2000],'scope':'Untrusted mail header/snippet only. Body and attachments not downloaded. No reply or send.'}
+     from .google_mail_draft import plain_message
+     row=connector.read_message(message_id)['message'];result={'kind':kind,**plain_message(row,email)}
     else:result={'kind':kind,**connector.freebusy(params.get('calendar_ids'),params.get('start'),params.get('end'),True)}
     with self.lock:
      if self.generation==ticket and self.connection.account==email and self.connection.generation==connection_ticket:self.result=result
