@@ -8,6 +8,7 @@ class Tests(unittest.TestCase):
   if not shutil.which('openssl'):self.skipTest('Fixture openssl missing')
   subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(self.key),'-out',str(self.cert),'-days','1','-subj','/CN=localhost','-addext','subjectAltName=IP:127.0.0.1'],check=True,capture_output=True)
   (self.root/'index.html').write_text('Private controlled transport fixture')
+  for name in ('phone.css','phone.js','capture.js'):(self.root/name).write_text('fixture')
   with socket.socket()as sock:sock.bind(('127.0.0.1',0));self.port=sock.getsockname()[1]
   self.origin='https://127.0.0.1:'+str(self.port)
  def tearDown(self):self.t.stop();self.tmp.cleanup()
@@ -32,3 +33,9 @@ class Tests(unittest.TestCase):
    with self.assertRaises(ValueError):self.t.prepare(origin,str(self.cert),str(self.key),True)
   review=self.prepare();self.cert.write_text(self.cert.read_text()+'\n')
   with self.assertRaises(ValueError):self.t.start(review,True,True)
+
+ def test_san_mismatch_and_expired_review(self):
+  with self.assertRaises(ValueError):self.t.prepare('https://192.168.1.10:'+str(self.port),str(self.cert),str(self.key),True)
+  review=self.prepare();self.t.review_deadline=0
+  with self.assertRaises(ValueError):self.t.start(review,True,True)
+  self.assertIsNone(self.t.server)
