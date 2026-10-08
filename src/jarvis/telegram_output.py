@@ -6,7 +6,7 @@ from .connector_journal import ConnectorJournal
 from .connector_workflows import digest
 from .google_read_connector import NoRedirect
 class TelegramOutput:
- def __init__(self,connection,path,transport=None,voice=None):self.voice=voice;self.connection=connection;self.path=path;self.transport=transport;self.ledger=None;self.busy=False;self.error='';self.generation=0;self.worker=None
+ def __init__(self,connection,path,transport=None,voice=None):self.lock=threading.RLock();self.voice=voice;self.connection=connection;self.path=path;self.transport=transport;self.ledger=None;self.busy=False;self.error='';self.generation=0;self.worker=None
  def journal(self):
   if self.ledger is None:self.ledger=ConnectorJournal(self.path,'telegram-output')
   return self.ledger
@@ -29,10 +29,11 @@ class TelegramOutput:
      from .telegram_voice import TelegramVoice
      self.voice=TelegramVoice()
     audio=self.voice.render(text,lambda:self.generation!=ticket or c.generation!=ct)
-    if self.generation!=ticket or c.generation!=ct or c.pair.bound!=identity:raise ValueError()
     payload={'kind':'telegram-output','format':'voice','bot':bot,'identity':identity,'text':text,'audio':audio}
-    if j.job.state=='completed'and j.job.plan and j.job.plan['payload']==payload:raise ValueError()
-    j.prepare(payload)
+    with self.lock:
+     if self.generation!=ticket or c.generation!=ct or c.pair.bound!=identity:raise ValueError()
+     if j.job.state=='completed'and j.job.plan and j.job.plan['payload']==payload:raise ValueError()
+     j.prepare(payload)
    except Exception:self.error='Voice preparation failed or stopped. No output sent. Verified Kokoro assets and MP3 encoder are required.'
    finally:self.busy=False
   self.worker=threading.Thread(target=work,name='telegram-voice-preview',daemon=True);self.worker.start()
@@ -90,8 +91,9 @@ class TelegramOutput:
    finally:self.busy=False
   self.worker=threading.Thread(target=work,name='telegram-reviewed-output',daemon=True);self.worker.start()
  def stop(self):
-  self.generation+=1
-  if self.ledger and self.ledger.job.state in ('review','submitting','uncertain'):self.ledger.cancel()
+  with self.lock:
+   self.generation+=1
+   if self.ledger and self.ledger.job.state in ('review','submitting','uncertain'):self.ledger.cancel()
  def snapshot(self):
   try:s=self.journal().snapshot()
   except Exception:s={'state':'blocked','plan':None,'result':None};self.error='Output ledger invalid. Preserve it; no send or retry.'
