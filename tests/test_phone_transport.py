@@ -29,7 +29,7 @@ class Tests(unittest.TestCase):
   self.controller.session.authorize(token);self.t.stop();self.assertEqual(self.t.state,'off')
   with self.assertRaises(ValueError):self.controller.session.authorize(token)
  def test_public_bind_and_certificate_change_refused(self):
-  for origin in ['https://8.8.8.8:8443','http://127.0.0.1:8443','https://127.0.0.1:8443/path','https://0.0.0.0:8443']:
+  for origin in ['https://8.8.8.8:8443','http://127.0.0.1:8443','https://127.0.0.1:8443/path','https://0.0.0.0:8443','https://192.0.2.1:8443','https://240.0.0.1:8443','https://169.254.1.1:8443']:
    with self.assertRaises(ValueError):self.t.prepare(origin,str(self.cert),str(self.key),True)
   review=self.prepare();self.cert.write_text(self.cert.read_text()+'\n')
   with self.assertRaises(ValueError):self.t.start(review,True,True)
@@ -38,4 +38,12 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.t.prepare('https://192.168.1.10:'+str(self.port),str(self.cert),str(self.key),True)
   review=self.prepare();self.t.review_deadline=0
   with self.assertRaises(ValueError):self.t.start(review,True,True)
+  self.assertIsNone(self.t.server)
+
+ def test_certificate_validity_horizon(self):
+  from unittest.mock import patch
+  with patch('jarvis.phone_transport.time.time',return_value=0):
+   with self.assertRaisesRegex(ValueError,'currently valid'):self.prepare()
+  review=self.prepare();self.t.pending['not_after']=0
+  with self.assertRaisesRegex(ValueError,'full session'):self.t.start(review,True,True)
   self.assertIsNone(self.t.server)
