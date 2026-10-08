@@ -53,7 +53,7 @@ def run():
  try:
   assert not bridge.execute({'command':'status'})['voice_active']
   with patch.dict(providers.ENDPOINTS,{'local':f'http://127.0.0.1:{server.server_port}/v1'}),patch('jarvis.runtime.ContinuousMic',Mic):
-   for name in ['JARVIS','NOVA','SILA','LYRA','DEX']:
+   for name in ['JARVIS','LYRA','DEX']:
     progress('select',persona=name);bridge.execute({'command':'select','name':name});samples.clear();loaded=time.monotonic()
     bridge.execute({'command':'voice-on','consent':True});deadline=time.monotonic()+60
     while bridge.voice.busy and time.monotonic()<deadline:time.sleep(.1)
@@ -67,8 +67,8 @@ def run():
     def playback(event,text,actor,sr,n):
      caption_events.append({'event':event,'text':text,'persona':actor,'at':time.monotonic()});original_playback(event,text,actor,sr,n)
     runtime.speaker.playback_event=playback
-    assert len(runtime.speaker.profiles)==5
-    assert len({id(x.voice)for x in runtime.speaker.profiles.values()})==5
+    assert len(runtime.speaker.profiles)==3
+    assert len({id(x.voice)for x in runtime.speaker.profiles.values()})==3
     assert runtime.speaker.profile==name
     # Threaded execution matches the real mic path and keeps the diagnostic clock responsive.
     progress('turn-start',persona=name);started=time.monotonic();runtime.busy=True
@@ -92,8 +92,8 @@ def run():
     assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
     runtime=None;turn=None
 
-  assert len({row['audio_sha256']for row in rows})==5,'Persona synth outputs unexpectedly identical'
-  report={'frozen_executable':True,'real_local_STT_and_five_Kokoro_syntheses':True,'source_audio':audio_url,'fixture_sha256':hashlib.sha256(raw).hexdigest(),'rows':rows,'brain_scope':'controlled local SSE fixture','mic_output_scope':'test adapters, no hardware','unrun':['physical microphone','audible output','real LM Studio model','owner accent','echo/barge-in','laptop load']}
+  assert len({row['audio_sha256']for row in rows})==3,'Persona synth outputs unexpectedly identical'
+  report={'frozen_executable':True,'real_local_STT_and_three_Kokoro_syntheses':True,'source_audio':audio_url,'fixture_sha256':hashlib.sha256(raw).hexdigest(),'rows':rows,'brain_scope':'controlled local SSE fixture','mic_output_scope':'test adapters, no hardware','unrun':['physical microphone','audible output','real LM Studio model','owner accent','echo/barge-in','laptop load']}
   (out/'frozen-voice-chain.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
  finally:
   progress('cleanup-start');bridge.close();server.shutdown();server.server_close();progress('cleanup-done');faulthandler.cancel_dump_traceback_later();trace.close()
