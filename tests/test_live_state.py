@@ -12,7 +12,7 @@ class LiveState(unittest.TestCase):
  def test_refresh_and_unload_invalidate(self):
   b=BrainSettings();model={'id':'running','key':'disk','vision':False}
   with patch('jarvis.providers.local_live_models',return_value=[model]):b.refresh_live(True).join(2)
-  self.assertEqual(b.live_snapshot()['state'],'loaded');self.assertEqual(b.live_snapshot()['profiles']['SILA']['state'],'loaded route')
+  self.assertEqual(b.live_snapshot()['state'],'loaded');self.assertEqual(b.live_snapshot()['profiles']['LYRA']['state'],'loaded route')
   with patch('jarvis.providers.local_live_models',return_value=[]):b.refresh_live(True).join(2)
   self.assertEqual(b.live_snapshot()['state'],'no loaded model');self.assertEqual(b.live_snapshot()['models'],[])
  def test_failure_never_keeps_loaded_claim(self):
@@ -25,7 +25,7 @@ class LiveState(unittest.TestCase):
  def test_legacy_assignment_preserved(self):
   with tempfile.TemporaryDirectory()as d:
    p=pathlib.Path(d)/'brain.json';p.write_text(json.dumps({'slots':[{'id':'slot1','provider':'local','model':'chat','enabled':True}],'assignments':{''.join(('K','AI')):'slot1'}}))
-   b=BrainSettings(path=p);self.assertEqual(b.assignments,{'SILA':'slot1'})
+   b=BrainSettings(path=p);self.assertEqual(b.assignments,{});self.assertEqual(b.archived_assignments,{'SILA':'slot1'});self.assertEqual(json.loads(p.read_text())['assignments'],{''.join(('K','AI')):'slot1'})
  def test_loaded_laya_guidance(self):
   from jarvis.ui_bridge import Bridge
   from jarvis.workspace_voice import WorkspaceVoice
