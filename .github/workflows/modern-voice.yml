@@ -260,6 +260,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Packaged Tauri launch failed' }
           & ./windows-portable/backend/jarvis-local-core.exe --voice-self-test
           if ($LASTEXITCODE -ne 0) { throw 'Frozen speech software chain failed' }
+          & ./windows-portable/backend/jarvis-local-core.exe --phone-self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen private phone software chain failed' }
           & ./windows-portable/backend/jarvis-local-core.exe --laya-self-test
           if ($LASTEXITCODE -ne 0) { throw 'Frozen managed Laya acceptance failed' }
           & ./windows-portable/backend/jarvis-local-core.exe --turn-self-test
