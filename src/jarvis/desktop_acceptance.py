@@ -2,8 +2,17 @@
 import os,sys,time,json,pathlib,subprocess
 TITLE='JARVIS isolated synthetic desktop input'
 def fixture():
- import tkinter as tk
- root=tk.Tk();root.title(TITLE);root.geometry('640x360+80+80');tk.Label(root,text='SYNTHETIC LOCAL INPUT ONLY').pack();entry=tk.Entry(root,name='input',width=65);entry.pack(padx=20,pady=30);entry.focus_set();root.mainloop()
+ import ctypes
+ from ctypes import wintypes
+ u=ctypes.windll.user32;u.CreateWindowExW.restype=wintypes.HWND
+ u.CreateWindowExW.argtypes=[wintypes.DWORD,wintypes.LPCWSTR,wintypes.LPCWSTR,wintypes.DWORD,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,wintypes.HWND,wintypes.HMENU,wintypes.HINSTANCE,ctypes.c_void_p]
+ parent=u.CreateWindowExW(0,'STATIC',TITLE,0x10CF0000,80,80,640,360,None,None,None,None)
+ if not parent:raise RuntimeError('Synthetic native window creation failed')
+ edit=u.CreateWindowExW(0x200,'EDIT','',0x50800080,25,70,560,40,parent,None,None,None)
+ if not edit:raise RuntimeError('Synthetic native edit creation failed')
+ u.ShowWindow(parent,5);u.UpdateWindow(parent);u.SetFocus(edit)
+ msg=wintypes.MSG()
+ while u.GetMessageW(ctypes.byref(msg),None,0,0)>0:u.TranslateMessage(ctypes.byref(msg));u.DispatchMessageW(ctypes.byref(msg))
 def run():
  if os.name!='nt':raise RuntimeError('Windows acceptance only')
  from .desktop_controller import DesktopController
@@ -31,6 +40,6 @@ def run():
   except ValueError:pass
   else:raise AssertionError('Revoked review accepted')
   assert field.get_value()==text
-  (out/'native-desktop-input.json').write_text(json.dumps({'windows_actual':True,'foreground_bound_actual_input':True,'literal_text_readback':actual,'mouse_click_move_scroll_navigation_keys':True,'revoked_review_rejected':True,'completed_steps':state['task']['completed_steps'],'scope':'Frozen core on Windows synthetic tkinter fixture; not arbitrary app completion or owner hardware'},indent=2))
+  (out/'native-desktop-input.json').write_text(json.dumps({'windows_actual':True,'foreground_bound_actual_input':True,'literal_text_readback':actual,'mouse_click_move_scroll_navigation_keys':True,'revoked_review_rejected':True,'completed_steps':state['task']['completed_steps'],'scope':'Frozen core on Windows synthetic native EDIT fixture; not arbitrary app completion or owner hardware'},indent=2))
  finally:
   controller.close();child.terminate();child.wait(5)
