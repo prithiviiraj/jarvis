@@ -135,3 +135,5 @@ html.pill-root,html.pill-root body,#root:has(.pill-shell){background:transparent
 .reactor[data-model-skin]:not([data-model-skin="none"]){border:1px solid hsl(var(--model-hue) 55% 55%);box-shadow:0 0 24px hsl(var(--model-hue) 55% 50% / .15)}
 
 [aria-label="Unverified source answer draft"]{color:#d9e7ed;opacity:1}[aria-label="Unverified source answer draft"] p,[aria-label="Unverified source answer draft"] small{color:#d9e7ed;opacity:1}
+
+.phone-control label{display:block;margin:10px 0}.phone-control input:not([type="checkbox"]){display:block;box-sizing:border-box;width:100%;padding:10px;background:#0a171d;border:1px solid #2b4652;border-radius:8px;color:#d9e7ed}
