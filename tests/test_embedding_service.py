@@ -38,7 +38,7 @@ class ProcessBoundary(unittest.TestCase):
 
  def test_selected_candidate_exact_vault_scope_and_source(self):
   with tempfile.TemporaryDirectory()as d,tempfile.TemporaryDirectory()as other:
-   root=pathlib.Path(d);(root/'.obsidian').mkdir();(root/'source.md').write_text('Exact real note');s=EmbeddingService();s.selected_root=root;s.results=[{'name':'source.md','kind':'text','score':.7}]
+   root=pathlib.Path(d);(root/'.obsidian').mkdir();(root/'source.md').write_text('Exact real note');s=EmbeddingService();s.selected_root=root.resolve();s.results=[{'name':'source.md','kind':'text','score':.7}]
    self.assertEqual(s.select_note(root,'source.md')['preview'],'Exact real note')
    for base,name in [(other,'source.md'),(root,'guessed.md'),(root,'../outside.md')]:
     with self.assertRaises(ValueError):s.select_note(base,name)
