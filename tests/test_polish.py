@@ -28,13 +28,13 @@ class Context(unittest.TestCase):
  def test_unmatched_middle_and_last_keep_context(self):
   m=TeamMemory();m.restore([{'name':'You','text':'open data centre'},{'name':'You','text':'hear me?'}]);self.assertIn('open data centre',str(m.messages()));self.assertEqual(m.messages()[-1]['content'],'hear me?');self.assertEqual(m.messages()[0],{'role':'user','content':'open data centre'});self.assertEqual(m.snapshot(),[])
  def test_failed_action_followup_all_agents(self):
-  for name in ('JARVIS','NOVA','SILA','LYRA','DEX'):
+  for name in ('JARVIS','LYRA','DEX'):
    seen=[]
    class Router:
     def stream(self,m,**kw):seen.extend(m);yield {'text':'I can hear you. Your earlier data centre request is not completed.','provider':'fixture','cloud':False}
    v=WorkspaceVoice(text_factory=Router);b=Bridge(v);b.evolution.generate=Mock()
    try:
-    b.execute({'command':'chat','text':'JARVIS open the data center.'});self.assertIn('not connected',b.failure_detail['detail']);self.assertFalse(any(m['name']=='SILA'for m in b.messages));b.execute({'command':'select','name':name});b.execute({'command':'chat','text':name+', can you hear me?'})
+    b.execute({'command':'chat','text':'JARVIS open the data center.'});self.assertIn('not connected',b.failure_detail['detail']);self.assertFalse(any(m['name']=='LYRA'for m in b.messages));b.execute({'command':'select','name':name});b.execute({'command':'chat','text':name+', can you hear me?'})
     for _ in range(100):
      b.execute({'command':'status'})
      if not v.busy:break
@@ -85,7 +85,7 @@ class MoreGates(unittest.TestCase):
 class Regression(unittest.TestCase):
  def test_empty_error_clear_is_not_a_failure(self):
   b=Bridge(WorkspaceVoice());b.evolution.generate=Mock()
-  try:b.voice.notify('error','');b.execute({'command':'status'});self.assertFalse(any(m['name']=='SILA'for m in b.messages))
+  try:b.voice.notify('error','');b.execute({'command':'status'});self.assertFalse(any(m['name']=='LYRA'for m in b.messages))
   finally:b.close()
  def test_voice_action_handled_does_not_timeout(self):
   b=Bridge(WorkspaceVoice());b.evolution.generate=Mock()
@@ -100,14 +100,14 @@ class Regression(unittest.TestCase):
     for _ in range(100):
      if not b.export_busy:break
      time.sleep(.001)
-    self.assertEqual(p.read_text(),'Owner edit');self.assertIn('no overwrite',b.failure_detail['detail']);self.assertFalse(any(m['name']=='SILA'for m in b.messages))
+    self.assertEqual(p.read_text(),'Owner edit');self.assertIn('no overwrite',b.failure_detail['detail']);self.assertFalse(any(m['name']=='LYRA'for m in b.messages))
    finally:b.close()
 class PresenceLayer(unittest.TestCase):
  def test_time_real_ist_12hour_no_model(self):
   import re
   b=Bridge(WorkspaceVoice());b.voice.send_text=Mock()
   try:
-   for text in ["Jarvis what's the time?",'NOVA tell me the time','time now']:
+   for text in ["Jarvis what's the time?",'DEX tell me the time','time now']:
     s=b.execute({'command':'chat','text':text});answer=s['messages'][-1];self.assertEqual(answer['provider'],'system-clock');self.assertRegex(answer['text'],r'Master, it is (?:[1-9]|1[0-2]):[0-5][0-9] (?:AM|PM) IST.');b.voice.send_text.assert_not_called()
   finally:b.close()
  def test_camera_review_and_off_no_false_identity(self):
@@ -134,23 +134,23 @@ class PresenceCadence(unittest.TestCase):
  def test_configured_night_short_turn_capped(self):
   from types import SimpleNamespace as N
   from jarvis.idle_companion import IdleCompanion
-  now=[0];voice=N(busy=False,runtime=None,memory=N(messages=lambda:[{'role':'user','content':'actual chat'}]),dialogue=Mock());router=Mock();router.ask.return_value={'text':'{"speak":true,"profiles":["NOVA","LYRA"],"topic":"A friendly hello"}'};brains=N(router=lambda name:router);i=IdleCompanion(voice,brains,Mock(),clock=lambda:now[0],hour=lambda:2);i.enable(True,True,True,True,True);now[0]=301;i.poll().join(1);self.assertFalse(router.ask.call_args.kwargs['local_only']);self.assertTrue(router.ask.call_args.kwargs['configured_chat']);self.assertEqual(voice.dialogue.call_args.kwargs['rounds'],1);self.assertNotIn('camera',str(router.ask.call_args.args));now[0]=330;self.assertIsNone(i.poll());i.requests.extend([330]*12);now[0]=650;self.assertIsNone(i.poll());i.stop()
+  now=[0];voice=N(busy=False,runtime=None,memory=N(messages=lambda:[{'role':'user','content':'actual chat'}]),dialogue=Mock());router=Mock();router.ask.return_value={'text':'{"speak":true,"profiles":["DEX","LYRA"],"topic":"A friendly hello"}'};brains=N(router=lambda name:router);i=IdleCompanion(voice,brains,Mock(),clock=lambda:now[0],hour=lambda:2);i.enable(True,True,True,True,True);now[0]=301;i.poll().join(1);self.assertFalse(router.ask.call_args.kwargs['local_only']);self.assertTrue(router.ask.call_args.kwargs['configured_chat']);self.assertEqual(voice.dialogue.call_args.kwargs['rounds'],1);self.assertNotIn('camera',str(router.ask.call_args.args));now[0]=330;self.assertIsNone(i.poll());i.requests.extend([330]*12);now[0]=650;self.assertIsNone(i.poll());i.stop()
 class WakeRobustness(unittest.TestCase):
  def test_ambiguous_prefix_not_legitimate_reference(self):
   from jarvis.wake_address import ambiguous
-  names=['JARVIS','NOVA','SILA','LYRA','DEX']
-  self.assertTrue(ambiguous('Sila jarvis can you hear me',names));self.assertTrue(ambiguous('Hey Sila Jarvis open browser',names))
-  for text in ['Hey Jarvis can you hear me','Sila and Jarvis talk together','Jarvis tell Sila hello','Jarvis Jarvis hello']:self.assertFalse(ambiguous(text,names),text)
+  names=['JARVIS','LYRA','DEX']
+  self.assertTrue(ambiguous('Lyra jarvis can you hear me',names));self.assertTrue(ambiguous('Hey Lyra Jarvis open browser',names))
+  for text in ['Hey Jarvis can you hear me','Lyra and Jarvis talk together','Jarvis tell Lyra hello','Jarvis Jarvis hello']:self.assertFalse(ambiguous(text,names),text)
  def test_runtime_ambiguous_keeps_raw_no_route_no_action(self):
   from jarvis.runtime import VoiceRuntime
-  stt=Mock();stt.transcribe.return_value='Sila jarvis';router=Mock();speaker=Mock();speaker.generation=1;events=[];v=VoiceRuntime(Mock(),stt,router,speaker,lambda *a:events.append(a));v.mic=Mock();v.action_handler=Mock();v.enable(True)
-  try:v.turn([0],v.generation,False,[]);router.ask.assert_not_called();router.stream.assert_not_called();v.action_handler.assert_not_called();self.assertIn(('transcript','Sila jarvis'),events);self.assertTrue(any(k=='error'and'two adjacent'in s for k,s in events))
+  stt=Mock();stt.transcribe.return_value='Lyra jarvis';router=Mock();speaker=Mock();speaker.generation=1;events=[];v=VoiceRuntime(Mock(),stt,router,speaker,lambda *a:events.append(a));v.mic=Mock();v.action_handler=Mock();v.enable(True)
+  try:v.turn([0],v.generation,False,[]);router.ask.assert_not_called();router.stream.assert_not_called();v.action_handler.assert_not_called();self.assertIn(('transcript','Lyra jarvis'),events);self.assertTrue(any(k=='error'and'two adjacent'in s for k,s in events))
   finally:v.close()
 class MultiAddress(unittest.TestCase):
  def test_explicit_order_not_mishear_or_mention(self):
   from jarvis.multi_address import addressed
   self.assertEqual(addressed('Jarvis, Lyra.'),('JARVIS','LYRA'));self.assertEqual(addressed('Lyra and Jarvis please answer'),('LYRA','JARVIS'))
-  for t in ['Sila Jarvis','Jarvis tell Lyra hello','What did Jarvis and Lyra say?']:self.assertEqual(addressed(t),())
+  for t in ['Lyra Jarvis','Jarvis tell Lyra hello','What did Jarvis and Lyra say?']:self.assertEqual(addressed(t),())
  def test_text_both_actual_replies_no_extra_summary(self):
   seen=[]
   class Settings:
@@ -195,7 +195,7 @@ class ContextProvenance(unittest.TestCase):
   self.assertEqual(m.messages(),[{'role':'user','content':'unanswered one'},{'role':'user','content':'answered two'},{'role':'assistant','content':'[LYRA] real reply'},{'role':'user','content':'unanswered three'}]);self.assertEqual(len(m.snapshot()),1)
  def test_trim_keeps_unmatched_order_and_no_fabricated_answer(self):
   from jarvis.team_memory import TeamMemory
-  m=TeamMemory(max_turns=2);m.restore([{'name':'You','text':'old'},{'name':'SILA','text':'old answer'},{'name':'You','text':'miss'},{'name':'You','text':'recent'},{'name':'LYRA','text':'recent answer'},{'name':'You','text':'latest'},{'name':'DEX','text':'latest answer'}])
+  m=TeamMemory(max_turns=2);m.restore([{'name':'You','text':'old'},{'name':'LYRA','text':'old answer'},{'name':'You','text':'miss'},{'name':'You','text':'recent'},{'name':'LYRA','text':'recent answer'},{'name':'You','text':'latest'},{'name':'DEX','text':'latest answer'}])
   self.assertEqual([x['content']for x in m.messages()],['recent','[LYRA] recent answer','latest','[DEX] latest answer']);self.assertFalse(any('No completed answer' in x['content']for x in m.messages()))
  def test_only_unanswered_bounded(self):
   from jarvis.team_memory import TeamMemory
