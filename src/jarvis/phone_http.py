@@ -29,7 +29,11 @@ class PhoneHTTP:
   size=int(length)
   if size>1280200:raise ValueError('Phone body too large')
   with self.lock:
-   now=self.clock();rows=[t for t in self.windows.get(peer,[])if now-t<60]
+   now=self.clock()
+   self.windows={p:[t for t in times if now-t<60]for p,times in self.windows.items()if any(now-t<60 for t in times)}
+   # Revocation remains available even after noisy polling reaches the limit.
+   if path=='/phone/stop':return size
+   rows=list(self.windows.get(peer,[]))
    if len(rows)>=150:raise ValueError('Phone rate limit reached')
    if peer not in self.windows and len(self.windows)>=32:raise ValueError('Too many phone peers')
    rows.append(now);self.windows[peer]=rows
