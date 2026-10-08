@@ -32,6 +32,12 @@ class Tests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'stopped'):self.prepare()
   self.assertIsNone(self.a.pending)
 
+ def test_launch_reservation_refuses_reprepare_and_second_start(self):
+  r=self.prepare();self.a.launching=True;self.assertTrue(self.a.snapshot()['busy'])
+  with self.assertRaises(ValueError):self.prepare()
+  with self.assertRaises(ValueError):self.a.start(self.root,r,True)
+  self.a.launching=False
+
 class BridgeTests(unittest.TestCase):
  def test_no_source_inert_and_stop(self):
   from jarvis.ui_bridge import Bridge
