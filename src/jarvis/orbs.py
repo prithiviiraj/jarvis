@@ -1,6 +1,6 @@
 """Five-orb view driven only by real workspace state. No inferred activity."""
 import math,time
-ROSTER=[('JARVIS','#5bc8b2'),('NOVA','#aa8be9'),('SILA','#ec9d65'),('LYRA','#e287b5'),('DEX','#79a9e8')]
+ROSTER=[('JARVIS','#5bc8b2'),('LYRA','#e287b5'),('DEX','#79a9e8')]
 def radius(name,selected,state,elapsed,reduced=False):
     speaking=name==selected and state=='speaking'
     return 21+(7+(0 if reduced else 2*math.sin(elapsed*6)) if speaking else 0)
