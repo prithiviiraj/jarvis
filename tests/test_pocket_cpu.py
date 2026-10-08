@@ -10,7 +10,7 @@ class Pocket(unittest.TestCase):
    self.assertEqual(len(pocket_assets.FILES),7)
    for url,sha,cap in pocket_assets.FILES.values():self.assertIn('/resolve/',url);self.assertEqual(len(sha),64);self.assertGreater(cap,1)
  def test_preset_map_and_short_text(self):
-  self.assertEqual(PRESETS['LYRA'],'alba');self.assertEqual(PRESETS['NOVA'],'anna');e=Mock();s=PocketProfile(e,'LYRA')
+  self.assertEqual(PRESETS['LYRA'],'alba');self.assertEqual(PRESETS['DEX'],'javert');e=Mock();s=PocketProfile(e,'LYRA')
   for text in ('',None,'x'*501):
    with self.assertRaises(ValueError):s.synthesize(text)
   e.model.generate_audio.assert_not_called()
