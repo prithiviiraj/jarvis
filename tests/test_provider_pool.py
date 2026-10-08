@@ -5,10 +5,10 @@ from jarvis.router import ProviderFailure
 from jarvis.security import WindowsCredentials
 class PoolTests(unittest.TestCase):
  def test_five_slots(self):
-  slots=[Slot('slot'+str(i),'gemini','model',str(i)) for i in range(1,6)];p=ProviderPool(slots,{'NOVA':[s.id for s in slots]});self.assertEqual(len(p.slots),5)
+  slots=[Slot('slot'+str(i),'gemini','model',str(i)) for i in range(1,6)];p=ProviderPool(slots,{'DEX':[s.id for s in slots]});self.assertEqual(len(p.slots),5)
  def test_session_gate(self):
-  p=ProviderPool([Slot('slot1','gemini','model')],{'NOVA':['slot1']})
-  with self.assertRaises(ValueError):p.router('NOVA',Mock(),['slot1'],[])
+  p=ProviderPool([Slot('slot1','gemini','model')],{'DEX':['slot1']})
+  with self.assertRaises(ValueError):p.router('DEX',Mock(),['slot1'],[])
  def test_key_targets_and_profile_fallback(self):
   slots=[Slot('slot1','groq','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'DEX':['slot2','slot1']});keys=Mock();keys.get.return_value='synthetic';t=Mock();t.complete.side_effect=[ProviderFailure('http-429'),'ok'];r=p.router('DEX',keys,['slot1','slot2'],['slot1','slot2'],t);a=r.ask([{}],cloud_consent=True);self.assertEqual(a['provider'],'groq');self.assertEqual(a['slot'],'slot1');self.assertEqual([c.args[0] for c in keys.get.call_args_list],['nim/slot2','groq/slot1'])
  def test_local_no_key(self):
@@ -23,12 +23,12 @@ class PoolTests(unittest.TestCase):
   with self.assertRaises(Exception):WindowsCredentials.target('gemini/../../bad')
 
  def test_auth_no_cross_account_retry(self):
-  slots=[Slot('slot1','gemini','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'NOVA':['slot1','slot2']});keys=Mock();keys.get.return_value='synthetic';t=Mock();t.complete.side_effect=ProviderFailure('http-401',False);r=p.router('NOVA',keys,['slot1','slot2'],['slot1','slot2'],t)
+  slots=[Slot('slot1','gemini','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'DEX':['slot1','slot2']});keys=Mock();keys.get.return_value='synthetic';t=Mock();t.complete.side_effect=ProviderFailure('http-401',False);r=p.router('DEX',keys,['slot1','slot2'],['slot1','slot2'],t)
   with self.assertRaises(Exception):r.ask([{}],cloud_consent=True)
   self.assertEqual(t.complete.call_count,1)
 
  def test_stream_partial_never_fallback(self):
-  slots=[Slot('slot1','gemini','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'NOVA':['slot1','slot2']});keys=Mock();keys.get.return_value='synthetic';r=p.router('NOVA',keys,['slot1','slot2'],['slot1','slot2']);t=Mock()
+  slots=[Slot('slot1','gemini','model'),Slot('slot2','nim','model')];p=ProviderPool(slots,{'DEX':['slot1','slot2']});keys=Mock();keys.get.return_value='synthetic';r=p.router('DEX',keys,['slot1','slot2'],['slot1','slot2']);t=Mock()
   def broken(*args):yield 'partial';raise ProviderFailure('connection')
   t.stream.side_effect=broken;it=r.stream([{}],cloud_consent=True,stream_transport=t);self.assertEqual(next(it)['text'],'partial')
   with self.assertRaises(Exception):next(it)
