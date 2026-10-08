@@ -22,3 +22,9 @@ class Tests(unittest.TestCase):
    j.save=failure
    with self.assertRaises(Exception):j.submit(r,True,lambda p:True,lambda p:calls.append(p))
    self.assertFalse(calls)
+ def test_cancel_in_validation_never_enters_transport(self):
+  with tempfile.TemporaryDirectory()as t:
+   j=ConnectorJournal(pathlib.Path(t)/'ledger.json','email');r=j.prepare(email_plan('owner@example.com',['friend@example.com'],'Subject','Body')['payload']);calls=[]
+   def validate(p):j.cancel();return True
+   with self.assertRaises(ValueError):j.submit(r,True,validate,lambda p:calls.append(p))
+   self.assertFalse(calls);self.assertEqual(j.snapshot()['state'],'cancelled')
