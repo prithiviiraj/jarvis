@@ -45,6 +45,7 @@ class GoogleMail:
   history=reader.sent_ids(limit=100)
   if not history['complete']:raise ValueError('Sent history is partial; duplicate check is incomplete. Send manually or narrow in a later version.')
   for row in history['messages']:
+   if self.generation!=ticket or self.connection.generation!=connection_ticket:raise ValueError('Review stopped during validation')
    message=plain_message(reader.read_message(row['message_id'])['message'],payload['account'])
    if self.same(message,payload):raise ValueError('Exact message already sent; no duplicate send')
    if message.get('complete')is not True and message.get('to')==payload['to']and message.get('cc')==payload['cc']and message.get('subject')==payload['subject']:raise ValueError('Potential duplicate has unreadable body or attachments; inspect Google Sent before sending')
