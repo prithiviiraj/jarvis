@@ -99,6 +99,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Native fixture dependencies failed' }
           python package-native-diagnostic.py --verify-reuse
           if ($LASTEXITCODE -ne 0) { throw 'Cannot reuse changed product sources' }
+      - name: Match baseline installed Obsidian host prerequisite
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ui-evidence | Out-Null
+          python -m pip install playwright==1.56.0
+          if ($LASTEXITCODE -ne 0) { throw 'Obsidian host fixture dependency failed' }
+          python obsidian-host-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual installed Obsidian host prerequisite failed' }
       - name: ENTIRE actual Windows native smoke sequence
         shell: pwsh
         run: |
