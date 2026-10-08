@@ -24,3 +24,16 @@ class Tests(unittest.TestCase):
   class Bad(Processor):
    def __call__(self,p,c):raise RuntimeError('secret transcripts and credential')
   c,t=self.paired(Bad());c.submit(t,audio()).join(2);self.assertNotIn('credential',str(c.snapshot()));c.close()
+ def test_session_reset_on_stop_and_repair(self):
+  class Memory(Processor):
+   def __init__(self):self.resets=0
+   def reset_session(self):self.resets+=1
+  p=Memory();c,t=self.paired(p);self.assertEqual(p.resets,1);c.stop();self.assertEqual(p.resets,2);c.enable(True);self.assertEqual(p.resets,3);c.close()
+
+ def test_expiry_callback_revokes_and_clears_context(self):
+  from unittest.mock import patch
+  class Memory(Processor):
+   def __init__(self):self.resets=0
+   def reset_session(self):self.resets+=1
+  with patch('jarvis.phone_controller.threading.Timer')as timer:
+   p=Memory();c,t=self.paired(p);timer.assert_called_once();timer.call_args[0][1]();self.assertFalse(c.snapshot()['paired']);self.assertEqual(p.resets,2);c.close()
