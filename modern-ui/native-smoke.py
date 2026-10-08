@@ -59,6 +59,7 @@ core=exe.parent/'backend'/'jarvis-local-core.exe'
 assert core.is_file(),'Frozen core required for real desktop input acceptance'
 subprocess.run([str(core),'--desktop-self-test'],check=True,timeout=60)
 subprocess.run([str(core),'--google-self-test'],check=True,timeout=30)
+subprocess.run([str(core),'--telegram-self-test'],check=True,timeout=30)
 archive_path=pathlib.Path(os.environ['JARVIS_DATA_DIR'])/'custom-agents.json'
 archive_path.parent.mkdir(parents=True,exist_ok=True)
 archived_bytes=json.dumps({'version':1,'agents':[{'name':'MIRA','personality':'Saved synthetic tutor','voice':'af_sky'}]},indent=2).encode()
@@ -201,6 +202,11 @@ try:
  email_field=window.child_window(title='Google account email',control_type='Edit');reveal_field(email_field)
  assert 'Google not connected'in ui_text(), 'Google falsely connected on launch'
  button('Registered desktop client').wait('exists',timeout=10)
+ telegram=window.child_window(title='Telegram dedicated bot token',control_type='Edit');reveal_field(telegram)
+ assert not button('Verify and save dedicated bot').is_enabled()
+ click('Stop Telegram connection');window.capture_as_image().save('ui-evidence/native-telegram-inert.png')
+ checks.append('native Telegram inert credential field; verification disabled without token; real IPC Stop, no external bot access')
+ reveal_field(email_field)
  window.capture_as_image().save('ui-evidence/native-google-connection-inert.png')
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
  gmail_to=window.child_window(title='Gmail To addresses',control_type='Edit');reveal_field(gmail_to)
