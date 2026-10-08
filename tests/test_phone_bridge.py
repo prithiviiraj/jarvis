@@ -15,3 +15,6 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.b.phone_endpoints.handle('/phone/pair-result',__import__('json').dumps(r).encode(),trusted_https=True,same_origin=True)
  def test_stop_retains_chats(self):
   self.b.messages=[{'name':'You','text':'retained'}];s=self.b.execute({'command':'phone-stop'});self.assertEqual(s['messages'],self.b.messages);self.assertFalse(s['phone']['enabled'])
+
+ def test_desktop_new_chat_revokes_phone(self):
+  self.b.phone.enable(True);self.b.execute({'command':'history-new'});self.assertFalse(self.b.phone.snapshot()['enabled'])
