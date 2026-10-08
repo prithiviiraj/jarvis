@@ -12,9 +12,9 @@ class Tests(unittest.TestCase):
   def transport(method,url,payload):
    calls.append((method,url,payload))
    if url.endswith('/profile'):return {'emailAddress':'owner@example.com'}
-   if '?format=full'in url:return {'id':'observed','snippet':'external text','payload':{'headers':[{'name':'Subject','value':'untrusted'},{'name':'Hidden','value':'ignored'}]}}
+   if '?format=full'in url:return {'id':'observed','snippet':'external text','payload':{'mimeType':'text/plain','headers':[{'name':'Subject','value':'untrusted'},{'name':'Hidden','value':'ignored'}],'body':{'data':'ZXh0ZXJuYWwgdGV4dA=='}}}
    return {'messages':[{'id':'observed','threadId':'thread'}],'nextPageToken':'partial'}
-  q=self.fixture(transport);q.start('gmail-list',{'query':'in:inbox'},True);q.worker.join(2);self.assertFalse(q.error);self.assertFalse(q.result['complete']);q.start('gmail-message',{'message_id':'observed','_observed_ids':['observed']},True);q.worker.join(2);self.assertEqual(q.result['snippet'],'external text');self.assertEqual(len(q.result['headers']),1);self.assertTrue(all(x[0]=='GET'for x in calls))
+  q=self.fixture(transport);q.start('gmail-list',{'query':'in:inbox'},True);q.worker.join(2);self.assertFalse(q.error);self.assertFalse(q.result['complete']);q.start('gmail-message',{'message_id':'observed','_observed_ids':['observed']},True);q.worker.join(2);self.assertEqual(q.result['body'],'external text');self.assertEqual(q.result['subject'],'untrusted');self.assertTrue(q.result['complete']);self.assertTrue(all(x[0]=='GET'for x in calls))
  def test_wrong_account_and_unobserved_id(self):
   q=self.fixture(lambda *a:{'emailAddress':'other@example.com'});q.start('gmail-list',{},True);q.worker.join(2);self.assertTrue(q.error);self.assertIsNone(q.result)
   q=self.fixture(lambda *a:{});q.start('gmail-message',{'message_id':'guessed'},True);q.worker.join(2);self.assertTrue(q.error)
