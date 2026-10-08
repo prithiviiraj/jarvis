@@ -27,5 +27,12 @@ def run():
    c.stop();restored=TelegramConnection(store,read,path/'pair.json');assert not restored.snapshot()['paired'];restored.resume(True);restored.worker.join(3);assert restored.snapshot()['pending'];restored.approve(restored.snapshot()['pending'],True)
    def timeout(*a):raise TimeoutError()
    uncertain=TelegramOutput(restored,path/'uncertain.json',timeout);review=uncertain.prepare('Uncertain fixture');uncertain.submit(review,True);uncertain.worker.join(3);uncertain.stop();assert TelegramOutput(restored,path/'uncertain.json',timeout).snapshot()['state']=='uncertain';restored.stop()
-  result={'host':'actual frozen Windows core','real_scoped_Windows_credentials':True,'controlled_private_pair_resume_exact_text_result_restart':True,'uncertain_no_retry_restart':True,'live_telegram':False,'real_bot_connected':False,'output_sent':False,'voice_unrun':True};Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-telegram-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
+  from .telegram_voice import TelegramVoice
+  import numpy as np,base64,hashlib
+  class PCM:
+   def select_profile(self,n):assert n=='JARVIS'
+   def prepare_stream(self,text):return iter([('fixture',np.sin(np.arange(24000)*2*np.pi*220/24000)*.05,24000)])
+  audio=TelegramVoice(PCM()).render('MP3 encoder fixture',lambda:False);mp3=base64.b64decode(audio['audio_base64']);assert len(mp3)>100 and (mp3.startswith(b'ID3')or mp3[0]==255)
+  Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-telegram-tone.mp3').write_bytes(mp3)
+  result={'host':'actual frozen Windows core','real_scoped_Windows_credentials':True,'controlled_private_pair_resume_exact_text_result_restart':True,'uncertain_no_retry_restart':True,'live_telegram':False,'real_bot_connected':False,'output_sent':False,'actual_bundled_MP3_encode_fixture':True,'Kokoro_voice_unrun':True,'physical_audio_unrun':True};Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-telegram-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(TOKEN_SLOT)
