@@ -199,6 +199,7 @@ try:
  # Native connection controls are inert until explicit owner review. Never
  # enter fixture credentials into the product's fixed registered-client slot.
  click('Settings');click('Advanced')
+ focus_goal=window.child_window(title='Focus goal',control_type='Edit');reveal_field(focus_goal);assert 'Focus off'in ui_text();window.capture_as_image().save('ui-evidence/native-focus-inert.png');checks.append('native focus timer off on launch, no sensors/speech/notification')
  email_field=window.child_window(title='Google account email',control_type='Edit');reveal_field(email_field)
  assert 'Google not connected'in ui_text(), 'Google falsely connected on launch'
  button('Registered desktop client').wait('exists',timeout=10)
