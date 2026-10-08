@@ -131,3 +131,5 @@ html.pill-root,html.pill-root body,#root:has(.pill-shell){background:transparent
 .settings-card input[aria-label="Embedding search folder"]{display:block;width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #344c54;border-radius:8px;margin-top:6px}
 
 .focus-control>label{display:flex;flex-direction:column;gap:6px;margin:12px 0}.focus-control input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #344c54;border-radius:8px}.focus-control button{margin:4px}
+
+.reactor[data-model-skin]:not([data-model-skin="none"]){border:1px solid hsl(var(--model-hue) 55% 55%);box-shadow:0 0 24px hsl(var(--model-hue) 55% 50% / .15)}
