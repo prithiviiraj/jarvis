@@ -4,6 +4,8 @@ root=pathlib.Path(__file__).resolve().parent
 out=root/'windows-portable'
 if out.exists():shutil.rmtree(out)
 out.mkdir()
+# Prepared static phone assets only. No listener or automatic network exposure.
+shutil.copytree(root/'phone-web',out/'phone-web')
 args=['python','-m','PyInstaller','--noconfirm','--clean','--onedir','--console','--name','jarvis-local-core','--paths',str(root.parent/'src'),'--collect-submodules','jarvis','--exclude-module','pocket_tts','--exclude-module','jarvis.pocket_assets','--exclude-module','jarvis.kitten_assets','--exclude-module','jarvis.experimental.pocket_cpu','--exclude-module','jarvis.experimental.kitten_onnx','--collect-all','certifi','--collect-all','cv2','--collect-all','playwright','--collect-all','laya','--collect-all','torch','--collect-all','transformers','--collect-all','tokenizers','--collect-all','huggingface_hub','--collect-all','safetensors','--collect-all','model2vec','--collect-all','tzdata','--add-data',str(root.parent/'src/jarvis/laya-assets.json')+';jarvis','--add-data',str(root.parent/'src/jarvis/experimental/moonshine-assets.json')+';jarvis/experimental','--distpath',str(root/'frozen-dist'),'--workpath',str(root/'frozen-work'),str(root/'frozen-entry.py')]
 if os.environ.get('JARVIS_PACKAGE_VOICE')=='1':args[3:3]=['--collect-all','onnxruntime','--collect-all','ctranslate2','--collect-all','faster_whisper','--collect-all','sounddevice','--collect-all','_sounddevice_data','--add-data',str(root/'native-voice')+';native-voice']
 subprocess.run(args,check=True)
