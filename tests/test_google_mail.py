@@ -34,3 +34,16 @@ class Tests(unittest.TestCase):
    if m=='POST':raise TimeoutError('private error')
    return self.transport(m,u,p)
   j=self.job(transport);r=j.prepare(['friend@example.com'],'Subject','Body');j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'uncertain');self.assertNotIn('private error',j.error);restored=self.job();restored.reconcile(True);restored.worker.join(3);self.assertEqual(restored.snapshot()['state'],'uncertain')
+ def test_duplicate_blocks_and_stop_in_validation(self):
+  duplicate={'id':'existing','labelIds':['SENT'],'payload':{'mimeType':'text/plain','headers':[{'name':'To','value':'friend@example.com'},{'name':'Subject','value':'Subject'}],'body':{'data':base64.urlsafe_b64encode(b'Body\n').decode()}}}
+  def transport(m,u,p):
+   if u.endswith('/profile'):return {'emailAddress':'owner@example.com'}
+   if 'messages?'in u:return {'messages':[{'id':'existing'}]}
+   return duplicate
+  j=self.job(transport);r=j.prepare(['friend@example.com'],'Subject','Body');j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'review');self.assertIn('already sent',j.error)
+  import threading
+  entered=threading.Event();release=threading.Event()
+  def blocked(m,u,p):
+   if u.endswith('/profile'):entered.set();release.wait(2)
+   return self.transport(m,u,p)
+  j=self.job(blocked);j.stop();r=j.prepare(['friend@example.com'],'Different','Body');j.submit(r,True);self.assertTrue(entered.wait(1));j.stop();release.set();j.worker.join(3);self.assertFalse(any(m=='POST'for m,u,p in self.calls));self.assertEqual(j.snapshot()['state'],'cancelled')
