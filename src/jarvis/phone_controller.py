@@ -4,13 +4,23 @@ from .phone_session import PhoneSession
 from .phone_audio import PhoneAudio
 class PhoneController:
  def __init__(self,processor=None,conversation_busy=lambda:False):
-  self.session=PhoneSession();self.processor=processor or PhoneAudio();self.conversation_busy=conversation_busy;self.lock=threading.RLock();self.worker=None;self.reply=None;self.error=''
+  self.session=PhoneSession();self.processor=processor or PhoneAudio();self.conversation_busy=conversation_busy;self.lock=threading.RLock();self.worker=None;self.reply=None;self.error='';self.expiry=None
  def enable(self,consent=False):
   with self.lock:
    if self.worker and self.worker.is_alive():raise ValueError('Previous phone worker still stopping')
+   if consent is not True:raise ValueError('Review private session first')
+   reset=getattr(self.processor,'reset_session',None)
+   if reset:reset()
    self.reply=None;self.error='';return self.session.enable(consent)
  def request_pair(self,code,label):return self.session.request_pair(code,label)
- def approve(self,reviewed,confirm=False):return self.session.approve(reviewed,confirm)
+ def approve(self,reviewed,confirm=False):
+  with self.lock:
+   token=self.session.approve(reviewed,confirm);token_hash=self.session.digest(token)
+   if self.expiry:self.expiry.cancel()
+   def expire():
+    with self.lock:
+     if self.session.token_hash==token_hash:self.stop()
+   self.expiry=threading.Timer(900,expire);self.expiry.daemon=True;self.expiry.start();return token
  def submit(self,token,raw):
   with self.lock:
    self.session.authorize(token)
@@ -31,7 +41,11 @@ class PhoneController:
   with self.lock:
    self.session.authorize(token);result=self.reply;self.reply=None;return result
  def stop(self):
-  with self.lock:self.session.stop();self.reply=None;self.error=''
+  with self.lock:
+   if self.expiry:self.expiry.cancel();self.expiry=None
+   self.session.stop();self.reply=None;self.error=''
+   reset=getattr(self.processor,'reset_session',None)
+   if reset:reset()
  def snapshot(self):
   with self.lock:return {**self.session.snapshot(),'busy':bool(self.worker and self.worker.is_alive()),'reply_ready':self.reply is not None,'error':self.error,'transport':'Not configured; no network listener'}
  def close(self):
