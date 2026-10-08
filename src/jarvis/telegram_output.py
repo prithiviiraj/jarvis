@@ -11,12 +11,13 @@ class TelegramOutput:
   if self.ledger is None:self.ledger=ConnectorJournal(self.path,'telegram-output')
   return self.ledger
  def prepare(self,text):
-  if self.busy or self.connection.busy or not self.connection.pair.bound or not self.connection.bot:raise ValueError('Review connected private chat first')
-  if not isinstance(text,str)or not 1<=len(text)<=4000:raise ValueError('Review bounded final Telegram words')
-  c=self.connection;payload={'kind':'telegram-output','format':'text','bot':dict(c.bot),'identity':dict(c.pair.bound),'text':text}
-  j=self.journal()
-  if j.job.state=='completed'and j.job.plan and j.job.plan['payload']==payload:raise ValueError('Exact previous output already sent; no duplicate')
-  return j.prepare(payload)
+  with self.lock:
+   if self.busy or self.connection.busy or not self.connection.pair.bound or not self.connection.bot:raise ValueError('Review connected private chat first')
+   if not isinstance(text,str)or not 1<=len(text)<=4000:raise ValueError('Review bounded final Telegram words')
+   c=self.connection;payload={'kind':'telegram-output','format':'text','bot':dict(c.bot),'identity':dict(c.pair.bound),'text':text}
+   j=self.journal()
+   if j.job.state=='completed'and j.job.plan and j.job.plan['payload']==payload:raise ValueError('Exact previous output already sent; no duplicate')
+   return j.prepare(payload)
  def prepare_voice(self,text):
   if self.busy or self.connection.busy or not self.connection.pair.bound or not self.connection.bot:raise ValueError('Review connected private chat first')
   if not isinstance(text,str)or not 1<=len(text)<=900:raise ValueError('Voice text limited to900characters')
