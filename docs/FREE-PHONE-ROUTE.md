@@ -1,4 +1,4 @@
-# Free phone route: researched, not implemented
+# Free phone route: prepared core, transport not implemented
 
 Owner8October2026 11:58:35 said phone calls important. 11:59:10 said implement/use free option only. No paid providers or numbers.
 
@@ -15,4 +15,4 @@ Sources inspected/discovered8October2026:
 - https://www.twilio.com/en-us/voice/pricing/in : paidusage, notzero-costPSTN.
 - https://support.microsoft.com/topic/setting-up-calls-in-the-phone-link-c7e75908-c65d-bd42-fcb2-ea4d5fb783f1 : Androidphone/BluetoothcallsfromPC.
 
-Main received honest capability/limits report before wiring. No phone capability implemented yet.
+Prepared modules: phone_session.py, phone_audio.py and phone_controller.py. They provide local review-bound pairing, expiring/revokable session, bounded WAV, local Whisper/brain/Kokoro processing and async Stop. No listener, phone browser capture, TLS trust, outside-network access, PSTN or live phone acceptance exists. Unit tests use injected speech/model adapters. phone_acceptance.py is a frozen real-engine software test with a controlled loopback brain fixture, not phone/device evidence. Main deferred trusted transport selection until the core is ready. No network exposure is authorized by this ledger.
