@@ -14,6 +14,9 @@ if __name__ == '__main__':
     elif len(sys.argv)==2 and sys.argv[1]=='--google-self-test':
         from jarvis.google_acceptance import run
         run()
+    elif len(sys.argv)==2 and sys.argv[1]=='--draft-self-test':
+        from jarvis.draft_acceptance import run
+        run()
     elif len(sys.argv)==2 and sys.argv[1]=='--phone-self-test':
         from jarvis.phone_acceptance import run
         run()
