@@ -1,0 +1,52 @@
+name: Stage tested JARVIS draft asset
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  stage-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: prithiviiraj/jarvis
+      TAG: v0.4.0-tested-20261009-a77b5bc
+    steps:
+      - name: Verify exact successful build and existing draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = prithiviiraj/jarvis
+          gh api repos/$GH_REPO/actions/runs/37846295862 > run.json
+          jq -e '.conclusion=="success" and .head_sha=="a77b5bc4ba09b6c0c2f242b26678798ac33de5e4"' run.json
+          gh release view "$TAG" --json isDraft,isPrerelease,tagName > release.json
+          jq -e '.isDraft==true and .isPrerelease==true and .tagName=="v0.4.0-tested-20261009-a77b5bc"' release.json
+          gh release edit "$TAG" --target a77b5bc4ba09b6c0c2f242b26678798ac33de5e4 --draft --prerelease
+      - name: Download original verified portable ZIP without repacking
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/$GH_REPO/actions/artifacts/11581859310 > artifact.json
+          jq -e '.workflow_run.id==37846295862 and .name=="JARVIS-Windows-Voice-Preview" and .expired==false' artifact.json
+          curl --fail --location --retry 2 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' https://api.github.com/repos/$GH_REPO/actions/artifacts/11581859310/zip -o JARVIS-tested-build-a77b5bc.zip
+          printf '%s  %s\n' 12e16a6f0ce69a5129ac9b8888023f5f49081c41d5e8894076a6b866832e0a81 JARVIS-tested-build-a77b5bc.zip | sha256sum --check
+          python - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('JARVIS-tested-build-a77b5bc.zip') as z:
+              assert z.testzip() is None
+              assert all(n in z.namelist() for n in ['JARVIS.exe','backend/jarvis-local-core.exe','embedding-runtime/jarvis-embedding.exe','START HERE.txt','licenses/JARVIS-corresponding-application-source.tar.gz'])
+          PY
+      - name: Attach original ZIP to draft only and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json isDraft | jq -e '.isDraft==true'
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq JARVIS-tested-build-a77b5bc.zip; then
+            echo 'Asset already exists; refusing duplicate or replacement'
+            exit 1
+          fi
+          gh release upload "$TAG" JARVIS-tested-build-a77b5bc.zip
+          gh release view "$TAG" --json isDraft,isPrerelease,assets,url > staged.json
+          jq -e '.isDraft==true and .isPrerelease==true and any(.assets[]; .name=="JARVIS-tested-build-a77b5bc.zip" and .size==1364917105)' staged.json
+          cat staged.json
