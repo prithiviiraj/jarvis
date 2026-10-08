@@ -28,6 +28,11 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.b.apply(r,True)
   self.assertEqual(self.s.rows['slot5'].model,'old')
 
+ def test_launch_reservation_refuses_reprepare(self):
+  self.b.launching=True;self.assertTrue(self.b.snapshot()['busy'])
+  with self.assertRaises(ValueError):self.b.prepare('JARVIS','slot5','new')
+  self.b.launching=False
+
 class BridgeTests(unittest.TestCase):
  def test_typed_and_completed_voice_prepare_only(self):
   from jarvis.ui_bridge import Bridge
