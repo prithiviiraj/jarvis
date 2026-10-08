@@ -2,7 +2,13 @@
 from jarvis.ui_bridge import main
 if __name__ == '__main__':
     import sys
-    if len(sys.argv)==2 and sys.argv[1]=='--voice-self-test':
+    if len(sys.argv)==2 and sys.argv[1]=='--desktop-input-fixture':
+        from jarvis.desktop_acceptance import fixture
+        fixture()
+    elif len(sys.argv)==2 and sys.argv[1]=='--desktop-self-test':
+        from jarvis.desktop_acceptance import run
+        run()
+    elif len(sys.argv)==2 and sys.argv[1]=='--voice-self-test':
         from jarvis.voice_acceptance import run
         run()
         # Test resources are already closed/report flushed. Native model caches stay
