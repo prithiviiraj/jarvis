@@ -19,3 +19,9 @@ class Tests(unittest.TestCase):
  def test_native_shell_reaches_all_new_actions(self):
   s=(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text();gate=s.split('.contains(&command)')[0]
   for cmd in ('knowledge-search','knowledge-read','knowledge-speak','knowledge-stop'):self.assertIn('"'+cmd+'"',gate)
+
+ def test_native_allowlist_matches_backend_not_only_renderer(self):
+  import ast,re
+  root=pathlib.Path(__file__).resolve().parents[1];tree=ast.parse((root/'src/jarvis/ui_bridge.py').read_text());allowed=next(n.value for n in ast.walk(tree)if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='allowed'for t in n.targets))
+  native=(root/'modern-ui/src-tauri/src/main.rs').read_text().split(' if ![')[1].split('].contains(&command)')[0]
+  self.assertEqual(set(re.findall(r'"([^"\n]+)"',native)),ast.literal_eval(allowed))
