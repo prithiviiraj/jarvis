@@ -21,3 +21,19 @@ class Tests(unittest.TestCase):
  def test_symlink_save_refused(self):
   self.root.symlink_to(pathlib.Path(self.tmp.name),target_is_directory=True);r=self.d.prepare(self.f,True)
   with self.assertRaises(ValueError):self.d.save(r,True)
+
+ def test_bridge_stop_cancel_and_exact_save_no_chat(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  b=Bridge(WorkspaceVoice());b.design=self.d
+  try:
+   state=b.execute({'command':'design-prepare','facts':self.f,'consent':True});review=state['design']['pending'];prior=list(state['messages']);state=b.execute({'command':'design-save','reviewed':review,'confirm':True});self.assertEqual(state['messages'],prior);self.assertIsNotNone(state['design']['result'])
+   b.execute({'command':'design-prepare','facts':self.f,'consent':True});self.assertIsNone(b.execute({'command':'pause'})['design']['pending'])
+  finally:b.close()
+ def test_frozen_fixture_contract_no_real_device_claim(self):
+  from jarvis.draft_acceptance import run
+  import os,json
+  prior=os.getcwd()
+  try:
+   os.chdir(self.tmp.name);run();report=json.loads(pathlib.Path('ui-evidence/frozen-local-draft-contracts.json').read_text());self.assertTrue(report['synthetic_text_only']);self.assertIn('physical phone',report['unrun'])
+  finally:os.chdir(prior)
