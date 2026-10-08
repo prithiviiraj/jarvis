@@ -2,6 +2,11 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      native_only:
+        description: Native-only diagnostic iteration, not a shipping build
+        required: false
+        type: boolean
+        default: false
       run_laya_windows:
         description: Build optional Windows Laya runtime and synthetic acceptance
         required: false
@@ -35,9 +40,72 @@ jobs:
           ACCEPTED_SHA: ${{ github.sha }}
         run: |
           printf 'Accepted ref: %s\nAccepted SHA: %s\nAccepted inputs: %s\n' "$ACCEPTED_REF" "$ACCEPTED_SHA" "$ACCEPTED_INPUTS" | tee -a "$GITHUB_STEP_SUMMARY"
+  native-iteration:
+    if: ${{ inputs.native_only }}
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: modern-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: modern-ui/package-native-diagnostic.py
+      - name: Cache native shell compilation
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            modern-ui/src-tauri/target
+          key: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock') }}-${{ github.run_id }}
+          restore-keys: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock') }}-
+      - name: Build only actual native shell and diagnostic frozen core
+        shell: pwsh
+        run: |
+          python -m pip install pyinstaller==6.16.0 numpy==2.2.6 certifi==2026.7.22 tzdata==2025.2 Pillow==11.3.0 pywinauto==0.6.9 opencv-python==4.12.0.88 playwright==1.56.0
+          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic dependencies failed' }
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend dependencies failed' }
+          python make-icon.py
+          npm run tauri build -- --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Actual native shell failed' }
+          python package-native-diagnostic.py
+          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic core freeze failed' }
+      - name: ENTIRE actual Windows native smoke sequence
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ui-evidence | Out-Null
+          $env:JARVIS_UI_EXE = (Resolve-Path 'native-diagnostic/JARVIS.exe').Path
+          $env:JARVIS_DATA_DIR = Join-Path (Get-Location) 'ui-evidence/native-isolated-data'
+          $env:PYTHONPATH = ''
+          python native-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual Windows native iteration failed' }
+      - name: Preserve diagnostic core for fast fixture-only reruns
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-NATIVE-DIAGNOSTIC-NOT-SHIPPING
+          path: modern-ui/native-diagnostic
+          retention-days: 2
+          if-no-files-found: warn
+      - name: Native iteration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Native-Iteration-Evidence
+          path: modern-ui/ui-evidence
+          retention-days: 7
+          if-no-files-found: warn
   windows:
     needs: embedding-runtime
-    if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: windows-latest
     timeout-minutes: 50
     defaults:
@@ -271,7 +339,7 @@ jobs:
           if-no-files-found: error
 
   embedding-runtime:
-    if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -292,7 +360,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   embedding-model:
-    if: ${{ !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
