@@ -27,7 +27,7 @@ class BrainSwitch:
     if cancel.is_set():return
     if p['model']not in [m['id']for m in self.discover()]:raise ValueError('Model no longer loaded; route unchanged')
     result=self.probe(p['model'],cancel)
-    if not isinstance(result,dict)or not str(result.get('text','')).strip()or result.get('model')!=p['model']:raise ValueError('Exact model greeting not verified; route unchanged')
+    if not isinstance(result,dict)or result.get('cloud')is True or not str(result.get('text','')).strip()or result.get('model')!=p['model']:raise ValueError('Exact model greeting not verified; route unchanged')
     if p['model']not in [m['id']for m in self.discover()]:raise ValueError('Model unloaded during greeting; route unchanged')
     with self.lock,self.settings.lock:
      if ticket!=self.generation or cancel.is_set():return
