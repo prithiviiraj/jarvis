@@ -3,12 +3,12 @@ import pathlib,shutil,subprocess,json,hashlib,sys
 root=pathlib.Path(__file__).resolve().parent
 out=root/'native-diagnostic'
 def source_fingerprint():
- files=[]
- for base in (root.parent/'src',root/'src',root/'src-tauri/src'):
-  files.extend(p for p in base.rglob('*') if p.is_file() and p.suffix not in ('.pyc',) and '__pycache__' not in str(p))
- files.extend(root/p for p in ('frozen-entry.py','package-lock.json','src-tauri/Cargo.lock','src-tauri/tauri.conf.json'))
+ # Hash tracked product inputs, never build-generated Cargo.lock or assets.
+ # Fixture/workflow-only changes may reuse; application/core edits may not.
+ names=subprocess.check_output(['git','ls-files'],cwd=root.parent,text=True).splitlines()
+ selected=[n for n in names if n.startswith(('src/','modern-ui/src/','modern-ui/src-tauri/src/')) or n in ('modern-ui/frozen-entry.py','modern-ui/package-lock.json','modern-ui/src-tauri/Cargo.toml','modern-ui/src-tauri/tauri.conf.json')]
  h=hashlib.sha256()
- for p in sorted(files):h.update(str(p.relative_to(root.parent)).encode());h.update(p.read_bytes())
+ for n in sorted(selected):h.update(n.encode());h.update((root.parent/n).read_bytes())
  return h.hexdigest()
 if '--verify-reuse' in sys.argv:
  assert (out/'source-fingerprint.txt').read_text()==source_fingerprint(),'Product sources changed; build a new diagnostic core'
