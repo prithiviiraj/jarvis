@@ -56,6 +56,10 @@ exe=pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis
 core=exe.parent/'backend'/'jarvis-local-core.exe'
 assert core.is_file(),'Frozen core required for real desktop input acceptance'
 subprocess.run([str(core),'--desktop-self-test'],check=True,timeout=60)
+archive_path=pathlib.Path(os.environ['JARVIS_DATA_DIR'])/'custom-agents.json'
+archive_path.parent.mkdir(parents=True,exist_ok=True)
+archived_bytes=json.dumps({'version':1,'agents':[{'name':'MIRA','personality':'Saved synthetic tutor','voice':'af_sky'}]},indent=2).encode()
+archive_path.write_bytes(archived_bytes)
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
 try:
@@ -583,7 +587,12 @@ try:
  assert ctypes.windll.user32.IsWindow(restarted_workspace_handle),'Restarted workspace HWND is invalid'
  ctypes.windll.user32.ShowWindow(restarted_workspace_handle,9) # SW_RESTORE
  window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
- window.wait('visible',timeout=10);window.set_focus();time.sleep(2);click('Team room');button('MIRA Custom teammate').wait('exists',timeout=10);checks.append('custom profile survives real native restart');click('Settings');click('Privacy')
+ window.wait('visible',timeout=10);window.set_focus();time.sleep(2);click('Team room')
+ for name in ('JARVIS Team leader','LYRA Writer','DEX Coder'):button(name).wait('exists',timeout=10)
+ for name in ('MIRA Custom teammate','NOVA Secretary','SILA Researcher'):assert not window.child_window(title=name,control_type='Button').exists(),name
+ assert archive_path.read_bytes()==archived_bytes,'Archived custom file changed'
+ checks.append('exact three active profiles survive native restart; legacy MIRA file unchanged and inactive')
+ click('Settings');click('Privacy')
  checks.append('native full restart preserves transcript OFF and never recreates avatar window')
  window.set_focus();
  from pywinauto import mouse
