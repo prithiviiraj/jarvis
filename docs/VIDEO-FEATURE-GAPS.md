@@ -57,3 +57,5 @@ Observed CI references:
 Focus update: local reviewed goal/duration timer, pause/resume, visible check-in, self-reported done/not-done and Stop implemented. No sensing, automatic spoken accountability, OS notification or persistence. Local1054tests/6skips and renderer pixels pass; native frozen acceptance pending. This is scoped focus support, not complete reference parity.
 
 Reflex update: named optional local rule-evidence mode and preview with five questions, Stop and no execution built. No trained fast model/probabilities or fabricated speech endpoint. Local1058tests/6skips and renderer pixels pass; frozen/native latest retry pending. CI215 failed its UIA resize harness, fixed with exact HWND geometry check; CI216 failed Windows test-root canonicalization, fixed in fixture. Retry native218/full219 are pre-Reflex; not latest-release completion.
+
+Watch update: named exact-window/local-vision reviewed session added to the existing shared foreground-only live-screen runtime. Separate cautious scene prompt, no audio/mic/camera/cloud/input/recording. Local1063tests/6skips and renderer pixels pass; real Watch model/owner-device/native acceptance remain unrun.
