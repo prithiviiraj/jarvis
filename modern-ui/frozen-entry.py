@@ -8,6 +8,11 @@ if __name__ == '__main__':
     elif len(sys.argv)==2 and sys.argv[1]=='--desktop-self-test':
         from jarvis.desktop_acceptance import run
         run()
+    elif len(sys.argv)==2 and sys.argv[1]=='--phone-self-test':
+        from jarvis.phone_acceptance import run
+        run()
+        import os
+        sys.stdout.flush();sys.stderr.flush();os._exit(0)
     elif len(sys.argv)==2 and sys.argv[1]=='--voice-self-test':
         from jarvis.voice_acceptance import run
         run()
