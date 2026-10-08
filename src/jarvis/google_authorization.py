@@ -8,7 +8,7 @@ from .connector_workflows import address
 from .google_read_connector import NoRedirect
 IDENTITY={'openid','https://www.googleapis.com/auth/userinfo.email'}
 class GoogleAuthorization:
- def __init__(self,tokens=None,identity_transport=None):self.oauth=GoogleOAuth();self.tokens=tokens or GoogleTokens();self.identity_transport=identity_transport;self.expected=None;self.grants=[]
+ def __init__(self,tokens=None,identity_transport=None):self.oauth=GoogleOAuth();self.tokens=tokens or GoogleTokens();self.identity_transport=identity_transport;self.expected=None;self.grants=[];self.save_guard=None
  def begin(self,client_id,port,grants,email,consent=False):
   email=address(email);result=self.oauth.begin(client_id,port,grants,consent)
   import urllib.parse
@@ -24,8 +24,8 @@ class GoogleAuthorization:
    if len(raw)>16384:raise ValueError()
    return json.loads(raw)
   except Exception:raise ValueError('Google account identity could not be verified; nothing saved')from None
- def complete(self,callback_url,client_secret=None):
-  expected=self.expected;grants=list(self.grants)
+ def complete(self,callback_url,client_secret=None,save_guard=None):
+  expected=self.expected;grants=list(self.grants);guard=save_guard or self.save_guard
   payload=self.oauth.accept(callback_url);self.expected=None;self.grants=[]
   if client_secret is not None:
    if not isinstance(client_secret,str)or not client_secret or len(client_secret)>500:raise ValueError('Invalid desktop client credential')
@@ -39,7 +39,9 @@ class GoogleAuthorization:
    if not requested.issubset(granted)or not granted.issubset(requested|IDENTITY):raise ValueError()
    who=self.identity(row['access_token'])
    if not isinstance(who,dict)or who.get('email_verified')is not True or not isinstance(who.get('email'),str)or address(who['email']).casefold()!=expected.casefold()or not isinstance(who.get('sub'),str)or not who['sub']:raise ValueError()
-   self.tokens.save(expected,payload['client_id'],row.get('refresh_token'),sorted(requested),confirm=True,client_secret=client_secret)
+   save=lambda:self.tokens.save(expected,payload['client_id'],row.get('refresh_token'),sorted(requested),confirm=True,client_secret=client_secret)
+   if guard:guard(save)
+   else:save()
   except Exception:raise ValueError('Google authorization incomplete or account/scopes mismatched; nothing connected. Review authorization again.')from None
   return {'account':expected,'connected':True,'grants':grants,'scope':'Verified Google identity and saved local refresh credential. No mail/calendar action performed.'}
  def cancel(self):self.oauth.cancel();self.expected=None;self.grants=[]
