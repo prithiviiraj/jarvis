@@ -20,7 +20,7 @@ class Vault:
  def note(self,name,must_exist=True):
   if not isinstance(name,str)or len(name)>240 or '\\'in name or ':'in name or any(x.startswith('.')for x in name.split('/')):raise ValueError('Invalid note path')
   rel=Path(name)
-  if rel.is_absolute()or rel.suffix!='.md':raise ValueError('Choose a Markdown note')
+  if rel.anchor or rel.suffix!='.md':raise ValueError('Choose a Markdown note')
   p=self.root/rel
   for item in [p,*p.parents]:
    if item==self.root:break
