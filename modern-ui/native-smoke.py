@@ -243,6 +243,10 @@ try:
  reveal_field(window.child_window(title='Project identity',control_type='Edit'))
  project_read=window.child_window(title='Review GitHub source read',control_type='Button');assert not project_read.is_enabled()
  window.capture_as_image().save('ui-evidence/native-project-read-inert.png');checks.append('native GitHub/Notion read panel inert; no token or external access')
+ reveal_field(window.child_window(title='Issue repository owner',control_type='Edit'))
+ assert not button('Review issue identity/repository/words').is_enabled(), 'Issue review enabled without identity/write gate'
+ assert 'Confirm create issue and repository notifications'not in ui_text(), 'Issue final submission visible without review'
+ window.capture_as_image().save('ui-evidence/native-github-issue-inert.png');checks.append('native issue identity/words panel inert without identity/write grant; no real issue or notification')
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
