@@ -35,7 +35,12 @@ class KnowledgeWorkspace:
       if candidate is not self.speaker and hasattr(candidate,'close'):candidate.close()
       return
      self.speaker=candidate;voice_ticket=candidate.generation
-    if ticket==self.generation:candidate.speak(row['text'],generation=voice_ticket)
+    if ticket==self.generation:
+     if callable(getattr(type(candidate),'prepare_stream',None))and callable(getattr(type(candidate),'play_prepared',None)):
+      for prepared in candidate.prepare_stream(row['text'],generation=voice_ticket):
+       if ticket!=self.generation:break
+       candidate.play_prepared(prepared,generation=voice_ticket)
+     else:candidate.speak(row['text'],generation=voice_ticket)
     if ticket==self.generation:self.status='Reading finished'
    except Exception:
     if ticket==self.generation:self.status='Local speech unavailable; no download or cloud fallback'
