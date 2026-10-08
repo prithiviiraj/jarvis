@@ -156,6 +156,9 @@ try:
    item=(root or window).child_window(title=name,control_type='Button')
    if not item.exists():
     expand_advanced()
+  # Async work can leave a mounted control temporarily disabled. UIA Invoke
+  # does not wait for HTML enabled state and fails with COMError in that gap.
+  button(name,root).wait('enabled',timeout=20)
   button(name,root).wrapper_object().invoke()
   if name in ('Transcript ON','Transcript OFF'):
    # UIA invoke queues async IPC. Wait for actual native save/readback before close.
