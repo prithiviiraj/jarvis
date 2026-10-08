@@ -19,4 +19,10 @@ class Tests(unittest.TestCase):
   self.n=NewsSpeech(factory);t=self.n.play(self.row,self.row,lambda:self.row['url'],True);entered.wait(1);self.n.stop();release.set();t.join(1);self.assertFalse(self.s.calls);self.assertFalse(self.n.busy)
  def test_busy_conversation_rejected(self):
   with self.assertRaises(ValueError):self.n.play(self.row,self.row,lambda:self.row['url'],True,True)
+ def test_chunked_page_read_and_changed_page_stop(self):
+  current=[self.row['url']]
+  class Stream(Speaker):
+   def prepare_stream(self,text,generation=None):yield 'first',b'pcm',24000;yield 'late',b'pcm',24000
+   def play_prepared(self,prepared,generation=None):self.calls.append(prepared[0]);current[0]='https://example.org/changed'
+  speaker=Stream();self.n=NewsSpeech(lambda:speaker);self.n.play(self.row,self.row,lambda:current[0],True).join(1);self.assertEqual(speaker.calls,['first']);self.assertEqual(self.n.status,'Page changed; reading stopped')
 if __name__=='__main__':unittest.main(verbosity=2)
