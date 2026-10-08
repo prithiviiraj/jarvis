@@ -26,6 +26,12 @@ class Tests(unittest.TestCase):
   now=[0];self.a.clock=lambda:now[0];r=self.prepare();now[0]=121;self.assertIsNone(self.a.snapshot()['pending'])
   with self.assertRaises(ValueError):self.a.start(self.root,r,True)
 
+ def test_stop_during_discovery_refuses_late_review(self):
+  def discover():self.a.stop();return [{'id':'fixture'}]
+  self.a.discover=discover
+  with self.assertRaisesRegex(ValueError,'stopped'):self.prepare()
+  self.assertIsNone(self.a.pending)
+
 class BridgeTests(unittest.TestCase):
  def test_no_source_inert_and_stop(self):
   from jarvis.ui_bridge import Bridge
