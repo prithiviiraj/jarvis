@@ -207,6 +207,10 @@ try:
  assert not button('Prepare Gmail review').is_enabled(), 'Gmail review enabled without connected account'
  window.capture_as_image().save('ui-evidence/native-gmail-inert.png')
  checks.append('native Gmail review form disabled without connected account; no send started')
+ calendar_title=window.child_window(title='Google event title',control_type='Edit');reveal_field(calendar_title)
+ assert not button('Prepare solo event review').is_enabled(), 'Calendar review enabled without connected account'
+ window.capture_as_image().save('ui-evidence/native-gcal-inert.png')
+ checks.append('native solo calendar review form disabled without connected account; no event creation started')
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
