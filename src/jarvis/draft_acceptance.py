@@ -20,6 +20,6 @@ def run():
    try:c.take_reply(token)
    except ValueError:pass
    else:raise AssertionError('Revoked token accepted')
-   report={'frozen_executable':True,'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
+   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
    out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True);(out/'frozen-local-draft-contracts.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
   finally:c.close()
