@@ -22,7 +22,7 @@ Sources: https://www.youtube.com/watch?v=zdnijkAbknA&t=60s and https://www.youtu
 | Model choices and face customization | Present in Settings | Keep |
 | Spoken brain switch and model-linked skin | Partial | Verified model switch and skin state coupling |
 | Watch/focus/reflex modes | Partial | Complete scoped named workflows |
-| Gesture/hologram deck | Missing | Inspect free HOLO implementation/license and integrate safely |
+| Gesture/hologram deck | Removed from scope | Owner8October11:09:58: "Gesture la vena bro". Do not implement gestures. |
 | Five-question fast decision layer | Partial deterministic hints | Lane/completion/address/stakes/vault-evidence classifier; calibrated evaluations, no invented probabilities |
 | Semantic vault answer and automatic linked focus | Partial | Real vectors accepted, source selection and graph sync; preserve exact search |
 | Email draft/review/send | Missing | Connector, final recipient/words review and send-state verification |
@@ -30,4 +30,4 @@ Sources: https://www.youtube.com/watch?v=zdnijkAbknA&t=60s and https://www.youtu
 | Invoice detail question/create/delivery | Missing | Deal facts, invoice document and authorized delivery; video did not finish an invoice |
 | Compact work state and cancellation | Present implemented flows | Extend to each added workflow |
 
-Implementation order: finish current CI evidence; keep visual revision separate; retrieval-grounded graph/read-aloud and local decision layer; desktop engine; calendar/email/Telegram/invoice connectors; telephony/mode/gesture flows. Cost, free-tier limits, account access and external-action permissions must be verified. Required does not mean spending or disclosure is automatically approved.
+Implementation order: finish current CI evidence; keep visual revision separate; retrieval-grounded graph/read-aloud and local decision layer; desktop engine; calendar/email/Telegram/invoice connectors; telephony/mode flows. Cost, free-tier limits, account access and external-action permissions must be verified. Required does not mean spending or disclosure is automatically approved.
