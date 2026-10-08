@@ -19,7 +19,7 @@ class Tests(unittest.TestCase):
  def test_exact_send_and_readback_no_repeat(self):
   j=self.job();r=j.prepare(['friend@example.com'],'Subject','Exact body');j.submit(r,True);j.worker.join(3);self.assertEqual(j.snapshot()['state'],'completed');self.assertEqual(sum(m=='POST'for m,u,p in self.calls),1)
   with self.assertRaises(ValueError):j.submit(r,True)
-  restored=self.job();self.assertEqual(restored.snapshot()['state'],'completed')
+  j.stop();restored=self.job();self.assertEqual(restored.snapshot()['state'],'completed')
  def test_no_review_or_changed_review_no_send(self):
   j=self.job();r=j.prepare(['friend@example.com'],'Subject','Body')
   with self.assertRaises(ValueError):j.submit(r)
