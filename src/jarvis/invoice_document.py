@@ -1,0 +1,24 @@
+"""Local draft invoice document from explicit facts. No issue/send/payment action."""
+import html,json,hashlib,uuid
+from .invoice_draft import draft
+from .connector_workflows import digest
+class InvoiceDocument:
+ def __init__(self,root):self.root=root;self.pending=None;self.result=None;self.status='Invoice draft only';self.missing=[]
+ def prepare(self,facts):
+  self.pending=None;self.missing=[];row=draft(facts)
+  if row['state']=='needs-details':self.missing=row['missing'];self.status='Missing invoice details; no document created';return row
+  self.pending={'review_id':uuid.uuid4().hex,'sha256':digest(row),'document':row};self.status='Review exact invoice draft facts and total';return json.loads(json.dumps(self.pending))
+ @staticmethod
+ def render(row):
+  if not isinstance(row,dict)or row.get('state')!='draft':raise ValueError('Validated invoice draft required')
+  esc=lambda v:html.escape(str(v),quote=True);i=row['invoice'];lines=''.join('<tr><td>'+esc(x['description'])+'</td><td>'+esc(x['quantity'])+'</td><td>'+esc(x['unit_price'])+'</td><td>'+esc(x['line_total'])+'</td></tr>'for x in row['items'])
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Draft invoice '+esc(i['invoice_number'])+'</title><style>body{margin:0;background:#f4efec;color:#251f21;font:14px/1.6 Arial,sans-serif}main{max-width:840px;background:white;margin:32px auto;padding:40px;border-radius:16px}h1{font:36px/1.2 Georgia,serif;margin:0}h2{font:21px Georgia,serif;margin:0 0 12px}.meta,.parties{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:28px 0}p{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;margin:30px 0;table-layout:fixed}th,td{text-align:left;vertical-align:top;padding:12px 8px;border-bottom:1px solid #eae9ea;overflow-wrap:anywhere}th:first-child{width:52%}td:not(:first-child),th:not(:first-child){text-align:right}.totals{max-width:320px;margin-left:auto}.totals p{display:flex;justify-content:space-between;gap:16px}.total{font-size:22px;color:#527b6f;font-weight:600;border-top:1px solid #eae9ea;padding-top:14px}.note{color:#585254;font-size:12px;border-top:1px solid #eae9ea;padding-top:20px;margin-top:32px}@media print{body{background:white}main{margin:0;border-radius:0;max-width:none}tr{break-inside:avoid}}@media(max-width:600px){main{margin:0;padding:20px;border-radius:0}.meta,.parties{grid-template-columns:1fr}h1{font-size:28px}th,td{padding:8px 4px;font-size:12px}}</style></head><body><main><h1>Draft invoice</h1><div class="meta"><p>Invoice number<br><strong>'+esc(i['invoice_number'])+'</strong></p><p>Issued: '+esc(i['issue_date'])+'<br>Due: '+esc(i['due_date'])+'<br>Currency: '+esc(i['currency'])+'</p></div><div class="parties"><section><h2>From</h2><p>'+esc(i['seller'])+'</p></section><section><h2>Bill to</h2><p>'+esc(i['buyer'])+'</p></section></div><table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>'+lines+'</tbody></table><div class="totals"><p><span>Subtotal</span><span>'+esc(i['currency'])+' '+esc(row['subtotal'])+'</span></p><p><span>Tax (provided)</span><span>'+esc(i['currency'])+' '+esc(row['tax_amount'])+'</span></p><p class="total"><span>Total</span><span>'+esc(i['currency'])+' '+esc(row['total'])+'</span></p></div><p class="note">Draft from provided facts. Tax and legal invoice requirements are not verified. This document is not issued, sent or a payment request.</p></main></body></html>'
+ def save(self,reviewed,confirm=False):
+  if confirm is not True or not self.pending or reviewed!=self.pending or digest(self.pending['document'])!=self.pending['sha256']:raise ValueError('Review exact invoice draft before saving')
+  if self.root.is_symlink():raise ValueError('Invoice draft folder must not be a link')
+  self.root.mkdir(parents=True,exist_ok=True);raw=self.render(self.pending['document']);p=self.root/('draft-'+self.pending['review_id']+'.html')
+  with p.open('x',encoding='utf-8')as f:f.write(raw)
+  if p.read_text(encoding='utf-8')!=raw:raise ValueError('Saved draft readback mismatch')
+  self.result={'path':str(p),'sha256':hashlib.sha256(raw.encode()).hexdigest(),'invoice_number':self.pending['document']['invoice']['invoice_number'],'scope':'Local HTML draft with print layout. No invoice issued, delivered or payment requested.'};self.pending=None;self.status='Local invoice draft saved and read back';return dict(self.result)
+ def cancel(self):self.pending=None;self.missing=[];self.status='Invoice draft stopped'
+ def snapshot(self):return {'pending':json.loads(json.dumps(self.pending)),'result':self.result,'status':self.status,'missing':list(self.missing),'scope':'Owner-entered invoice draft only. No inferred tax/terms, external delivery or payment collection.'}
