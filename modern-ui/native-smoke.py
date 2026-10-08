@@ -174,6 +174,22 @@ try:
  click('Cancel app launch');click('Prepare app launch');click('Review exact app launch');click('Confirm app launch')
  notes=Desktop(backend='uia').window(class_name='Notepad');notes.wait('visible',timeout=15)
  notes.capture_as_image().save('ui-evidence/native-reviewed-notepad-window.png');notes.close();window.set_focus()
+ def dismiss_missing_obsidian():
+  # Clean diagnostic runners need not have Obsidian installed. Windows may
+  # present its own URI-handler warning, which owns foreground keyboard input.
+  # Dismiss only the exact missing-Obsidian warning, never another dialog.
+  deadline=time.monotonic()+3
+  while time.monotonic()<deadline:
+   for candidate in Desktop(backend='uia').windows():
+    try:
+     text=' '.join([candidate.window_text()]+[x.window_text() for x in candidate.descendants(control_type='Text')])
+     if "can't open this 'obsidian' link" in text:
+      candidate.child_window(title='OK',control_type='Button').wrapper_object().invoke()
+      checks.append('expected Windows missing Obsidian URI-handler dialog dismissed; no Obsidian visibility claim')
+      window.set_focus();return
+    except Exception:pass
+   time.sleep(.1)
+  window.set_focus()
  click('Disable app launch');click('Memory');click('Connect Obsidian')
  window.capture_as_image().save('ui-evidence/native-obsidian-auto-review.png')
  # Connect is the owner's direct action; no extra confirm button.
@@ -187,7 +203,7 @@ try:
   time.sleep(.2)
  else:raise RuntimeError('Async AUTO vault setup did not settle')
  assert (auto_root/'Team/LYRA.md').is_file();assert (auto_root/'Active Work.md').is_file();assert (auto_root/'Modes/Current settings.md').is_file()
- click('Manual sync');click('Show visuals');click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
+ dismiss_missing_obsidian();click('Manual sync');click('Show visuals');dismiss_missing_obsidian();click('Team room');checks.append('reviewed fixed Notepad launch reached real Windows window; no files or typing')
 
  time.sleep(2)
  assert not any('body'in row for row in requests),'Launch discovery must not send inference or user text'
@@ -221,7 +237,7 @@ try:
  def fill_named(name,text):
   control=window.child_window(title=name,control_type='Edit');control.wait('exists',timeout=10)
   for attempt in range(3):
-   wrapper=control.wrapper_object();wrapper.set_focus();time.sleep(.2)
+   window.set_focus();wrapper=control.wrapper_object();wrapper.set_focus();time.sleep(.2)
    wrapper.type_keys('^a',pause=.1);wrapper.type_keys('{BACKSPACE}',pause=.1);time.sleep(.2)
    wrapper.type_keys(text,with_spaces=True,pause=.12)
    deadline=time.monotonic()+3
