@@ -88,7 +88,7 @@ class BrainRouter:
         if len(names)!=len(self.providers) or set(names)!={p.name for p in self.providers}:raise ValueError('Order must include every provider once.')
         with self.lock:
             byname={p.name:p for p in self.providers};self.providers=[byname[n] for n in names]
-    def ask(self,messages,cloud_consent=False,preferred=None,contains_image=False,cloud_image_consent=False,verified_free_providers=()):
+    def ask(self,messages,cloud_consent=False,preferred=None,contains_image=False,cloud_image_consent=False,verified_free_providers=(),cancel=None):
         if not isinstance(messages,list) or not messages:raise RouterError('A conversation is required.')
         ordered=list(self.providers)
         if preferred:
@@ -96,6 +96,7 @@ class BrainRouter:
             ordered.sort(key=lambda p:p.name!=preferred)
         errors=[]
         for p in ordered:
+            if cancel is not None and cancel.is_set():raise RouterError('Brain request stopped')
             if p.requires_free_plan and p.name not in verified_free_providers:continue
             if p.cloud and (not cloud_consent or (contains_image and not cloud_image_consent)):continue
             if self.disabled_until.get(p.name,0)>self.clock():continue
@@ -106,6 +107,7 @@ class BrainRouter:
             else:key=None
             try:
                 text=self.transport.complete(p,messages,key)
+                if cancel is not None and cancel.is_set():raise RouterError('Brain request stopped')
                 return {'text':text,'provider':p.name,'model':p.model,'cloud':p.cloud,'fallbacks':errors}
             except ProviderFailure as exc:
                 if not p.cloud:
