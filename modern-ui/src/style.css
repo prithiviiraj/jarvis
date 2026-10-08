@@ -127,3 +127,5 @@ html.pill-root,html.pill-root body,#root:has(.pill-shell){background:transparent
 .google-control [role=region] p{color:#c4d7df}.google-control [role=region]{border-color:#4a6775}
 
 .project-control>label{display:flex;flex-direction:column;gap:6px;margin:12px 0}.project-control input{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #344c54;border-radius:8px;background:#0a141a;color:#d6e2e4}.project-control button{margin:4px 4px 4px 0}
+
+.settings-card input[aria-label="Embedding search folder"]{display:block;width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #344c54;border-radius:8px;margin-top:6px}
