@@ -29,5 +29,6 @@ class BridgeTests(unittest.TestCase):
   b=Bridge(WorkspaceVoice())
   try:
    with self.assertRaises(ValueError):b.execute({'command':'source-answer-prepare','question':'Question','model_id':'fixture'})
+   b.source_answer.result={'text':'stale'};b.voice_action('Jarvis stop');self.assertIsNone(b.source_answer.result)
    s=b.execute({'command':'source-answer-stop'});self.assertIsNone(s['source_answer']['result']);self.assertFalse(s['source_answer']['busy'])
   finally:b.close()
