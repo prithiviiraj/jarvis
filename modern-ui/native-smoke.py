@@ -209,6 +209,9 @@ try:
  reveal_field(email_field)
  window.capture_as_image().save('ui-evidence/native-google-connection-inert.png')
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
+ drive_read=window.child_window(title='Review Drive metadata read',control_type='Button');reveal_field(drive_read);assert not drive_read.is_enabled()
+ sheets_read=window.child_window(title='Review Sheets values read',control_type='Button');reveal_field(sheets_read);assert not sheets_read.is_enabled()
+ window.capture_as_image().save('ui-evidence/native-drive-sheets-inert.png');checks.append('native Drive/Sheets reviewed-read controls inert without account; no real read/write/download')
  gmail_to=window.child_window(title='Gmail To addresses',control_type='Edit');reveal_field(gmail_to)
  assert not button('Prepare Gmail review').is_enabled(), 'Gmail review enabled without connected account'
  window.capture_as_image().save('ui-evidence/native-gmail-inert.png')
