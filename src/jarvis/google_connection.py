@@ -5,8 +5,21 @@ from .google_authorization import GoogleAuthorization
 from .google_loopback import GoogleLoopback
 CLIENT_KEY=hashlib.sha256(b'JARVIS registered desktop OAuth client').hexdigest()
 class GoogleConnection:
- def __init__(self,tokens=None,authorization=None,opener=None):
-  self.tokens=tokens or GoogleTokens();self.auth=authorization or GoogleAuthorization(self.tokens);self.loop=GoogleLoopback(self.auth);self.opener=opener or webbrowser.open;self.lock=threading.RLock();self.generation=0;self.busy=False;self.status='Google not connected';self.account=None;self.grants=[];self.error='';self.worker=None
+ def __init__(self,tokens=None,authorization=None,opener=None,path=None):
+  self.tokens=tokens or GoogleTokens();self.auth=authorization or GoogleAuthorization(self.tokens);self.loop=GoogleLoopback(self.auth);self.opener=opener or webbrowser.open;self.lock=threading.RLock();self.generation=0;self.busy=False;self.status='Google not connected';self.account=None;self.grants=[];self.error='';self.worker=None;self.path=path
+  if path and path.is_file():
+   try:
+    row=json.loads(path.read_text(encoding='utf-8'))
+    from .connector_workflows import address
+    email=address(row['account']);grants=row['grants']
+    from .google_oauth import SCOPES
+    if not isinstance(grants,list)or any(g not in SCOPES for g in grants):raise ValueError()
+    if self.tokens.status(email)['credential_present']:self.account=email;self.grants=grants;self.status='Saved Google account. Live authorization will be checked on each explicit request.'
+   except Exception:self.status='Saved Google connection unavailable; reconnect. No plaintext fallback.'
+ def save_account(self):
+  if not self.path:return
+  import os
+  self.path.parent.mkdir(parents=True,exist_ok=True);temp=self.path.with_suffix('.tmp');temp.write_text(json.dumps({'account':self.account,'grants':self.grants}),encoding='utf-8');os.replace(temp,self.path)
  def configure(self,client_id,client_secret,consent=False):
   if consent is not True:raise ValueError('Review registered Google desktop credentials first')
   if not isinstance(client_id,str)or not client_id.endswith('.apps.googleusercontent.com')or len(client_id)>250 or any(c.isspace()for c in client_id):raise ValueError('Registered Google desktop client required')
@@ -35,7 +48,7 @@ class GoogleConnection:
       save()
     self.loop.complete(client.get('client_secret'),save_guard)
     with self.lock:
-     if self.generation==ticket:self.status='Google connected. Read-only queries require an explicit request; sends and calendar changes need exact review.'
+     if self.generation==ticket:self.save_account();self.status='Google connected. Read-only queries require an explicit request; sends and calendar changes need exact review.'
    except Exception:
     with self.lock:
      if self.generation==ticket:self.error='Google authorization failed, expired or account/scopes changed. Nothing was sent or booked.';self.status='Google connection incomplete'
@@ -56,5 +69,6 @@ class GoogleConnection:
   self.stop()
   if self.account:self.tokens.disconnect(self.account)
   self.status='Local Google credentials removed. Remove JARVIS access in your Google account to revoke server permission too.';self.error='';self.grants=[]
+  if self.path and self.path.exists():self.path.unlink()
  def snapshot(self):
   return {'busy':self.busy,'status':self.status,'account':self.account,'grants':list(self.grants),'error':self.error,'scope':'No automatic mail/calendar action. Disconnect removes local token only.'}
