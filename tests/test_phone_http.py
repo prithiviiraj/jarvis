@@ -17,3 +17,9 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.h.validate('POST','/phone/reply',self.headers,'127.0.0.1',True)
   self.assertTrue(callable(self.h.handler()));self.assertEqual(self.h.token({'Authorization':'Bearer x'}),'x')
   with self.assertRaises(ValueError):self.h.token({'Authorization':'Basic x'})
+
+ def test_stop_not_rate_limited_and_old_peers_expire(self):
+  for _ in range(150):self.h.validate('POST','/phone/reply',self.headers,'127.0.0.1',True)
+  self.assertEqual(self.h.validate('POST','/phone/stop',self.headers,'127.0.0.1',True),2)
+  self.h.clock=lambda:1000000000000
+  self.h.validate('POST','/phone/pair',self.headers,'192.168.1.8',True);self.assertNotIn('127.0.0.1',self.h.windows)
