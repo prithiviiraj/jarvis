@@ -30,3 +30,7 @@ class Tests(unittest.TestCase):
  def test_no_completion_claim_and_no_repeat(self):
   r=self.plan();out=self.e.run(r,True,True);self.assertEqual(out['completed_steps'],2);self.assertIn('readback',out['result'])
   with self.assertRaises(ValueError):self.e.run(r,True,True)
+
+ def test_typed_hotkey_metacharacters_are_literal(self):
+  from jarvis.desktop_engine import literal_keys
+  self.assertEqual(literal_keys('^a%f+~'),'{^}a{%}f{+}{~}')
