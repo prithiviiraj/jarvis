@@ -68,7 +68,7 @@ class GoogleConnection:
   if confirm is not True:raise ValueError('Review disconnect for this account')
   self.stop()
   if self.account:self.tokens.disconnect(self.account)
-  self.status='Local Google credentials removed. Remove JARVIS access in your Google account to revoke server permission too.';self.error='';self.grants=[]
+  self.status='Local Google credentials removed. Remove JARVIS access in your Google account to revoke server permission too.';self.error='';self.grants=[];self.account=None
   if self.path and self.path.exists():self.path.unlink()
  def snapshot(self):
   return {'busy':self.busy,'status':self.status,'account':self.account,'grants':list(self.grants),'error':self.error,'scope':'No automatic mail/calendar action. Disconnect removes local token only.'}
