@@ -14,7 +14,7 @@ class PhoneHTTP:
   if tls is not True:raise ValueError('TLS required')
   try:addr=ipaddress.ip_address(peer)
   except ValueError:raise ValueError('Invalid network peer')from None
-  if not(addr.is_private or addr.is_loopback)or addr.is_multicast or addr.is_unspecified:raise ValueError('Private network peer required')
+  if not isinstance(addr,ipaddress.IPv4Address)or not any(addr in ipaddress.ip_network(cidr)for cidr in ('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16','127.0.0.0/8'))or addr.is_multicast or addr.is_unspecified:raise ValueError('Private network peer required')
   # Duplicate Host/Origin/Authorization/Content-Length must be rejected by handler.
   if headers.get('Host')!=self.host or headers.get('Transfer-Encoding'):raise ValueError('Unreviewed host or transfer encoding')
   if method not in ('GET','POST')or '?'in path or '#'in path:raise ValueError('Unsupported method or URL')
