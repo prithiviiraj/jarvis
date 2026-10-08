@@ -34,3 +34,12 @@ class Tests(unittest.TestCase):
    with urllib.request.urlopen(url,timeout=2):pass
    self.assertTrue(entered.wait(2));c.stop();release.set();c.worker.join(3);self.assertFalse(c.tokens.status('owner@example.com')['credential_present']);self.assertFalse(c.busy)
   finally:release.set();c.stop()
+
+ def test_restart_metadata_no_secrets(self):
+  import pathlib,tempfile,json
+  c,s,urls=self.setup_connection()
+  try:
+   with tempfile.TemporaryDirectory()as t:
+    p=pathlib.Path(t)/'google-account.json';c.path=p;c.account='owner@example.com';c.grants=['calendar-freebusy'];from jarvis.google_oauth import SCOPES
+    c.tokens.save(c.account,'fixture.apps.googleusercontent.com','fixture-refresh',[SCOPES['calendar-freebusy']],True);c.save_account();self.assertNotIn('fixture-refresh',p.read_text());restored=GoogleConnection(c.tokens,path=p);self.assertEqual(restored.account,c.account);restored.disconnect(True);self.assertFalse(p.exists())
+  finally:c.stop()
