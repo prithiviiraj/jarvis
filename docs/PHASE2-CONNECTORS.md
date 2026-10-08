@@ -32,3 +32,13 @@ Sources:
 5. Phone calling separately: Telegram audio is not telephony, and provider cost/number registration needs research before any claim.
 
 No claim that these routes are free without limits. No externally connected service, live send or booking has been completed by this document.
+
+## Drive/Sheets reviewed read track
+
+Implemented optional drive.metadata.readonly (restricted) and spreadsheets.readonly (sensitive). Both stay unchecked by default. Drive returns a maximum20file metadata page; Sheets reads an explicit finite A1 rectangle up to1000cells. These scopes cover all metadata/spreadsheets in the connected account, not just the request. No file download, edit, upload or share is implemented. Exact account/request confirmation, bounded responses, Stop and stale-result suppression are required. Live client registration and owner OAuth consent remain dependencies; fixture acceptance is not real-account access.
+
+Official API/scope sources checked8October2026:
+- https://developers.google.com/workspace/drive/api/guides/api-specific-auth
+- https://developers.google.com/workspace/sheets/api/scopes
+- https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list
+- https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/get
