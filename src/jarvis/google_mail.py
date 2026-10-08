@@ -79,7 +79,7 @@ class GoogleMail:
   self.worker=threading.Thread(target=work,name='gmail-reviewed-send',daemon=True);self.worker.start()
  def stop(self):
   self.generation+=1
-  if self.ledger:self.ledger.cancel()
+  if self.ledger and self.ledger.job.state in ('review','submitting','uncertain'):self.ledger.cancel()
  def reconcile(self,consent=False):
   if consent is not True or self.busy:raise ValueError('Review uncertain Gmail readback first')
   ledger=self.journal()
