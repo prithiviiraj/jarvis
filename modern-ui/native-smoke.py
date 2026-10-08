@@ -112,6 +112,7 @@ try:
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
   item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
  def reveal_field(control):
+  window.set_focus()
   # Settings pane keeps scroll across sub-page changes. Start at its top, then
   # use actual UIA bounds in either direction; never scroll blindly downward.
   control.wait('exists',timeout=15)
@@ -124,6 +125,9 @@ try:
    mouse.scroll(coords=(760,450),wheel_dist=direction);time.sleep(.2)
   raise RuntimeError('Field could not be brought into Settings viewport: '+control.window_text())
  def expand_advanced():
+  # Isolated Edge can own foreground after browser-run. Mouse input must
+  # target the JARVIS workspace, not the newly launched Edge window.
+  window.set_focus()
   # HTML summary exposes Button semantics but has no Windows UIA Invoke pattern.
   # Use real mouse input, as the already-passing initial expansion does.
   toggle=window.child_window(title='Expand advanced browser controls',control_type='Button')
