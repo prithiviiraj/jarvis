@@ -56,3 +56,18 @@ class Tests(unittest.TestCase):
   with patch.object(self.t,'certificate',side_effect=certificate):
    with self.assertRaisesRegex(ValueError,'stopped'):self.prepare()
   self.assertEqual(self.t.state,'off');self.assertIsNone(self.t.pending);self.assertIsNone(self.t.server)
+
+ def test_shutdown_barrier_refuses_new_prepare_and_repeated_stop(self):
+  import threading
+  from unittest.mock import Mock
+  entered=threading.Event();release=threading.Event()
+  server=Mock()
+  def shutdown():entered.set();release.wait(3)
+  server.shutdown.side_effect=shutdown;self.t.server=server
+  worker=threading.Thread(target=self.t.stop);worker.start();self.assertTrue(entered.wait(2))
+  try:
+   self.assertEqual(self.t.state,'stopping')
+   with self.assertRaisesRegex(ValueError,'stopping'):self.prepare()
+   self.t.stop();self.assertTrue(self.t.stopping)
+  finally:release.set();worker.join(3)
+  self.assertEqual(self.t.state,'off');self.assertFalse(self.t.stopping);server.server_close.assert_called_once()
