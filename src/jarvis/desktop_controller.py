@@ -11,7 +11,7 @@ class DesktopController:
   engine=self.ensure();self.windows=self.adapter.windows();self.status='Observed local windows; no input';return self.windows
  def prepare(self,target,steps,scope):
   if target not in self.windows:raise ValueError('Select an observed window from the current list')
-  self.error='';row=self.ensure().prepare(target,steps,scope);self.status='Review exact desktop task; nothing executing';return row
+  self.error='';row=self.ensure().prepare(target,steps,scope);self.status='Review exact desktop task within120seconds; nothing executing';return row
  def run(self,reviewed,confirm=False,effect_approved=False):
   engine=self.ensure()
   if self.worker and self.worker.is_alive():raise ValueError('Current desktop task is still stopping/running')
