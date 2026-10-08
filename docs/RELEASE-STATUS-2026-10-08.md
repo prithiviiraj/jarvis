@@ -37,3 +37,10 @@ Native232 and full233 run at c6ee6bcb3e4bd2744a32f24550895ef5e8c82d4f, before th
 No live Telegram/mail output, account changes, carrier calls, payments, invoice issue/delivery or automatic file opening were performed in this rebuild work. Local model IDs, source hashes, successful API fixtures or generated draft labels are not factual correctness or hardware acceptance. A preview or diagnostic artifact must never be relabelled final/all-features without closing the missing outcomes and the owner's requested scope.
 
 Phone physical acceptance checklist: PHONE-DEVICE-ACCEPTANCE.md. Carrier setup boundaries: PHONE-CARRIER-DIAL.md. Connector shape and official sources: PHASE2-CONNECTORS.md.
+
+
+## Overnight9October update
+
+The earlier snapshot is historical. Product39be93b7402644182cb1707a22fe2b9abd5f63c3,1143canonical tests/5skips, now under full234 acceptance.232/233 both closed SUCCESS at older c6ee6bc. Raw233 real frozen speech/phone/SmartTurn/model2vec/MP3 and synthetic native input evidence is inspected, with the visual-position caveats in REBUILD-ACCEPTANCE.md. Actual source-answer/switch default callbacks now accept the router cancellation contract; late cancelled replies/fallback refused. In-flight synchronous HTTP may remain blocked until timeout, so no immediate network-interruption claim. Phone delayed permission cleanup owns its own capture after Stop/repair. Latestfa6baec acceptance-only changes do not add features. No product/full-feature/hardware acceptance is inferred from a green earlier source.
+
+Current full run: https://github.com/prithiviiraj/jarvis/actions/runs/37823618956
