@@ -244,6 +244,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Inbuilt Laya runtime dependencies failed' }
           python package-windows.py
           if ($LASTEXITCODE -ne 0) { throw 'Frozen core acceptance failed' }
+      - name: Preserve full built package for diagnostic acceptance retries
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-FULL-PACKAGE-DIAGNOSTIC-NOT-ACCEPTED
+          path: modern-ui/windows-portable/
+          retention-days: 2
+          if-no-files-found: error
+      - name: Accept actual portable native UI and frozen software runtimes
+        shell: pwsh
+        run: |
           $env:JARVIS_UI_EXE = (Resolve-Path 'windows-portable/JARVIS.exe').Path
           $env:PYTHONPATH = ''
           python native-smoke.py
