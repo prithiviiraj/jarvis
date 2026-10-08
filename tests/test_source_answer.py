@@ -22,6 +22,10 @@ class Tests(unittest.TestCase):
   def generate(m,*a):self.file.write_text('changed');return {'text':'reply','model':m}
   self.a.generate=generate;r=self.prepare();self.a.start(self.root,r,True);self.a.worker.join(3);self.assertIsNone(self.a.result)
 
+ def test_expired_source_review_refused_and_hidden(self):
+  now=[0];self.a.clock=lambda:now[0];r=self.prepare();now[0]=121;self.assertIsNone(self.a.snapshot()['pending'])
+  with self.assertRaises(ValueError):self.a.start(self.root,r,True)
+
 class BridgeTests(unittest.TestCase):
  def test_no_source_inert_and_stop(self):
   from jarvis.ui_bridge import Bridge
