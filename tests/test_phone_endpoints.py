@@ -27,3 +27,7 @@ class Tests(unittest.TestCase):
   t=self.pair()
   for data in ({'wav':'!bad'},{'command':'desktop-run'},{'wav':123}):
    with self.assertRaises(ValueError):self.call('/phone/turn',data,t)
+
+ def test_external_stop_revokes_undelivered_pair_token(self):
+  r=self.call('/phone/pair',{'code':self.c.enable(True),'label':'phone'});self.e.approve_local(self.e.pending,True);self.c.stop()
+  with self.assertRaises(ValueError):self.call('/phone/pair-result',r)
