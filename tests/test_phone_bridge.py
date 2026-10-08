@@ -32,3 +32,13 @@ class TransportUI(unittest.TestCase):
   self.b.phone_transport.prepare=Mock();self.b.phone_transport.start=Mock();self.b.execute({'command':'phone-transport-prepare','origin_host':'https://127.0.0.1:8443','certificate_file':'cert.pem','private_key_file':'key.pem','consent':True});self.b.phone_transport.prepare.assert_called_once_with('https://127.0.0.1:8443','cert.pem','key.pem',True);review={'exact':'fixture'};self.b.execute({'command':'phone-transport-start','reviewed':review,'confirm':True,'phone_trust_confirmed':True});self.b.phone_transport.start.assert_called_once_with(review,True,True);self.assertIsNone(self.b.phone_transport.server)
  def test_pair_code_local_temporary_and_pause_clears(self):
   self.b.phone_transport.state='listening';s=self.b.execute({'command':'phone-pair-open','consent':True});self.assertTrue(s['phone']['pair_code']);s=self.b.execute({'command':'pause'});self.assertIsNone(s['phone']['pair_code']);self.assertEqual(s['phone']['tls']['state'],'off')
+
+class HandoffUI(unittest.TestCase):
+ def test_exact_apply_ends_transport_no_chat_or_storage(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   code=b.phone.enable(True);r=b.phone.request_pair(code,'Unverified');b.phone.approve(r,True);b.phone.processor.history=[{'role':'user','content':'private note'},{'role':'assistant','content':'local draft'}]
+   b.messages=[{'name':'You','text':'existing'}];prior=list(b.messages)
+   s=b.execute({'command':'phone-handoff-prepare','consent':True});review=s['phone']['handoff'];self.assertIn('private note',review['text'])
+   s=b.execute({'command':'phone-handoff-apply','reviewed':review,'confirm':True});self.assertFalse(s['phone']['paired']);self.assertEqual(s['phone']['tls']['state'],'off');self.assertEqual(s['messages'],prior)
+  finally:b.close()
