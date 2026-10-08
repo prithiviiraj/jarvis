@@ -13,7 +13,7 @@ class GoogleQueries:
   scope=SCOPES['calendar-freebusy'if kind=='calendar-freebusy'else'mail-read']
   with self.lock:
    if self.busy:raise ValueError('Previous Google read still stopping; wait')
-   self.generation+=1;ticket=self.generation;self.busy=True;self.result=None;self.error=''
+   self.generation+=1;ticket=self.generation;connection_ticket=self.connection.generation;self.busy=True;self.result=None;self.error=''
   import copy
   params=copy.deepcopy(params)
   def work():
@@ -35,7 +35,7 @@ class GoogleQueries:
      result={'kind':kind,'account':email,'message_id':message_id,'thread_id':row.get('threadId'),'headers':[{ 'name':str(h.get('name',''))[:50],'value':str(h.get('value',''))[:2000]}for h in headers if isinstance(h,dict)and str(h.get('name','')).lower()in wanted],'snippet':str(row.get('snippet',''))[:2000],'scope':'Untrusted mail header/snippet only. Body and attachments not downloaded. No reply or send.'}
     else:result={'kind':kind,**connector.freebusy(params.get('calendar_ids'),params.get('start'),params.get('end'),True)}
     with self.lock:
-     if self.generation==ticket and self.connection.account==email:self.result=result
+     if self.generation==ticket and self.connection.account==email and self.connection.generation==connection_ticket:self.result=result
    except Exception:
     with self.lock:
      if self.generation==ticket:self.error='Google read failed or scope/account changed. No mail or calendar write performed.'
