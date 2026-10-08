@@ -39,8 +39,12 @@ class TeamMemory:
                 if row.get('name')=='You':
                     if pending is not None and not answered:self.unanswered.append((len(self.turns),pending))
                     pending=str(row.get('text',''))[:2000];answered=False
-                elif pending is not None and row.get('name')in ROLES and isinstance(row.get('text'),str):
-                    self.append(row['name'],pending,row['text']);answered=True
+                elif pending is not None and row.get('name')in (*ROLES,'NOVA','SILA','REO') and isinstance(row.get('text'),str):
+                    
+                    name=row['name']
+                    if name in ROLES:self.append(name,pending,row['text'])
+                    else:self.turns.append((name,pending,row['text'][:3000]));self.turns=self.turns[-self.max_turns:]
+                    answered=True
             if pending is not None and not answered:self.pending=pending
             self.unanswered=self.unanswered[-self.max_turns:]
             while self.unanswered and sum(len(t)for _,t in self.unanswered)>self.max_chars:self.unanswered.pop(0)
