@@ -9,3 +9,6 @@ class Tests(unittest.TestCase):
   for name in ('index.html','phone.css','phone.js','capture.js'):self.assertTrue((page/name).is_file())
   package=(root/'modern-ui/package-windows.py').read_text();self.assertIn("shutil.copytree(root/'phone-web',out/'phone-web')",package)
   js=(page/'phone.js').read_text();self.assertNotIn('localStorage',js);self.assertNotIn('sessionStorage',js);self.assertIn('window.isSecureContext',js);self.assertIn("window.addEventListener('pagehide'",js)
+
+ def test_native_acceptance_always_isolates_before_core_launch(self):
+  root=pathlib.Path(__file__).resolve().parents[1];s=(root/'modern-ui/native-smoke.py').read_text();self.assertLess(s.index("os.environ.setdefault('JARVIS_DATA_DIR'"),s.index("'--desktop-self-test'"))
