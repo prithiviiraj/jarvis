@@ -9,7 +9,7 @@ class CasualRouting(unittest.TestCase):
   self.assertFalse(local_turn([{'role':'system','content':'hi'},{'role':'user','content':'Explain physics'}]))
   self.assertTrue(local_turn([{'role':'user','content':'Hi'},{'role':'assistant','content':'Hello'}]))
  def test_voice_swap(self):
-  self.assertEqual(VOICES['LYRA'],'af_heart');self.assertEqual(VOICES['NOVA'],'am_puck')
+  self.assertEqual(VOICES['LYRA'],'af_heart');self.assertEqual(VOICES['DEX'],'am_fenrir')
 
  def test_casual_no_api_fallback_when_local_absent(self):
   from unittest.mock import Mock,patch
