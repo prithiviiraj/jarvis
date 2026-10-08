@@ -29,3 +29,16 @@ class KnowledgeTests(unittest.TestCase):
   with tempfile.TemporaryDirectory()as d:
    r=pathlib.Path(d);(r/'.obsidian').mkdir();(r/'a.md').write_text('safe')
    with self.assertRaises(ValueError):self.k.speak(r,row,True)
+
+ def test_long_note_uses_bounded_synthesis_chunks(self):
+  class StreamSpeaker(Speaker):
+   def prepare_stream(self,text,generation=None):
+    for i in range(0,len(text),120):yield text[i:i+120],b'pcm',24000
+   def play_prepared(self,prepared,generation=None):self.spoken.append(prepared[0])
+  self.k.close();speaker=StreamSpeaker();self.k=KnowledgeWorkspace(lambda:speaker);text='Source sentence. '*250;(self.root/'long.md').write_text(text);row=self.k.read(self.root,'long.md');self.k.speak(self.root,row,True).join();self.assertEqual(''.join(speaker.spoken),text);self.assertTrue(all(len(x)<=120 for x in speaker.spoken))
+ def test_stop_during_chunks_drops_following_source(self):
+  k=self.k
+  class StreamSpeaker(Speaker):
+   def prepare_stream(self,text,generation=None):yield 'first',b'pcm',24000;yield 'late',b'pcm',24000
+   def play_prepared(self,prepared,generation=None):self.spoken.append(prepared[0]);k.stop()
+  k.close();speaker=StreamSpeaker();k=self.k=KnowledgeWorkspace(lambda:speaker);(self.root/'a.md').write_text('long enough');row=k.read(self.root,'a.md');k.speak(self.root,row,True).join();self.assertEqual(speaker.spoken,['first'])
