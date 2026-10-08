@@ -20,7 +20,7 @@ def validate_steps(steps):
   out.append(dict(row))
  return out
 class DesktopEngine:
- def __init__(self,adapter):self.adapter=adapter;self.pending=None;self.cancel=threading.Event();self.state='off';self.completed=0;self.result='';self.lock=threading.RLock()
+ def __init__(self,adapter,clock=time.monotonic):self.clock=clock;self.review_deadline=0;self.adapter=adapter;self.pending=None;self.cancel=threading.Event();self.state='off';self.completed=0;self.result='';self.lock=threading.RLock()
  def prepare(self,target,steps,scope):
   if self.state=='running':raise ValueError('Stop and wait for the current desktop task')
   if not isinstance(target,dict)or set(target)!={'hwnd','pid','title','width','height'}or any(type(target[k])is not int or target[k]<=0 for k in ('hwnd','pid','width','height'))or not isinstance(target['title'],str):raise ValueError('Choose an observed exact window')
@@ -29,13 +29,14 @@ class DesktopEngine:
   for row in steps:
    if row['action']in ('move','click')and not(0<=row['x']<target['width']and 0<=row['y']<target['height']):raise ValueError('Coordinate outside reviewed window')
   if self.adapter.observe(target['hwnd'])!=target:raise ValueError('Window changed before review')
-  payload={'target':dict(target),'steps':steps,'scope':scope,'limits':'No secrets, credential fields, send/publish/pay/delete workflows. Mouse clicks can have effects; review exact targets.'};self.pending={'payload':payload,'sha256':hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()};self.state='review';return json.loads(json.dumps(self.pending))
+  payload={'target':dict(target),'steps':steps,'scope':scope,'limits':'No secrets, credential fields, send/publish/pay/delete workflows. Mouse clicks can have effects; review exact targets.'};self.pending={'payload':payload,'sha256':hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()};self.state='review';self.review_deadline=self.clock()+120;return json.loads(json.dumps(self.pending))
  def stop(self):
   self.cancel.set()
   if self.state=='review':self.pending=None;self.state='cancelled'
   self.result='Stopped. Already completed input cannot be undone.'
  def run(self,reviewed,confirm=False,effect_approved=False):
   if confirm is not True or effect_approved is not True or self.state!='review'or not self.pending or reviewed!=self.pending:raise ValueError('Review exact window, task and steps before input')
+  if self.clock()>=self.review_deadline:self.pending=None;self.state='expired';raise ValueError('Desktop review expired; observe and review window again')
   plan=json.loads(json.dumps(self.pending));target=plan['payload']['target'];self.cancel=threading.Event();self.completed=0;self.state='running'
   try:
    for row in plan['payload']['steps']:
