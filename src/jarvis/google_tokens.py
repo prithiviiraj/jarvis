@@ -16,12 +16,13 @@ class GoogleTokens:
  def key(email):
   from .connector_workflows import address
   return hashlib.sha256(address(email).casefold().encode()).hexdigest()
- def save(self,email,client_id,refresh_token,scopes,confirm=False):
+ def save(self,email,client_id,refresh_token,scopes,confirm=False,client_secret=None):
   if confirm is not True:raise ValueError('Verify account identity and reviewed Google grant before saving')
   if not isinstance(client_id,str)or not client_id.endswith('.apps.googleusercontent.com')or not isinstance(refresh_token,str)or not refresh_token or len(refresh_token)>700:raise ValueError('Invalid installed Google token')
   from .google_oauth import SCOPES
   if not isinstance(scopes,list)or not scopes or any(s not in SCOPES.values()for s in scopes):raise ValueError('Unreviewed Google scopes')
-  value=json.dumps({'client_id':client_id,'refresh_token':refresh_token,'scopes':scopes},separators=(',',':'))
+  if client_secret is not None and (not isinstance(client_secret,str)or not client_secret or len(client_secret)>500):raise ValueError('Invalid desktop client credential')
+  value=json.dumps({'client_id':client_id,'refresh_token':refresh_token,'scopes':scopes,'client_secret':client_secret},separators=(',',':'))
   self.secure().set(self.key(email),value);self.cache.pop(self.key(email),None)
  def request(self,payload):
   if self.transport:
@@ -47,7 +48,9 @@ class GoogleTokens:
    if cached and self.clock()<cached['until']:
     if required_scope not in cached['scopes']:raise ValueError('Google token scope changed; review authorization again')
     return cached['token']
-   result=self.request({'client_id':row['client_id'],'refresh_token':row['refresh_token'],'grant_type':'refresh_token'})
+   payload={'client_id':row['client_id'],'refresh_token':row['refresh_token'],'grant_type':'refresh_token'}
+   if row.get('client_secret'):payload['client_secret']=row['client_secret']
+   result=self.request(payload)
    if not isinstance(result,dict)or result.get('token_type','').lower()!='bearer'or not isinstance(result.get('access_token'),str)or not result['access_token']or any(c.isspace()for c in result['access_token'])or type(result.get('expires_in'))is not int or not 60<=result['expires_in']<=86400:raise ValueError('Google token response invalid')
    returned=result.get('scope')
    if returned is not None and (not isinstance(returned,str)or required_scope not in returned.split()or not set(returned.split()).issubset(set(row['scopes'])|{'openid','https://www.googleapis.com/auth/userinfo.email'})):raise ValueError('Google token scope changed; review authorization again')
