@@ -5,7 +5,7 @@ url='https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
 raw=urllib.request.urlopen(url,timeout=60).read(3000000)
 assert hashlib.sha256(raw).hexdigest()=='ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e'
 archive=notice/'lame-3.100.tar.gz';archive.write_bytes(raw)
-wrapper=root/'mp3-wrapper';cmake=wrapper/'CMakeLists.txt';text=cmake.read_text();original='https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download';assert text.count(original)==1;cmake.write_text(text.replace(original,archive.resolve().as_uri()))
+wrapper=root/'mp3-wrapper';cmake=wrapper/'CMakeLists.txt';text=cmake.read_text();original='https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download';assert text.count(original)==1;cmake.write_text(text.replace(original,str(archive.resolve()).replace(chr(92),'/')))
 # Include our sole local build change and all original build files, no .git internals.
 with tarfile.open(notice/'lameenc-1.8.1-corresponding-source.tar.gz','w:gz')as t:
  for p in wrapper.rglob('*'):
