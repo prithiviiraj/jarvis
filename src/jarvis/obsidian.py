@@ -25,7 +25,9 @@ class Vault:
   for item in [p,*p.parents]:
    if item==self.root:break
    if item.is_symlink():raise ValueError('Linked notes are excluded')
-  p=p.resolve(strict=must_exist)
+  if p.is_absolute() and not p.is_relative_to(self.root):raise ValueError('Note outside connected vault')
+  try:p=p.resolve(strict=must_exist)
+  except (OSError,RuntimeError):raise ValueError('Note missing or inaccessible')from None
   if not p.is_relative_to(self.root):raise ValueError('Note outside vault')
   return p
  def read(self,name):
