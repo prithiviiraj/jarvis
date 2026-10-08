@@ -3,7 +3,7 @@ import html,json,hashlib,uuid
 from .invoice_draft import draft
 from .connector_workflows import digest
 class InvoiceDocument:
- def __init__(self,root):self.root=root;self.pending=None;self.result=None;self.status='Invoice draft only';self.missing=[]
+ def __init__(self,root,opener=None):self.opener=opener;self.root=root;self.pending=None;self.result=None;self.status='Invoice draft only';self.missing=[]
  def prepare(self,facts):
   self.pending=None;self.missing=[];row=draft(facts)
   if row['state']=='needs-details':self.missing=row['missing'];self.status='Missing invoice details; no document created';return row
@@ -20,5 +20,16 @@ class InvoiceDocument:
   with p.open('x',encoding='utf-8')as f:f.write(raw)
   if p.read_text(encoding='utf-8')!=raw:raise ValueError('Saved draft readback mismatch')
   self.result={'path':str(p),'sha256':hashlib.sha256(raw.encode()).hexdigest(),'invoice_number':self.pending['document']['invoice']['invoice_number'],'scope':'Local HTML draft with print layout. No invoice issued, delivered or payment requested.'};self.pending=None;self.status='Local invoice draft saved and read back';return dict(self.result)
+ def open_saved(self,reviewed,confirm=False):
+  if confirm is not True or not self.result or reviewed!=self.result:raise ValueError('Review saved local draft before opening')
+  from pathlib import Path
+  p=Path(self.result['path'])
+  if p.is_symlink()or p.parent.resolve()!=self.root.resolve()or hashlib.sha256(p.read_bytes()).hexdigest()!=self.result['sha256']:raise ValueError('Saved invoice draft changed')
+  if self.opener:self.opener(p)
+  else:
+   import os
+   if os.name!='nt':raise ValueError('Local draft opening is supported on Windows')
+   os.startfile(str(p))
+  self.status='Local draft opened. Printing is optional; no invoice delivered.'
  def cancel(self):self.pending=None;self.missing=[];self.status='Invoice draft stopped'
- def snapshot(self):return {'pending':json.loads(json.dumps(self.pending)),'result':self.result,'status':self.status,'missing':list(self.missing),'scope':'Owner-entered invoice draft only. No inferred tax/terms, external delivery or payment collection.'}
+ def snapshot(self):return {'pending':json.loads(json.dumps(self.pending)),'result':json.loads(json.dumps(self.result)),'status':self.status,'missing':list(self.missing),'scope':'Owner-entered invoice draft only. No inferred tax/terms, external delivery or payment collection.'}
