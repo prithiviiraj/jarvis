@@ -64,7 +64,18 @@ def run():
    return events[url.rsplit('/',1)[-1]]
   with tempfile.TemporaryDirectory()as folder:
    ledger=Path(folder)/'calendar.json';calendar=GoogleCalendar(connection,ledger,calendar_transport,lambda t:{'email':email,'email_verified':True});review=calendar.prepare('Fixture solo bookkeeping','2026-10-08T17:00:00+05:30','2026-10-08T17:30:00+05:30');calendar.submit(review,True);calendar.worker.join(5);assert calendar.snapshot()['state']=='completed',calendar.snapshot();assert len(calendar_posts)==1 and calendar_posts[0]['attendees']==[] and not calendar_posts[0]['reminders']['useDefault'];assert GoogleCalendar(connection,ledger,calendar_transport).snapshot()['state']=='completed'
+  from .google_queries import GoogleQueries
+  tokens.save(email,client,'fixture-refresh',[SCOPES['drive-metadata-read'],SCOPES['sheets-read']],True,secret)
+  tokens.transport=lambda p:{'access_token':'fixture-workspace','token_type':'Bearer','expires_in':3600,'scope':SCOPES['drive-metadata-read']+' '+SCOPES['sheets-read']}
+  workspace_calls=[]
+  def workspace_transport(method,url,payload):
+   workspace_calls.append((method,url,payload))
+   assert method=='GET'and payload is None
+   if '/drive/v3/files?'in url:return {'files':[{'id':'fixture_sheet','name':'Controlled sheet','mimeType':'application/vnd.google-apps.spreadsheet'}],'nextPageToken':'partial'}
+   assert '/fixture_sheet/values/Sheet1%21A1%3AB2?'in url
+   return {'range':'Sheet1!A1:B2','majorDimension':'ROWS','values':[['External fixture',2],[3,4]]}
+  reads=GoogleQueries(connection,workspace_transport);reads.start('drive-list',{'query':'fixture'},True);reads.worker.join(5);assert not reads.error and not reads.result['complete'];reads.start('sheets-values',{'file_id':'fixture_sheet','range':'Sheet1!A1:B2'},True);reads.worker.join(5);assert not reads.error and reads.result['values'][1][1]==4;assert len(workspace_calls)==2;reads.stop();assert reads.result is None
   connection.disconnect(True);assert not store.status(key)['present'];connection.stop()
-  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False}
+  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False}
   Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-google-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(key);store.delete(probe)
