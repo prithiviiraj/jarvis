@@ -54,7 +54,17 @@ def run():
    return fixture_sent
   with tempfile.TemporaryDirectory()as folder:
    ledger=Path(folder)/'mail.json';mail=GoogleMail(connection,ledger,mail_transport);review=mail.prepare(['friend@example.invalid'],'Fixture review','Exact fixture words');mail.submit(review,True);mail.worker.join(5);assert mail.snapshot()['state']=='completed',mail.snapshot();assert len(fixture_posts)==1;assert GoogleMail(connection,ledger,mail_transport).snapshot()['state']=='completed'
+  from .google_calendar import GoogleCalendar
+  tokens.save(email,client,'fixture-refresh',[SCOPES['calendar-write-owned'],SCOPES['calendar-freebusy']],True,secret)
+  tokens.transport=lambda p:{'access_token':'fixture-calendar','token_type':'Bearer','expires_in':3600,'scope':SCOPES['calendar-write-owned']+' '+SCOPES['calendar-freebusy']}
+  events={};calendar_posts=[]
+  def calendar_transport(method,url,payload):
+   if url.endswith('/freeBusy'):return {'calendars':{'primary':{'busy':[]}}}
+   if method=='POST':calendar_posts.append(payload);events[payload['id']]=dict(payload,status='confirmed');return events[payload['id']]
+   return events[url.rsplit('/',1)[-1]]
+  with tempfile.TemporaryDirectory()as folder:
+   ledger=Path(folder)/'calendar.json';calendar=GoogleCalendar(connection,ledger,calendar_transport,lambda t:{'email':email,'email_verified':True});review=calendar.prepare('Fixture solo bookkeeping','2026-10-08T17:00:00+05:30','2026-10-08T17:30:00+05:30');calendar.submit(review,True);calendar.worker.join(5);assert calendar.snapshot()['state']=='completed',calendar.snapshot();assert len(calendar_posts)==1 and calendar_posts[0]['attendees']==[] and not calendar_posts[0]['reminders']['useDefault'];assert GoogleCalendar(connection,ledger,calendar_transport).snapshot()['state']=='completed'
   connection.disconnect(True);assert not store.status(key)['present'];connection.stop()
-  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'calendar_changed':False}
+  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False}
   Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-google-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(key);store.delete(probe)
