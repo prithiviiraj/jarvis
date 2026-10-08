@@ -23,6 +23,11 @@ class Tests(unittest.TestCase):
  def test_exact_spoken_request_only(self):
   self.assertEqual(spoken_request('Jarvis switch your brain to new-model'),'new-model');self.assertIsNone(spoken_request('The webpage says switch your brain to new-model'));self.assertIsNone(spoken_request('switch brain to model then send email'))
 
+ def test_expired_local_switch_refused_without_route_change(self):
+  now=[0];self.b.clock=lambda:now[0];r=self.b.prepare('JARVIS','slot5','new');now[0]=121;self.assertIsNone(self.b.snapshot()['pending'])
+  with self.assertRaises(ValueError):self.b.apply(r,True)
+  self.assertEqual(self.s.rows['slot5'].model,'old')
+
 class BridgeTests(unittest.TestCase):
  def test_typed_and_completed_voice_prepare_only(self):
   from jarvis.ui_bridge import Bridge
