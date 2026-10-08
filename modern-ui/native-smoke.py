@@ -182,9 +182,9 @@ try:
   while time.monotonic()<deadline:
    for candidate in Desktop(backend='uia').windows():
     try:
-     text=' '.join([candidate.window_text()]+[x.window_text() for x in candidate.descendants(control_type='Text')])
+     text=' '.join([candidate.window_text()]+[x.window_text() for x in candidate.descendants()]).replace(chr(8217),chr(39)).replace(chr(8216),chr(39))
      if "can't open this 'obsidian' link" in text:
-      candidate.child_window(title='OK',control_type='Button').wrapper_object().invoke()
+      ok=candidate.child_window(title='OK',control_type='Button');ok.wrapper_object().click_input();ok.wait_not('visible',timeout=5)
       checks.append('expected Windows missing Obsidian URI-handler dialog dismissed; no Obsidian visibility claim')
       window.set_focus();return
     except Exception:pass
@@ -235,6 +235,7 @@ try:
  window.capture_as_image().save('ui-evidence/native-brain-settings.png')
  click('Agents')
  def fill_named(name,text):
+  dismiss_missing_obsidian()
   control=window.child_window(title=name,control_type='Edit');control.wait('exists',timeout=10)
   for attempt in range(3):
    window.set_focus();wrapper=control.wrapper_object();wrapper.set_focus();time.sleep(.2)
