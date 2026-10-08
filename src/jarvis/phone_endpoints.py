@@ -25,6 +25,7 @@ class PhoneEndpoints:
    if path=='/phone/pair-result':
     if set(data)!={'claim'}or not self.claim or data['claim']!=self.claim or self.clock()>=self.claim_deadline:raise ValueError('Phone claim expired or invalid')
     if not self.delivery:return {'waiting':True}
+    self.controller.session.authorize(self.delivery)
     result={'token':self.delivery};self.delivery=None;self.claim=None;self.pending=None;return result
    self.controller.session.authorize(token)
    if path=='/phone/turn':
