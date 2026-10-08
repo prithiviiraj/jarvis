@@ -34,7 +34,7 @@ class SourceAnswer:
     if cancel.is_set():return
     if p['model']not in [m['id']for m in self.discover()]:raise ValueError('Exact model not loaded')
     row=self.generate(p['model'],p['question'],note,cancel)
-    if not isinstance(row,dict)or row.get('model')!=p['model']or not isinstance(row.get('text'),str)or not row['text'].strip()or len(row['text'])>6000:raise ValueError('No bounded exact-model draft returned')
+    if not isinstance(row,dict)or row.get('cloud')is True or row.get('model')!=p['model']or not isinstance(row.get('text'),str)or not row['text'].strip()or len(row['text'])>6000:raise ValueError('No bounded exact-model draft returned')
     if hashlib.sha256(vault.read(note['name']).encode()).hexdigest()!=note['sha256']:raise ValueError('Source changed during generation; draft discarded')
     with self.lock:
      if ticket!=self.generation or cancel.is_set():return
