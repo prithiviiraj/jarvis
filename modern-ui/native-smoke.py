@@ -111,13 +111,22 @@ try:
   tiles=('Laya activate','Camera','Live screen','Proactive')
   pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
   item=(root or window).child_window(title_re=pattern,control_type='Button');item.wait('exists',timeout=20);return item
+ def focus_workspace():
+  # Edge startup can steal focus after an earlier successful set_focus.
+  # Verify the OS foreground owner immediately before every mouse action.
+  for _ in range(15):
+   window.set_focus()
+   if ctypes.windll.user32.GetForegroundWindow()==window.handle:return
+   time.sleep(.1)
+  raise RuntimeError('JARVIS workspace could not acquire foreground for native input')
  def reveal_field(control):
-  window.set_focus()
+  focus_workspace()
   # Settings pane keeps scroll across sub-page changes. Start at its top, then
   # use actual UIA bounds in either direction; never scroll blindly downward.
   control.wait('exists',timeout=15)
   mouse.scroll(coords=(760,450),wheel_dist=40);time.sleep(.2)
   for _ in range(24):
+   focus_workspace()
    wrapper=control.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
    if wrapper.is_visible() and rect.top>bounds.top+160 and rect.bottom<bounds.bottom-65:
     wrapper.set_focus();return
@@ -133,11 +142,12 @@ try:
   toggle=window.child_window(title='Expand advanced browser controls',control_type='Button')
   toggle.wait('exists',timeout=10)
   for _ in range(18):
+   focus_workspace()
    wrapper=toggle.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
    if rect.top>bounds.top+120 and rect.bottom<bounds.bottom-65:break
    mouse.scroll(coords=(760,450),wheel_dist=-3 if rect.bottom>=bounds.bottom-65 else 3);time.sleep(.2)
   else:raise RuntimeError('Advanced summary outside viewport')
-  toggle.wrapper_object().click_input()
+  focus_workspace();toggle.wrapper_object().click_input()
  def click(name,root=None):
   # Navigation changed, effects/reviews remain real native controls.
   if name=='Add local draft':name='Send message'
