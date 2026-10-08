@@ -1,16 +1,16 @@
 # Required video feature coverage
 
-Owner steering8October2026: all features from both reference videos are required. This is a gap list, not a finished-parity claim. Preserve working API area, Obsidian connection/data, five agents and Kokoro while filling it.
+Owner steering8October2026: all features from both reference videos are required. This is a gap list, not a finished-parity claim. Preserve working API area, Obsidian connection/data, JARVIS leader, LYRA and DEX and Kokoro while filling it.
 
 Sources: https://www.youtube.com/watch?v=zdnijkAbknA&t=60s and https://www.youtube.com/watch?v=D5v4UuvtUXc&t=452s . Full audio plus sampled visuals were reviewed, not every frame. Telephone business calling, some modes, broad tool stack and cost/speed claims are partly presenter descriptions, not audited completed flows.
 
 | Feature | Current coverage | Required work |
 | --- | --- | --- |
-| Desktop typed/spoken conversation and five agents | Present in source/UI | Keep; device audio acceptance |
+| Desktop typed/spoken conversation and JARVIS leader, LYRA and DEX | Present in source/UI | Keep; device audio acceptance |
 | Local Obsidian notes and exact/text search | Present | Keep; preserve owner data |
 | Practical knowledge graph and note focus | Partial | Depth projection and exact source-ID focus implemented in phase2; native acceptance pending. Complete indexed discovery and semantic answer/graph synchronization remain. Source speech capture implemented, device acceptance pending |
 | Found-note read-aloud | Partial | Reviewed source-backed read-aloud handoff implemented; native/device speech acceptance pending |
-| Phone call alerts and call-to-desk continuation | Missing | Free/provider research, telephony runtime, scoped handoff |
+| Phone call alerts and call-to-desk continuation | Missing - high priority | Owner8October11:58:35 said phone calls are important. Research free internet call vs PSTN/mobile/provider costs separately; telephony runtime and scoped handoff |
 | Business/restaurant phone agents | Missing | Purpose flows and accountable confirmations |
 | Live-calendar conflict check and booking | Missing | External calendar connector; local Markdown calendar is not a substitute |
 | Telegram completion text and voice | Missing | Verified bot/account route and consented recipient scope |
