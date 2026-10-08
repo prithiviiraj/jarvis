@@ -24,11 +24,17 @@ class NewsSpeech:
       return
      self.speaker=candidate;voice_ticket=candidate.generation;self.status='Reading quoted page text locally'
     # External text goes only to a local speech engine, never an LLM/tool dispatcher.
-    if valid():candidate.speak(text,generation=voice_ticket)
+    if valid():
+     if callable(getattr(type(candidate),'prepare_stream',None))and callable(getattr(type(candidate),'play_prepared',None)):
+      for prepared in candidate.prepare_stream(text,generation=voice_ticket):
+       if not valid():break
+       candidate.play_prepared(prepared,generation=voice_ticket)
+     else:candidate.speak(text,generation=voice_ticket)
     with self.lock:
      if ticket==self.generation:self.status='Reading finished' if valid() else 'Page changed; reading stopped'
    except Exception:
-    with self.lock:self.status='Local reading unavailable; no download or cloud fallback'
+    with self.lock:
+     if ticket==self.generation:self.status='Local reading unavailable; no download or cloud fallback'
    finally:
     with self.lock:self.busy=False
   thread=threading.Thread(target=work,daemon=True);self.worker=thread;thread.start();return thread
