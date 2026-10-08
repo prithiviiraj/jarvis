@@ -222,7 +222,7 @@ try:
  assert not button('Check five questions, do not execute').is_enabled();click('Stop Reflex and clear evidence');window.capture_as_image().save('ui-evidence/native-reflex-inert.png')
  phone_origin=window.child_window(title='Private HTTPS phone origin',control_type='Edit');reveal_field(phone_origin)
  assert not button('Review private TLS listener').is_enabled();click('Stop phone session');window.capture_as_image().save('ui-evidence/native-phone-tls-inert.png')
- reveal_field(button('Review recent phone text for desktop'));assert not button('Review recent phone text for desktop').is_enabled();assert 'End phone and copy exact text to unsent input'not in ui_text();window.capture_as_image().save('ui-evidence/native-phone-handoff-inert.png')
+ reveal_field(button('Stop phone session'));assert not button('Review recent phone text for desktop').is_enabled();assert 'End phone and copy exact text to unsent input'not in ui_text();time.sleep(.5);window.capture_as_image().save('ui-evidence/native-phone-handoff-inert.png')
  checks.append('native phone-to-desktop exact-text preparation disabled without paired session; no automatic history copy, chat or speech')
  checks.append('native source answer/local switch/Watch/Reflex/phone TLS inert controls and IPC Stop; no inference/capture/listener')
  focus_goal=window.child_window(title='Focus goal',control_type='Edit');reveal_field(focus_goal);assert 'Focus off'in ui_text();window.capture_as_image().save('ui-evidence/native-focus-inert.png');checks.append('native focus timer off on launch, no sensors/speech/notification')
