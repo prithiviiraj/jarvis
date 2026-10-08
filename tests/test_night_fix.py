@@ -27,8 +27,8 @@ class NightFix(unittest.TestCase):
   runtime.enable.side_effect=lambda **kw:self.assertIs(runtime.action_handler,handler)
   voice.start(True).join(2);runtime.enable.assert_called_once();voice.close()
  def test_partner_not_own(self):
-  m=messages('NOVA','lyra and NOVA talk with each other about this',[{'role':'assistant','content':'[LYRA] Nova, we should help.'}],1)
-  self.assertIn('Current speaker: NOVA. Address LYRA, not yourself',m[0]['content']);self.assertEqual(m[1]['role'],'user');self.assertIn('[LYRA]',m[1]['content'])
+  m=messages('DEX','lyra and DEX talk with each other about this',[{'role':'assistant','content':'[LYRA] Dex, we should help.'}],1)
+  self.assertIn('Current speaker: DEX. Address LYRA, not yourself',m[0]['content']);self.assertEqual(m[1]['role'],'user');self.assertIn('[LYRA]',m[1]['content'])
  def test_removed_engines(self):
   with tempfile.TemporaryDirectory()as t:
    p=Path(t)/'v.json';v=VoicePreferences(p)
@@ -100,7 +100,7 @@ class AdditionalGates(unittest.TestCase):
    for _ in range(100):
     if not b.evolution_busy:break
     time.sleep(.01)
-   b.evolution.generate.assert_called_once();self.assertEqual(b.laya_support['surface'],'browser');self.assertEqual([m['name']for m in b.messages[1:3]],['SILA','DEX']);self.assertIn('not install',' '.join(m['text']for m in b.messages));self.assertIsNone(b.evolution.pending);b.activation_action('deactivate laya');self.assertIsNone(b.laya_support)
+   b.evolution.generate.assert_called_once();self.assertEqual(b.laya_support['surface'],'browser');self.assertEqual([m['name']for m in b.messages[1:3]],['DEX','DEX']);self.assertIn('not install',' '.join(m['text']for m in b.messages));self.assertIsNone(b.evolution.pending);b.activation_action('deactivate laya');self.assertIsNone(b.laya_support)
   finally:b.close()
  def test_setup_cannot_reach_removed_engine_even_corrupt_state(self):
   b=Bridge(WorkspaceVoice());b.voice.tts_engine='kitten';b.setup.start=Mock()
@@ -114,5 +114,5 @@ class SupportScope(unittest.TestCase):
   b=Bridge(WorkspaceVoice());b.evolution.generate=Mock()
   try:
    b.activation_action('activate laya');b.support_gap('browser','Brave adapter not implemented')
-   text=next(m['text']for m in b.messages if m['name']=='SILA'and 'adapter' in m['text']);self.assertIn('check pannala',text);self.assertIn('Master',text)
+   text=next(m['text']for m in b.messages if m['name']=='DEX'and 'adapter' in m['text']);self.assertIn('check pannala',text);self.assertIn('Master',text)
   finally:b.close()
