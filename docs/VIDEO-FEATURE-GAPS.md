@@ -53,3 +53,5 @@ Observed CI references:
 - https://github.com/prithiviiraj/jarvis/actions/runs/37786474394
 - https://github.com/prithiviiraj/jarvis/actions/runs/37787821349
 - https://github.com/prithiviiraj/jarvis/actions/runs/37788650414
+
+Focus update: local reviewed goal/duration timer, pause/resume, visible check-in, self-reported done/not-done and Stop implemented. No sensing, automatic spoken accountability, OS notification or persistence. Local1054tests/6skips and renderer pixels pass; native frozen acceptance pending. This is scoped focus support, not complete reference parity.
