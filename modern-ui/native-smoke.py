@@ -230,6 +230,10 @@ try:
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
  drive_read=window.child_window(title='Review Drive metadata read',control_type='Button');reveal_field(drive_read);assert not drive_read.is_enabled()
  sheets_read=window.child_window(title='Review Sheets values read',control_type='Button');assert not sheets_read.is_enabled()
+ reveal_field(window.child_window(title='Write spreadsheet ID',control_type='Edit'))
+ assert not button('Capture sheet identity and prior cells').is_enabled(), 'Sheet overwrite review enabled without account/write scope'
+ assert 'Confirm exact cell overwrite'not in ui_text(), 'Sheet final confirmation without prior/new cells review'
+ window.capture_as_image().save('ui-evidence/native-sheets-write-inert.png');checks.append('native RAW sheet update inert without account/write scope; no live cells changed')
  reveal_field(window.child_window(title='Spreadsheet ID',control_type='Edit'))
  window.capture_as_image().save('ui-evidence/native-drive-sheets-inert.png');checks.append('native Drive/Sheets reviewed-read controls inert without account; no real read/write/download')
  gmail_to=window.child_window(title='Gmail To addresses',control_type='Edit');reveal_field(gmail_to)
