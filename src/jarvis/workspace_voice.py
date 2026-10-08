@@ -7,7 +7,7 @@ from .personas import ROLES
 
 def banter_wait(stop,interval):return stop.wait(interval)
 
-VOICES = {'JARVIS':'am_michael','NOVA':'am_puck','SILA':'am_liam','LYRA':'af_heart','DEX':'am_fenrir'}
+VOICES = {'JARVIS':'am_michael','LYRA':'af_heart','DEX':'am_fenrir'}
 
 class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
@@ -166,7 +166,7 @@ class WorkspaceVoice:
                     if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(topic)
                     instruction=('Conclude using only this actual conversation. Give master the useful answer, no routine report label.'if index==len(actors)-1 else 'Round '+str(index//len(members)+1)+': reply only as '+name+' in1to2short sentences (at most45words). React to actual preceding teammates, ask or challenge one point, then add something useful. Never write another profile dialogue. Teasing or disagreement only if invited, no invented mistakes or private knowledge.')
                     if not direct:request[-1]['content']+='\n'+instruction
-                    if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. Begin your first turn with your own name and a short in-character presence greeting. In later turns react to a real preceding teammate instead of reintroducing yourself. Show lively involvement with one playful observation, brief affectionate LYRA/master greeting or friendly NOVA disagreement as your persona fits; no forced conflict, demands or invented facts. Never announce another profile as yourself. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
+                    if origin=='idle':request[-1]['content']=request[-1]['content'].replace('Master requested a SHORT team conversation:', 'Opt-in idle conversation topic:');request[-1]['content']+=' This is opt-in idle fictional conversation, not a new user request. Begin your first turn with your own name and a short in-character presence greeting. In later turns react to a real preceding teammate instead of reintroducing yourself. Show lively involvement with one playful observation, brief affectionate LYRA/master greeting or friendly DEX disagreement as your persona fits; no forced conflict, demands or invented facts. Never announce another profile as yourself. No tools, independent work or private facts. Keep it light, non-invasive, stop rather than invent.'
                     return request
                 for index,name in enumerate(actors):
                     if cancel.is_set()or self.closed or ticket!=self.generation:return
@@ -269,7 +269,7 @@ class WorkspaceVoice:
                     if cancel.is_set():return
                     speaker.playback_event=lambda event,text,name,sr,samples:self.notify('speech-caption',{'active':event=='start','text':text,'name':name or 'JARVIS','at':__import__('time').monotonic(),'duration_s':samples/sr if sr else 0})
                 ordered=[]
-                for name in ('NOVA','SILA','LYRA','DEX','JARVIS'):
+                for name in ('LYRA','DEX','JARVIS'):
                     if cancel.is_set():return
                     if name not in results:continue
                     answer=results[name];answer['text']=strip_speaker_tag(answer['text']);ordered.append({'role':'assistant','content':'['+name+'] '+answer['text']})
@@ -296,10 +296,10 @@ class WorkspaceVoice:
                     if ticket==self.generation:self.busy=False
                     if not self.closed and ticket==self.generation:self.notify('state','off')
         worker=threading.Thread(target=run,daemon=True);worker.start();return worker
-    def team_round(self,topic,names=('NOVA','JARVIS')):
+    def team_round(self,topic,names=('DEX','JARVIS')):
         """Explicit two-to-five-profile local text round. Not autonomous or audible."""
         if not isinstance(topic,str) or not topic.strip() or len(topic)>1000:raise ValueError('Type a topic up to1000characters.')
-        if not isinstance(names,tuple) or not 2<=len(names)<=5 or len(set(names))!=len(names) or any(n not in VOICES for n in names):raise ValueError('Choose2to5different known profiles.')
+        if not isinstance(names,tuple) or not 2<=len(names)<=3 or len(set(names))!=len(names) or any(n not in VOICES for n in names):raise ValueError('Choose2to3different known profiles.')
         with self.lock:
             if self.closed or self.busy or self.runtime is not None:raise RuntimeError('Pause voice and wait for the current conversation first.')
             self.busy=True;self.generation+=1;ticket=self.generation;initial_context=self.memory.messages()
@@ -334,7 +334,7 @@ class WorkspaceVoice:
         """Opt-in bounded local text session. No mic, cloud, tools or sensing."""
         if consent is not True:raise ValueError('Banter session consent required.')
         if not isinstance(topic,str) or not topic.strip() or len(topic)>1000:raise ValueError('Type a topic up to1000characters.')
-        if not isinstance(names,tuple) or not 2<=len(names)<=5 or len(set(names))!=len(names) or any(n not in VOICES for n in names):raise ValueError('Choose2to5different known profiles.')
+        if not isinstance(names,tuple) or not 2<=len(names)<=3 or len(set(names))!=len(names) or any(n not in VOICES for n in names):raise ValueError('Choose2to3different known profiles.')
         if type(turn_limit) is not int or not 2<=turn_limit<=12:raise ValueError('Choose2to12turns.')
         if type(interval) is not int or not 2<=interval<=30:raise ValueError('Choose2to30seconds between turns.')
         with self.lock:
@@ -438,7 +438,7 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         speaker=KokoroSpeaker(synth)
         speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
         speaker.select_profile(name)
-        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. NOVA secretary. SILA researcher. LYRA writer. DEX coder.',language='en'),router,speaker,notify)
+        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language='en'),router,speaker,notify)
         runtime.streaming=True;runtime.persona=name
         # No closure over runtime.close: that cycle delays native engine disposal.
         runtime.close_hook=g2p.close if g2p else lambda:None
