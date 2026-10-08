@@ -5,5 +5,5 @@ class Tests(unittest.TestCase):
   old=os.getcwd()
   with tempfile.TemporaryDirectory()as folder:
    try:
-    os.chdir(folder);run();row=json.loads(pathlib.Path('ui-evidence/frozen-local-draft-contracts.json').read_text());self.assertFalse(row['frozen_executable']);self.assertTrue(row['synthetic_text_only']);self.assertTrue(row['synthetic_source_answer_attribution_cloud_reject']);self.assertTrue(row['synthetic_brain_switch_exact_route_cloud_reject']);self.assertIn('carrier calling',row['unrun']);self.assertIn('physical phone',row['unrun'])
+    os.chdir(folder);run();row=json.loads(pathlib.Path('ui-evidence/frozen-local-draft-contracts.json').read_text());self.assertFalse(row['frozen_executable']);self.assertTrue(row['synthetic_text_only']);self.assertTrue(row['synthetic_source_answer_attribution_cloud_reject']);self.assertTrue(row['synthetic_brain_switch_exact_route_cloud_reject']);self.assertTrue(row['real_default_source_switch_callback_transport_mock_contract']);self.assertIn('carrier calling',row['unrun']);self.assertIn('physical phone',row['unrun'])
    finally:os.chdir(old)
