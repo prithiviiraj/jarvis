@@ -221,8 +221,8 @@ try:
  assert not button('Prepare solo event review').is_enabled(), 'Calendar review enabled without connected account'
  window.capture_as_image().save('ui-evidence/native-gcal-inert.png')
  checks.append('native solo calendar review form disabled without connected account; no event creation started')
- project_read=window.child_window(title='Review GitHub source read',control_type='Button');assert not project_read.is_enabled()
  reveal_field(window.child_window(title='Project identity',control_type='Edit'))
+ project_read=window.child_window(title='Review GitHub source read',control_type='Button');assert not project_read.is_enabled()
  window.capture_as_image().save('ui-evidence/native-project-read-inert.png');checks.append('native GitHub/Notion read panel inert; no token or external access')
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
