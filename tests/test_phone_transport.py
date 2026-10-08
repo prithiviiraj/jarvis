@@ -47,3 +47,12 @@ class Tests(unittest.TestCase):
   review=self.prepare();self.t.pending['not_after']=0
   with self.assertRaisesRegex(ValueError,'full session'):self.t.start(review,True,True)
   self.assertIsNone(self.t.server)
+
+ def test_stop_during_certificate_read_cannot_revive_review(self):
+  from unittest.mock import patch
+  original=self.t.certificate
+  def certificate(path):
+   result=original(path);self.t.stop();return result
+  with patch.object(self.t,'certificate',side_effect=certificate):
+   with self.assertRaisesRegex(ValueError,'stopped'):self.prepare()
+  self.assertEqual(self.t.state,'off');self.assertIsNone(self.t.pending);self.assertIsNone(self.t.server)
