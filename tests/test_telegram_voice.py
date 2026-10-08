@@ -35,3 +35,10 @@ class WorkflowTests(output.Tests):
   j=TelegramOutput(self.c,self.path,self.send,TelegramVoice(Speaker(),Encoder));j.prepare_voice('Words');j.worker.join(2);r=j.snapshot()['plan'];r['payload']['audio']['audio_sha256']='changed'
   with self.assertRaises(ValueError):j.submit(r,True)
   self.assertFalse(self.calls)
+ def test_snapshot_cannot_mutate_durable_audio_review(self):
+  j=TelegramOutput(self.c,self.path,self.send,TelegramVoice(Speaker(),Encoder));j.prepare_voice('Words');j.worker.join(2);r=j.snapshot()['plan'];r['payload']['audio']['audio_sha256']='changed';self.assertNotEqual(j.snapshot()['plan']['payload']['audio']['audio_sha256'],'changed')
+ def test_stop_during_voice_render_no_late_review(self):
+  ready=threading.Event();release=threading.Event()
+  class Delayed:
+   def render(self,text,cancel):ready.set();release.wait(2);return TelegramVoice(Speaker(),Encoder).render(text,cancel)
+  j=TelegramOutput(self.c,self.path,self.send,Delayed());j.prepare_voice('Words');self.assertTrue(ready.wait(2));j.stop();release.set();j.worker.join(2);self.assertIsNone(j.snapshot()['plan']);self.assertFalse(self.calls)
