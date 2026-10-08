@@ -110,5 +110,9 @@ class SheetsWrite:
   self.generation+=1
   if self.ledger and self.ledger.job.state in ('review','submitting','uncertain'):self.ledger.cancel()
  def snapshot(self):
-  if self.ledger is None and self.path.exists():self.journal()
-  return {'busy':self.busy,'error':self.error,**(self.ledger.snapshot()if self.ledger else {'state':'idle','plan':None,'result':None})}
+  try:
+   if self.ledger is None and self.path.exists():self.journal()
+   state=self.ledger.snapshot()if self.ledger else {'state':'idle','plan':None,'result':None}
+  except Exception:
+   state={'state':'blocked','plan':None,'result':None};self.error='Local sheet ledger invalid. Preserve it and inspect external state; no action or retry.'
+  return {'busy':self.busy,'error':self.error,**state}
