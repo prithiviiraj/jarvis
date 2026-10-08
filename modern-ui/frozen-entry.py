@@ -8,6 +8,9 @@ if __name__ == '__main__':
     elif len(sys.argv)==2 and sys.argv[1]=='--desktop-self-test':
         from jarvis.desktop_acceptance import run
         run()
+    elif len(sys.argv)==2 and sys.argv[1]=='--telegram-self-test':
+        from jarvis.telegram_acceptance import run
+        run()
     elif len(sys.argv)==2 and sys.argv[1]=='--google-self-test':
         from jarvis.google_acceptance import run
         run()
