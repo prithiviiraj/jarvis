@@ -29,7 +29,10 @@ class GoogleLoopback:
    def do_POST(self):self.reply(405,b'Method not supported.')
    def reply(self,status,body):
     self.send_response(status);self.send_header('Content-Type','text/plain; charset=utf-8');self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store');self.send_header('Referrer-Policy','no-referrer');self.send_header('Content-Security-Policy',"default-src 'none'");self.send_header('Connection','close');self.end_headers();self.wfile.write(body)
-  server=http.server.HTTPServer(('127.0.0.1',0),Handler);server.timeout=.2
+  class Server(http.server.HTTPServer):
+   def get_request(self):
+    sock,peer=super().get_request();sock.settimeout(.25);return sock,peer
+  server=Server(('127.0.0.1',0),Handler);server.timeout=.2
   try:result=self.auth.begin(client_id,server.server_port,grants,email,consent)
   except Exception:server.server_close();raise
   with self.lock:self.server=server;self.deadline=self.clock()+300;ticket=self.generation
