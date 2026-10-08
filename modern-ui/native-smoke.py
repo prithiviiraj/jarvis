@@ -203,6 +203,10 @@ try:
  button('Registered desktop client').wait('exists',timeout=10)
  window.capture_as_image().save('ui-evidence/native-google-connection-inert.png')
  click('Stop Google connection');checks.append('native Google account/scopes panel inert on launch, Stop via actual IPC; no real OAuth opened')
+ gmail_to=window.child_window(title='Gmail To addresses',control_type='Edit');reveal_field(gmail_to)
+ assert not button('Prepare Gmail review').is_enabled(), 'Gmail review enabled without connected account'
+ window.capture_as_image().save('ui-evidence/native-gmail-inert.png')
+ checks.append('native Gmail review form disabled without connected account; no send started')
  # Actual fixed Windows app launch: review before execution, window observed.
  click('Settings');click('Advanced');click('Advanced browser controls');click('Review app launch permission');click('Confirm app permission')
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
