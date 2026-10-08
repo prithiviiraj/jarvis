@@ -52,3 +52,21 @@ Sources checked8October2026:
 - https://docs.github.com/en/rest/repos/contents#get-repository-content
 - https://developers.notion.com/reference/get-self
 - https://developers.notion.com/reference/get-block-children
+
+## Current bounded write additions,8October evening
+
+The earlier read-track paragraphs describe their first implementation, not the current complete surface. Current optional reviewed actions add:
+
+- GitHub: one issue at exact verified login/repository/title/body, separate Issues-write token permission, repository notification warning,120second review, POST plus GET readback. No PR/code change.
+- Notion: replace one existing plain leaf paragraph, exact bot/block/parent/prior edit/prior/new words. Separate update-content capability. No rich text, nested content, creation, deletion or append.
+- Sheets: finite100cell/8KBRAW text overwrite, exact account/spreadsheet/tab numeric ID/prior/new cells, separate broad spreadsheets write grant. Empty strings clear; formula-looking strings remain text. Live prior recheck then PUT/GET. Concurrent write after recheck remains possible and is disclosed.
+- Drive: one small UTF8.txt at verified unshared owned My Drive root, separate drive.file and restricted metadata grants, preallocated ID and owner-only permissions/checksum readback. No shared folder, existing-file overwrite, arbitrary laptop upload or automatic opening. Actual root metadata/permissions availability under grants remains unverified, fail closed.
+- Calendar to Telegram: explicit live recheck of exact completed solo event, account/title/dates/location only, notes omitted, then existing exact bot/chat/words draft review. No automatic output, voice, background trigger, Zapier account or restaurant/business booking proof.
+
+All write outcomes are durable and uncertain outcomes block automatic retries. Corrupt evidence ledgers stay blocked rather than breaking unrelated status. Actual connected account setup and live consent/read/write acceptance remain dependencies. Controlled frozen Windows fixtures prove software contracts, not provider access or owner hardware.
+
+Official write API sources:
+https://docs.github.com/en/rest/issues/issues
+https://developers.notion.com/reference/update-a-block
+https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/update
+https://developers.google.com/workspace/drive/api/reference/rest/v3/files/create
