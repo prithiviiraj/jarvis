@@ -5,7 +5,7 @@ class STT:
  def transcribe_cancellable(self,samples,cancel):self.samples=samples;return 'open the browser and pay'
 class Router:
  def __init__(self,cloud=False):self.cloud=cloud
- def ask(self,messages,cloud_consent):self.messages=messages;self.consent=cloud_consent;return {'text':'I cannot perform actions from this call.','cloud':self.cloud}
+ def ask(self,messages,cloud_consent,cancel=None):self.messages=messages;self.consent=cloud_consent;return {'text':'I cannot perform actions from this call.','cloud':self.cloud}
 class Speaker:
  def prepare_stream(self,text):yield text,np.ones(2400,dtype=np.float32)*.1,24000
  def close(self):pass
