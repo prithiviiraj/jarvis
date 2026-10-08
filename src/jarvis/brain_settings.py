@@ -33,7 +33,7 @@ def account_models(kind,key):
 
 class BrainSettings:
  def __init__(self,store=None,path=None):
-  self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.live={'state':'not checked','models':[],'checked_at':None,'scope':'loaded-instance discovery only, not inference'};self.live_busy=False;self.live_last=-1e20;self.local_gate=threading.Lock();self.warmup_cancel=threading.Event()
+  self.store=store;self.path=Path(path)if path else None;self.rows={};self.assignments={};self.pinned_local={};self.lock=threading.RLock();self.checks={};self.busy=set();self.consent=set();self.free=set();self.cooldowns={};self.live={'state':'not checked','models':[],'checked_at':None,'scope':'loaded-instance discovery only, not inference'};self.live_busy=False;self.live_last=-1e20;self.local_gate=threading.Lock();self.warmup_cancel=threading.Event()
   if self.path and self.path.is_file():
    try:
     saved=json.loads(self.path.read_text());assignments=saved.get('assignments',{});legacy=''.join(('K','AI'));assignments={('SILA'if n==legacy else n):slot for n,slot in assignments.items()};self.archived_assignments={n:slot for n,slot in assignments.items()if n not in ROLES};self.configure(saved.get('slots',[]),{n:slot for n,slot in assignments.items()if n in ROLES},persist=False)
@@ -56,7 +56,7 @@ class BrainSettings:
    if r.get('free')is True:free.add(slot.id)
   ids={s.id for s in slots}
   if len(ids)!=len(slots)or any(n not in ROLES or i not in ids for n,i in assignments.items()):raise ValueError('Assignments must select enabled slots')
-  with self.lock:self.rows={s.id:s for s in slots};self.assignments=dict(assignments);self.consent=consent;self.free=free;self.cooldowns={}
+  with self.lock:self.rows={s.id:s for s in slots};self.assignments=dict(assignments);self.consent=consent;self.free=free;self.cooldowns={};self.pinned_local={}
   if persist and self.path:
    self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps({'slots':[{'id':s.id,'provider':s.provider,'model':s.model,'enabled':True,'label':s.label}for s in slots],'assignments':{**getattr(self,'archived_assignments',{}),**assignments}},indent=2));tmp.replace(self.path)
  def set_key(self,sid,kind,key):
@@ -222,6 +222,9 @@ class BrainSettings:
  def router(self,name):return RoutedBrain(self,name)
  def candidates(self,name):
   with self.lock:
+   if name in self.pinned_local:
+    row=self.rows.get(self.pinned_local[name])
+    if row and row.provider=='local':return [row]
    primary=self.assignments.get(name);cloud=[s for s in self.rows.values()if s.provider!='local' and s.id in self.consent and s.id in self.free and s.model!='automatic' and self.cooldowns.get(s.id,0)<=time.monotonic()]
    cloud.sort(key=lambda s:s.id!=primary)
    slots=list(cloud)
