@@ -1,7 +1,7 @@
 """Google refresh tokens in isolated Windows credentials. No plaintext or cross-app token reuse."""
 import hashlib,json,re,threading,time,urllib.parse,urllib.request,ssl
 from .security import WindowsCredentials,CredentialError
-from .router import NoRedirect
+from .google_read_connector import NoRedirect
 class GoogleCredentials(WindowsCredentials):
  @staticmethod
  def target(account):
@@ -24,7 +24,9 @@ class GoogleTokens:
   value=json.dumps({'client_id':client_id,'refresh_token':refresh_token,'scopes':scopes},separators=(',',':'))
   self.secure().set(self.key(email),value);self.cache.pop(self.key(email),None)
  def request(self,payload):
-  if self.transport:return self.transport(payload)
+  if self.transport:
+   try:return self.transport(payload)
+   except Exception:raise ValueError('Google token request failed; no retry or secret details logged')from None
   import certifi
   http=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect(),urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())))
   req=urllib.request.Request('https://oauth2.googleapis.com/token',data=urllib.parse.urlencode(payload).encode(),headers={'Content-Type':'application/x-www-form-urlencoded'},method='POST')
@@ -42,12 +44,15 @@ class GoogleTokens:
    except ValueError:raise ValueError('Google saved credential invalid')from None
    if required_scope not in row.get('scopes',[]):raise ValueError('Google scope was not granted')
    cached=self.cache.get(key)
-   if cached and self.clock()<cached['until']:return cached['token']
+   if cached and self.clock()<cached['until']:
+    if required_scope not in cached['scopes']:raise ValueError('Google token scope changed; review authorization again')
+    return cached['token']
    result=self.request({'client_id':row['client_id'],'refresh_token':row['refresh_token'],'grant_type':'refresh_token'})
    if not isinstance(result,dict)or result.get('token_type','').lower()!='bearer'or not isinstance(result.get('access_token'),str)or not result['access_token']or any(c.isspace()for c in result['access_token'])or type(result.get('expires_in'))is not int or not 60<=result['expires_in']<=86400:raise ValueError('Google token response invalid')
    returned=result.get('scope')
-   if returned is not None and required_scope not in returned.split():raise ValueError('Google token scope changed; review authorization again')
-   self.cache[key]={'token':result['access_token'],'until':self.clock()+result['expires_in']-30};return result['access_token']
+   if returned is not None and (not isinstance(returned,str)or required_scope not in returned.split()or not set(returned.split()).issubset(set(row['scopes'])|{'openid','https://www.googleapis.com/auth/userinfo.email'})):raise ValueError('Google token scope changed; review authorization again')
+   self.cache[key]={'token':result['access_token'],'until':self.clock()+result['expires_in']-30,'scopes':returned.split()if returned is not None else row['scopes']};return result['access_token']
  def disconnect(self,email):
-  key=self.key(email);self.cache.pop(key,None);self.secure().delete(key)
+  with self.lock:
+   key=self.key(email);self.cache.pop(key,None);self.secure().delete(key)
  def status(self,email):return {'account':email,'credential_present':self.secure().status(self.key(email)).get('present',False),'scope':'Local credential presence only, not live account authorization'}
