@@ -118,6 +118,22 @@ def run():
     else:raise AssertionError('Completed issue duplicated')
    restarted=ProjectConnectors(projects_store,project_transport);assert not restarted.accounts;restarted.connect('github',project_identity,'',True);restarted.worker.join(5);assert not restarted.error;restarted.disconnect('github',True);assert not projects_store.get(project_key)
   finally:projects_store.delete(project_key)
+  from .notion_text import NotionText
+  import copy
+  bot=str(uuid.uuid4());block=str(uuid.uuid4());parent=str(uuid.uuid4());notion_key=ProjectConnectors.key('notion',bot)
+  try:
+   notion_calls=[];notion_row={'object':'block','id':block,'type':'paragraph','in_trash':False,'has_children':False,'parent':{'type':'page_id','page_id':parent},'last_edited_time':'fixture-v1','paragraph':{'color':'default','rich_text':[{'type':'text','text':{'content':'Controlled prior text'},'plain_text':'Controlled prior text'}]}}
+   def notion_read(service,method,url,payload,token):
+    assert service=='notion'and method=='GET'and url.endswith('/v1/users/me');return {'id':bot,'type':'bot'}
+   notion_projects=ProjectConnectors(projects_store,notion_read);notion_projects.connect('notion',bot,'fixture-notion-token',True);notion_projects.worker.join(5);assert not notion_projects.error
+   def notion_write(method,url,payload,token):
+    assert token=='fixture-notion-token'and url.endswith('/v1/blocks/'+block);notion_calls.append(method)
+    if method=='PATCH':notion_row['paragraph']=payload['paragraph'];notion_row['last_edited_time']='fixture-v2'
+    return copy.deepcopy(notion_row)
+   with tempfile.TemporaryDirectory()as folder:
+    notion=NotionText(notion_projects,Path(folder)/'notion.json',notion_write);notion.prepare(block,'Controlled new text',True);notion.worker.join(5);assert not notion.error;assert notion_calls==['GET'];notion.submit(notion.snapshot()['plan'],True);notion.worker.join(5);assert notion.snapshot()['state']=='completed',notion.snapshot();assert notion_calls==['GET','GET','PATCH','GET'];assert NotionText(notion_projects,notion.path).snapshot()['state']=='completed'
+   notion_projects.disconnect('notion',True);assert not projects_store.get(notion_key)
+  finally:projects_store.delete(notion_key)
   from .focus_session import FocusSession
   tick=[0];focus=FocusSession(lambda:tick[0]);focus_review=focus.prepare('Isolated focus fixture',5);assert focus.state=='review';focus.start(focus_review,True);tick[0]=100;focus.pause();tick[0]=500;assert focus.snapshot()['remaining_seconds']==200;focus.resume(True);tick[0]=700;assert focus.snapshot()['state']=='check-in';focus.finish(True);assert focus.history[0]['done'];focus.stop();assert focus.state=='off'
   connection.disconnect(True);assert not store.status(key)['present'];connection.stop()
@@ -130,6 +146,6 @@ def run():
   from .obsidian import Vault
   with tempfile.TemporaryDirectory()as folder:
    root=Path(folder).resolve();(root/'.obsidian').mkdir();(root/'source.md').write_text('Controlled quote');note={'name':'source.md','vault_folder':str(root),'text':'Controlled quote','sha256':hashlib.sha256(b'Controlled quote').hexdigest(),'truncated':False};answer=SourceAnswer(threading.Lock(),lambda:[{'id':'fixture-local'}],lambda m,q,n,c:{'text':'Controlled draft','model':m});source_review=answer.prepare(root,note,'Question','fixture-local');answer.start(root,source_review,True);answer.worker.join(5);assert answer.result['source_sha256']==note['sha256'];answer.stop();assert answer.result is None
-  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False,'reviewed_RAW_Sheets_prior_new_readback_restart_fixture':True,'reviewed_project_read_secure_resume_fixture':True,'live_projects':False,'reviewed_GitHub_issue_write_gate_readback_restart_fixture':True,'live_issue_created':False,'local_focus_timer_review_pause_checkin_fixture':True,'local_reflex_five_questions_no_effect_fixture':True,'exact_local_brain_switch_no_cloud_fixture':True,'reviewed_single_source_local_answer_fixture':True}
+  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False,'reviewed_RAW_Sheets_prior_new_readback_restart_fixture':True,'reviewed_project_read_secure_resume_fixture':True,'live_projects':False,'reviewed_plain_Notion_prior_new_readback_restart_fixture':True,'reviewed_GitHub_issue_write_gate_readback_restart_fixture':True,'live_issue_created':False,'local_focus_timer_review_pause_checkin_fixture':True,'local_reflex_five_questions_no_effect_fixture':True,'exact_local_brain_switch_no_cloud_fixture':True,'reviewed_single_source_local_answer_fixture':True}
   Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-google-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(key);store.delete(probe)
