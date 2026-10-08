@@ -57,4 +57,4 @@ class ReviewedEffect:
   elif result.get('definitively_absent')is True:self.state='review'
   else:raise ValueError('Empty result is not verified absence')
   return result
- def snapshot(self):return {'state':self.state,'plan':self.plan,'result':self.result,'scope':'Review-bound state only; live connector/grant checks still required'}
+ def snapshot(self):return {'state':self.state,'plan':json.loads(json.dumps(self.plan)),'result':json.loads(json.dumps(self.result)),'scope':'Review-bound state only; live connector/grant checks still required'}
