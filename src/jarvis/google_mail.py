@@ -36,7 +36,7 @@ class GoogleMail:
  def reader(self,email):return GoogleReadConnector(lambda:self.connection.tokens.access(email,SCOPES['mail-read']),email,self.transport)
  @staticmethod
  def same(sent,payload):
-  return sent.get('complete')is True and sent.get('state')=='sent'and sent.get('account')==payload['account']and sent.get('to')==payload['to']and sent.get('cc')==payload['cc']and sent.get('subject')==payload['subject']and sent.get('body','').rstrip('\n')==payload['body'].replace('\r\n','\n').rstrip('\n')and not sent.get('attachments')
+  return sent.get('complete')is True and sent.get('state')=='sent'and sent.get('account')==payload['account']and sent.get('to')==payload['to']and sent.get('cc')==payload['cc']and sent.get('subject')==payload['subject']and sent.get('body','')==payload['body'].replace('\r\n','\n')+(''if payload['body'].endswith('\n')else'\n')and not sent.get('attachments')
  def validate(self,payload,ticket,connection_ticket):
   if self.generation!=ticket or self.connection.generation!=connection_ticket or self.connection.busy or self.connection.account!=payload['account']:raise ValueError('Account or review changed')
   reader=self.reader(payload['account']);reader.verify_mail_account()
