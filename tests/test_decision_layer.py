@@ -2,7 +2,7 @@ import unittest
 from jarvis.decision_layer import assess
 class Tests(unittest.TestCase):
  def test_five_questions_and_names(self):
-  r=assess('Jarvis and Nova, open the browser');self.assertEqual(r['addressed'],['JARVIS','NOVA']);self.assertIsNone(r['confidence']);self.assertEqual(assess('Jarvis, tell Nova hello')['addressed'],['JARVIS'])
+  r=assess('Jarvis and Dex, open the browser');self.assertEqual(r['addressed'],['JARVIS','DEX']);self.assertIsNone(r['confidence']);self.assertEqual(assess('Jarvis, tell Dex hello')['addressed'],['JARVIS'])
  def test_existing_routes_not_turned_into_effects(self):
   for q,lane in [('open the browser','browser'),('open Notepad','app'),('hello','local casual'),('vault search dinner','local retrieval'),('send Sam an invoice','external workflow'),('why is politics important','conversation')]:self.assertEqual(assess(q)['lane'],lane,q)
  def test_spoken_requires_endpoint_evidence(self):
