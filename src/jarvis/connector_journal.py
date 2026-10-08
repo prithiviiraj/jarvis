@@ -27,15 +27,25 @@ class ConnectorJournal:
  def cancel(self):
   with self.lock:self.job.cancel();self.save()
  def submit(self,reviewed,confirmed,live_validate,transport):
-  def durable_transport(payload):
-   # Persist before the first possible external effect. Disk failure stops send.
-   with self.lock:
-    if self.job.state!='submitting':raise ValueError('Effect stopped before transport; reconcile before retry')
-    self.save()
-   return transport(payload)
-  try:return self.job.submit(reviewed,confirmed,live_validate,durable_transport)
-  finally:
-   with self.lock:self.save()
+  with self.lock:
+   if self.job.state!='review'or not self.job.plan or confirmed is not True or reviewed!=self.job.plan or digest(self.job.plan['payload'])!=self.job.plan['sha256']:raise ValueError('Review changed; inspect final action again')
+   ticket=self.job.generation;payload=json.loads(json.dumps(self.job.plan['payload']))
+  if live_validate(json.loads(json.dumps(payload)))is not True:raise ValueError('Live authority/destination check did not pass')
+  with self.lock:
+   if self.job.generation!=ticket or self.job.state!='review':raise ValueError('Effect stopped during validation')
+   self.job.state='submitting'
+   try:self.save()
+   except Exception:self.job.state='review';raise
+  try:result=transport(json.loads(json.dumps(payload)))
+  except Exception:
+   with self.lock:self.job.state='uncertain';self.save()
+   raise ValueError('Submission outcome unknown. Do not retry until reconciled.')from None
+  with self.lock:
+   if self.job.generation!=ticket:
+    self.job.state='uncertain';self.save();raise ValueError('Stopped during submission; outcome must be reconciled')
+   if not isinstance(result,dict)or result.get('verified')is not True or not result.get('external_id'):
+    self.job.state='uncertain';self.save();raise ValueError('Server result unverified; reconcile before retry')
+   self.job.state='completed';self.job.result=result;self.save();return result
  def reconcile(self,readback):
   with self.lock:
    result=self.job.reconcile(readback);self.save();return result
