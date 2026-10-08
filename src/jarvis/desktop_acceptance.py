@@ -42,7 +42,13 @@ def run():
   assert field.get_value()==text
   # Stale real HWND geometry is rejected before any next mouse input.
   resized=controller.prepare(target,[{'action':'click','x':x,'y':y}],'Isolated resized-window refusal')
-  w.move_window(width=700,height=400)
+  import ctypes
+  from ctypes import wintypes
+  user32=ctypes.windll.user32;user32.MoveWindow.argtypes=[wintypes.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,wintypes.BOOL]
+  assert user32.MoveWindow(wintypes.HWND(target['hwnd']),80,80,700,400,True)
+  deadline=time.monotonic()+2
+  while controller.adapter.observe(target['hwnd'])==target and time.monotonic()<deadline:time.sleep(.02)
+  assert controller.adapter.observe(target['hwnd'])!=target
   controller.run(resized,True,True).join(5)
   assert controller.snapshot()['task']['state']=='blocked';assert field.get_value()==text
   (out/'native-desktop-input.json').write_text(json.dumps({'windows_actual':True,'foreground_bound_actual_input':True,'literal_text_readback':actual,'mouse_click_move_scroll_navigation_keys':True,'revoked_review_rejected':True,'stale_actual_resized_window_refused':True,'completed_steps':state['task']['completed_steps'],'scope':'Frozen core on Windows synthetic native EDIT fixture; not arbitrary app completion or owner hardware'},indent=2))
