@@ -77,8 +77,14 @@ class WindowsAdapter:
    except Exception:continue
   return out[:60]
  def observe(self,hwnd):
-  from pywinauto import Desktop
-  w=Desktop(backend='uia').window(handle=hwnd).wrapper_object();r=w.client_rect();return {'hwnd':hwnd,'pid':w.process_id(),'title':w.window_text(),'width':r.width(),'height':r.height()}
+  import ctypes
+  from ctypes import wintypes
+  u=ctypes.windll.user32;handle=wintypes.HWND(hwnd)
+  if not u.IsWindow(handle):raise ValueError('Target window no longer exists')
+  rect=wintypes.RECT();pid=wintypes.DWORD()
+  if not u.GetClientRect(handle,ctypes.byref(rect)):raise ValueError('Client bounds unavailable')
+  u.GetWindowThreadProcessId(handle,ctypes.byref(pid));n=u.GetWindowTextLengthW(handle);title=ctypes.create_unicode_buffer(n+1);u.GetWindowTextW(handle,title,n+1)
+  return {'hwnd':int(hwnd),'pid':pid.value,'title':title.value,'width':rect.right-rect.left,'height':rect.bottom-rect.top}
  def focus(self,hwnd):
   from pywinauto import Desktop
   Desktop(backend='uia').window(handle=hwnd).set_focus()
