@@ -31,3 +31,25 @@ Sources: https://www.youtube.com/watch?v=zdnijkAbknA&t=60s and https://www.youtu
 | Compact work state and cancellation | Present implemented flows | Extend to each added workflow |
 
 Implementation order: finish current CI evidence; keep visual revision separate; retrieval-grounded graph/read-aloud and local decision layer; desktop engine; calendar/email/Telegram/invoice connectors; telephony/mode flows. Cost, free-tier limits, account access and external-action permissions must be verified. Required does not mean spending or disclosure is automatically approved.
+
+## Grounded progress snapshot8October2026 evening
+
+This updates the historical gap table above, without turning fixture checks into live acceptance. Latest source adds:
+
+- Gmail exact draft/send/readback/restart and sent-history warning contracts, controlled frozen Windows acceptance. No live mail sent.
+- Calendar free/busy and exact reviewed solo owned-calendar event creation/readback/restart, no invitations. Controlled frozen acceptance, no live calendar changed.
+- Telegram dedicated bot verification/private identity pairing and exact reviewed text/MP3 output. Pinned source-built LAME/lameenc frozen MP3 fixture accepted in CI210; no live bot/output, real Kokoro-to-MP3 and physical audio remain unrun.
+- Invoice question/validation, exact draft preview, atomic local HTML draft save and reviewed-open. No issued/delivered invoice or payment request.
+- Drive metadata20file page and Sheets finite1000cell rectangle, separate optional scopes. Controlled frozen acceptance and corrected native inert Drive/Sheets pixels from CI213. No live client/account.
+- GitHub issue/source and Notion direct-child block reads, local dedicated credentials, verified identity and explicit saved-token re-verification. Controlled frozen acceptance in CI213; overall native run failed on offscreen project-panel lookup, retry CI215 pending. Read-only, no PR creation or page edits.
+- Phone HTTP/assets/pairing/audio core plus exact review-bound private TLS listener prep, separate trust confirmation and15minute stop. Real isolated localhost TLS fixture passed. Product listener start UI/trusted physical phone route and hardware tests remain open. No tunnel/firewall/certificate install.
+- Desktop bounded foreground/window-bound mouse/literal keys, exact review and Stop,120second expiry, stale geometry refusal. Earlier actual Windows synthetic input accepted; new resize-refusal acceptance pending CI215. Not semantic arbitrary-app completion.
+- Semantic Markdown candidate selection into source capture/graph, only from exact connected vault, local1049test suite/6skips and renderer fixture. Latest native acceptance pending. No generated semantic answer or automatic speech.
+
+Still required before all-feature release claims: live account setup/consent dependencies; broader connector write workflows and Canva/Zapier capability equivalents; practical business/restaurant calling outcome (free route not established); trusted phone transport/device; named watch/focus/reflex workflows; spoken verified brain switch/skin coupling; semantic answer/source synchronization; real model/microphone/camera/audio and sustained owner-hardware acceptance. A collection of unit fixtures does not complete these outcomes. Do not ship a final all-features EXE on this snapshot.
+
+Observed CI references:
+- https://github.com/prithiviiraj/jarvis/actions/runs/37781029794
+- https://github.com/prithiviiraj/jarvis/actions/runs/37786474394
+- https://github.com/prithiviiraj/jarvis/actions/runs/37787821349
+- https://github.com/prithiviiraj/jarvis/actions/runs/37788650414
