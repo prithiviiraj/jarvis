@@ -33,6 +33,9 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.b.prepare('JARVIS','slot5','new')
   self.b.launching=False
 
+ def test_cloud_claimed_greeting_refused_same_model(self):
+  self.b.probe=lambda m,c:{'text':'ready','model':m,'cloud':True};r=self.b.prepare('JARVIS','slot5','new');self.b.apply(r,True);self.b.worker.join(3);self.assertEqual(self.s.rows['slot5'].model,'old');self.assertFalse(self.b.verified)
+
 class BridgeTests(unittest.TestCase):
  def test_typed_and_completed_voice_prepare_only(self):
   from jarvis.ui_bridge import Bridge
