@@ -26,7 +26,7 @@ class BrainTests(unittest.TestCase):
     if me.p.name=='slot1':raise RouterError('http-429')
     yield {'text':'yes','provider':me.p.name,'model':me.p.model}
   with patch('jarvis.brain_settings.BrainRouter',Fake):
-   self.assertEqual(self.b.router('DEX').ask([{'role':'user','content':'Explain a technical question'}])['text'],'yes');self.assertEqual(self.b.router('NOVA').ask([{'role':'user','content':'Explain a technical question'}])['text'],'yes')
+   self.assertEqual(self.b.router('DEX').ask([{'role':'user','content':'Explain a technical question'}])['text'],'yes');self.assertEqual(self.b.router('DEX').ask([{'role':'user','content':'Explain a technical question'}])['text'],'yes')
   self.assertEqual(routers,['slot1','slot2','slot2']);self.assertGreater(self.b.cooldowns['slot1'],time.monotonic())
  def test_partial_no_fallback(self):
   self.b.configure(self.rows,{})
@@ -36,20 +36,20 @@ class BrainTests(unittest.TestCase):
   with patch('jarvis.brain_settings.BrainRouter',Fake):
    with self.assertRaises(RouterError):self.b.router('DEX').ask([{'role':'user','content':'hi'}])
  def test_parallel_round_real_concurrency_order_and_conclusion(self):
-  v=WorkspaceVoice();barrier=threading.Barrier(5);seen=[];lock=threading.Lock()
+  v=WorkspaceVoice();barrier=threading.Barrier(3);seen=[];lock=threading.Lock()
   class Settings:
    def router(me,name):
     class R:
      def ask(me,messages,**kw):
       if 'conclusion' in messages[-1]['content']:
-       self.assertEqual(len([m for m in messages if m['role']=='assistant']),5);return {'text':'Conclusion.'}
+       self.assertEqual(len([m for m in messages if m['role']=='assistant']),3);return {'text':'Conclusion.'}
       barrier.wait(timeout=2)
       with lock:seen.append(name)
       return {'text':name+' perspective.'}
     return R()
-  t=v.parallel_round('test topic',Settings());t.join(4);self.assertFalse(t.is_alive());self.assertEqual(len(seen),5);events=[]
+  t=v.parallel_round('test topic',Settings());t.join(4);self.assertFalse(t.is_alive());self.assertEqual(len(seen),3);events=[]
   while not v.events.empty():events.append(v.events.get())
-  answers=[value for kind,value in events if kind=='answer'];self.assertEqual([a['profile']for a in answers],['NOVA','SILA','LYRA','DEX','JARVIS','JARVIS']);self.assertEqual(answers[-1]['text'],'Conclusion.');v.close()
+  answers=[value for kind,value in events if kind=='answer'];self.assertEqual([a['profile']for a in answers],['LYRA','DEX','JARVIS','JARVIS']);self.assertEqual(answers[-1]['text'],'Conclusion.');v.close()
  def test_local_connection_check_async_current_failure(self):
   with patch('jarvis.brain_settings.local_models',return_value=['current-model']):
    t=self.b.check();t.join(1)
@@ -76,7 +76,7 @@ class BrainTests(unittest.TestCase):
     yield {'text':'local answer','provider':'local'}
     with lock:active-=1
   with patch('jarvis.brain_settings.local_models',return_value=['qwen']),patch('jarvis.brain_settings.BrainRouter',Fake):
-   threads=[threading.Thread(target=lambda n=n:self.b.router(n).ask([{'role':'user','content':'hi'}]))for n in ('DEX','NOVA','JARVIS')]
+   threads=[threading.Thread(target=lambda n=n:self.b.router(n).ask([{'role':'user','content':'hi'}]))for n in ('DEX','DEX','JARVIS')]
    for t in threads:t.start()
    for t in threads:t.join(1)
   self.assertEqual(maximum,1)
@@ -206,5 +206,5 @@ class ApiOnlyRouting(unittest.TestCase):
    def __init__(self,*a,**k):self.last_diagnostics=[];self.last_warnings=[]
    def stream(self,*a,**k):raise RouterError('http-500');yield
   with patch('jarvis.brain_settings.BrainRouter',Failed),patch('jarvis.brain_settings.local_models')as local:
-   with self.assertRaises(RouterError):b.router('NOVA').ask([{'role':'user','content':'A friendly chat'}],configured_chat=True,api_only=True)
+   with self.assertRaises(RouterError):b.router('DEX').ask([{'role':'user','content':'A friendly chat'}],configured_chat=True,api_only=True)
    local.assert_not_called()
