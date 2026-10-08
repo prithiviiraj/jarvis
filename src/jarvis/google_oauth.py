@@ -2,7 +2,7 @@
 App client registration and owner scope consent must exist before wiring effects.
 """
 import base64,hashlib,hmac,secrets,time,urllib.parse
-SCOPES={'mail-read':'https://www.googleapis.com/auth/gmail.readonly','mail-send':'https://www.googleapis.com/auth/gmail.send','calendar-read':'https://www.googleapis.com/auth/calendar.events.readonly','calendar-write-owned':'https://www.googleapis.com/auth/calendar.events.owned','calendar-freebusy':'https://www.googleapis.com/auth/calendar.freebusy'}
+SCOPES={'drive-metadata-read':'https://www.googleapis.com/auth/drive.metadata.readonly','sheets-read':'https://www.googleapis.com/auth/spreadsheets.readonly','mail-read':'https://www.googleapis.com/auth/gmail.readonly','mail-send':'https://www.googleapis.com/auth/gmail.send','calendar-read':'https://www.googleapis.com/auth/calendar.events.readonly','calendar-write-owned':'https://www.googleapis.com/auth/calendar.events.owned','calendar-freebusy':'https://www.googleapis.com/auth/calendar.freebusy'}
 class GoogleOAuth:
  def __init__(self,clock=time.monotonic):self.clock=clock;self.pending=None;self.verifier=None;self.state=None;self.deadline=0
  def begin(self,client_id,port,grants,consent=False):
