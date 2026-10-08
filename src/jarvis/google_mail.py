@@ -18,11 +18,12 @@ class GoogleMail:
   if not self.connection.account or self.connection.busy:raise ValueError('Choose a connected Google account first')
   plan=email_plan(self.connection.account,to,subject,body,cc)
   self.error='';return self.journal().prepare(plan['payload'])
- def request(self,method,url,payload=None):
+ def request(self,method,url,payload=None,account=None):
   parsed=urllib.parse.urlsplit(url);base='https://gmail.googleapis.com/gmail/v1/users/me/'
   allowed=(method=='POST'and url==base+'messages/send')or(method=='GET'and url.startswith(base+'messages/'))
   if not allowed or parsed.fragment or any(s in parsed.path for s in ('..','%2e','%2E')):raise ValueError('Unsupported Gmail destination')
-  token=self.connection.tokens.access(self.connection.account,SCOPES['mail-send'if method=='POST'else'mail-read'])
+  if not account or self.connection.account!=account:raise ValueError('Google account changed')
+  token=self.connection.tokens.access(account,SCOPES['mail-send'if method=='POST'else'mail-read'])
   if self.transport:return self.transport(method,url,payload)
   import certifi
   opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect(),urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())))
@@ -46,6 +47,7 @@ class GoogleMail:
   for row in history['messages']:
    message=plain_message(reader.read_message(row['message_id'])['message'],payload['account'])
    if self.same(message,payload):raise ValueError('Exact message already sent; no duplicate send')
+   if message.get('complete')is not True and message.get('to')==payload['to']and message.get('cc')==payload['cc']and message.get('subject')==payload['subject']:raise ValueError('Potential duplicate has unreadable body or attachments; inspect Google Sent before sending')
   if self.generation!=ticket or self.connection.generation!=connection_ticket:raise ValueError('Review stopped during validation')
   return True
  def submit(self,reviewed,confirm=False):
@@ -61,10 +63,10 @@ class GoogleMail:
    from email import message_from_bytes
    msg=message_from_bytes(base64.urlsafe_b64decode(encoded['raw']+'='*(-len(encoded['raw'])%4)),policy=email.policy.SMTP);msg['Message-ID']='<jarvis-'+reviewed['review_id']+'@jarvis.local>'
    body={'raw':base64.urlsafe_b64encode(msg.as_bytes()).decode().rstrip('=')}
-   row=self.request('POST','https://gmail.googleapis.com/gmail/v1/users/me/messages/send',body)
+   row=self.request('POST','https://gmail.googleapis.com/gmail/v1/users/me/messages/send',body,payload['account'])
    mid=row.get('id')
    if not isinstance(mid,str)or not mid or len(mid)>200:raise ValueError('Send response identity invalid')
-   read=self.request('GET','https://gmail.googleapis.com/gmail/v1/users/me/messages/'+urllib.parse.quote(mid,safe='')+'?format=full')
+   read=self.request('GET','https://gmail.googleapis.com/gmail/v1/users/me/messages/'+urllib.parse.quote(mid,safe='')+'?format=full',account=payload['account'])
    if read.get('id')!=mid or not self.same(plain_message(read,payload['account']),payload):raise ValueError('Exact sent readback not verified')
    return {'verified':True,'external_id':mid,'thread_id':row.get('threadId'),'scope':'Exact sent message readback verified. Delivery/recipient reading not proved.'}
   def work():
