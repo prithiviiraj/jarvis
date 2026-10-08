@@ -28,7 +28,11 @@ def run():
    def status(self,k):return store.status(k)
    def delete(self,k):assert k!=CLIENT_KEY;store.delete(k)
   tokens.store=Scoped()
-  connection.begin(email,['calendar-freebusy'],True);q=urllib.parse.parse_qs(urllib.parse.urlsplit(urls[0]).query);callback=q['redirect_uri'][0]+'?'+urllib.parse.urlencode({'state':q['state'][0],'code':'fixture-code'})
+  connection.begin(email,['calendar-freebusy'],True)
+  import time
+  deadline=time.monotonic()+2
+  while not urls and time.monotonic()<deadline:time.sleep(.01)
+  q=urllib.parse.parse_qs(urllib.parse.urlsplit(urls[0]).query);callback=q['redirect_uri'][0]+'?'+urllib.parse.urlencode({'state':q['state'][0],'code':'fixture-code'})
   assert urllib.parse.urlsplit(callback).hostname=='127.0.0.1'
   with urllib.request.urlopen(callback,timeout=3)as reply:assert reply.status==200 and reply.headers['Cache-Control']=='no-store'
   connection.worker.join(5);assert not connection.busy and not connection.error,connection.snapshot();assert store.status(key)['present'];assert tokens.access(email,scope)=='fixture-refreshed';assert len(calls)==2
