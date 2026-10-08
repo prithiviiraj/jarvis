@@ -75,6 +75,19 @@ def run():
    assert '/fixture_sheet/values/Sheet1%21A1%3AB2?'in url
    return {'range':'Sheet1!A1:B2','majorDimension':'ROWS','values':[['External fixture',2],[3,4]]}
   reads=GoogleQueries(connection,workspace_transport);reads.start('drive-list',{'query':'fixture'},True);reads.worker.join(5);assert not reads.error and not reads.result['complete'];reads.start('sheets-values',{'file_id':'fixture_sheet','range':'Sheet1!A1:B2'},True);reads.worker.join(5);assert not reads.error and reads.result['values'][1][1]==4;assert len(workspace_calls)==2;reads.stop();assert reads.result is None
+  from .drive_text import DriveText
+  import copy
+  tokens.save(email,client,'fixture-refresh',[SCOPES['drive-file-write'],SCOPES['drive-metadata-read']],True,secret)
+  tokens.transport=lambda p:{'access_token':'fixture-drive','token_type':'Bearer','expires_in':3600,'scope':SCOPES['drive-file-write']+' '+SCOPES['drive-metadata-read']}
+  drive_calls=[];drive_file={}
+  def drive_transport(method,url,payload):
+   drive_calls.append(method);private={'ownedByMe':True,'shared':False,'trashed':False,'owners':[{'emailAddress':email}],'permissions':[{'type':'user','role':'owner','emailAddress':email}]}
+   if '/root?'in url:return {**private,'id':'fixture_root','mimeType':'application/vnd.google-apps.folder','capabilities':{'canAddChildren':True}}
+   if '/generateIds?'in url:return {'ids':['fixture_file']}
+   if method=='POST':drive_file.update(private,id=payload['file_id'],name=payload['name'],mimeType='text/plain',parents=[payload['root_id']],size=str(payload['bytes']),md5Checksum=payload['md5'],sha256Checksum=payload['sha256'])
+   return copy.deepcopy(drive_file)
+  with tempfile.TemporaryDirectory()as folder:
+   drive=DriveText(connection,Path(folder)/'drive.json',drive_transport,lambda t:{'email':email,'email_verified':True});drive.prepare('fixture.txt','Controlled UTF8text',True);drive.worker.join(5);assert not drive.error,drive.snapshot();assert 'POST'not in drive_calls;drive.submit(drive.snapshot()['plan'],True);drive.worker.join(5);assert drive.snapshot()['state']=='completed',drive.snapshot();assert drive_calls.count('POST')==1;assert DriveText(connection,drive.path).snapshot()['state']=='completed'
   from .google_sheets_write import SheetsWrite
   tokens.save(email,client,'fixture-refresh',[SCOPES['sheets-write']],True,secret)
   tokens.transport=lambda p:{'access_token':'fixture-sheets','token_type':'Bearer','expires_in':3600,'scope':SCOPES['sheets-write']}
@@ -146,6 +159,6 @@ def run():
   from .obsidian import Vault
   with tempfile.TemporaryDirectory()as folder:
    root=Path(folder).resolve();(root/'.obsidian').mkdir();(root/'source.md').write_text('Controlled quote');note={'name':'source.md','vault_folder':str(root),'text':'Controlled quote','sha256':hashlib.sha256(b'Controlled quote').hexdigest(),'truncated':False};answer=SourceAnswer(threading.Lock(),lambda:[{'id':'fixture-local'}],lambda m,q,n,c:{'text':'Controlled draft','model':m});source_review=answer.prepare(root,note,'Question','fixture-local');answer.start(root,source_review,True);answer.worker.join(5);assert answer.result['source_sha256']==note['sha256'];answer.stop();assert answer.result is None
-  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False,'reviewed_RAW_Sheets_prior_new_readback_restart_fixture':True,'reviewed_project_read_secure_resume_fixture':True,'live_projects':False,'reviewed_plain_Notion_prior_new_readback_restart_fixture':True,'reviewed_GitHub_issue_write_gate_readback_restart_fixture':True,'live_issue_created':False,'local_focus_timer_review_pause_checkin_fixture':True,'local_reflex_five_questions_no_effect_fixture':True,'exact_local_brain_switch_no_cloud_fixture':True,'reviewed_single_source_local_answer_fixture':True}
+  result={'host':'actual frozen Windows core','windows_credential_write_read_delete':True,'real_ipv4_loopback_callback':True,'PKCE_state_and_verified_identity_fixture':True,'exchange_refresh_local_disconnect_fixture':True,'live_google':False,'real_registered_client':False,'reviewed_Gmail_send_readback_and_restart_fixture':True,'mail_sent':False,'reviewed_solo_calendar_readback_restart_fixture':True,'calendar_changed':False,'reviewed_Drive_metadata_Sheets_values_fixture':True,'workspace_write':False,'reviewed_private_Drive_text_checksum_visibility_restart_fixture':True,'reviewed_RAW_Sheets_prior_new_readback_restart_fixture':True,'reviewed_project_read_secure_resume_fixture':True,'live_projects':False,'reviewed_plain_Notion_prior_new_readback_restart_fixture':True,'reviewed_GitHub_issue_write_gate_readback_restart_fixture':True,'live_issue_created':False,'local_focus_timer_review_pause_checkin_fixture':True,'local_reflex_five_questions_no_effect_fixture':True,'exact_local_brain_switch_no_cloud_fixture':True,'reviewed_single_source_local_answer_fixture':True}
   Path('ui-evidence').mkdir(exist_ok=True);Path('ui-evidence/frozen-google-acceptance.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True)
  finally:store.delete(key);store.delete(probe)
