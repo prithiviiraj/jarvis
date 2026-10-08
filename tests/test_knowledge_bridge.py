@@ -25,3 +25,9 @@ class Tests(unittest.TestCase):
   root=pathlib.Path(__file__).resolve().parents[1];tree=ast.parse((root/'src/jarvis/ui_bridge.py').read_text());allowed=next(n.value for n in ast.walk(tree)if isinstance(n,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='allowed'for t in n.targets))
   native=(root/'modern-ui/src-tauri/src/main.rs').read_text().split(' if ![')[1].split('].contains(&command)')[0]
   self.assertEqual(set(re.findall(r'"([^"\n]+)"',native)),ast.literal_eval(allowed))
+
+ def test_native_review_transport_handles_multibyte_bounded_source(self):
+  import json
+  (self.root/'a.md').write_text('தமிழ்'*900,encoding='utf-8');row=self.b.execute({'command':'knowledge-read','note_name':'a.md'})['knowledge']['note'];payload=json.dumps({'command':'knowledge-speak','reviewed':row,'confirm':True},ensure_ascii=False)
+  self.assertLess(len(payload.encode()),30000)
+  self.assertIn('if line.len()>30000',(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text())
