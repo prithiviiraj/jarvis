@@ -42,3 +42,13 @@ Official API/scope sources checked8October2026:
 - https://developers.google.com/workspace/sheets/api/scopes
 - https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list
 - https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets.values/get
+
+## GitHub/Notion reviewed read track
+
+Separate dedicated local tokens, exact GitHub login or Notion token-bot UUID verification, no silent reconnect. A saved token must be explicitly re-verified each session. GitHub reads at most20open issues/pull requests or one UTF8source file up to100KB at a reviewed branch/commit. Notion reads one20block direct-child page; nested children are not expanded. All responses are untrusted data, never tool instructions or model input. No write, background sync or external code execution. Provider token scopes cannot be reduced by client code; use fine-grained selected-repository read scopes / read-content selected Notion pages. Local removal does not revoke provider access.
+
+Sources checked8October2026:
+- https://docs.github.com/en/rest/users/users#get-the-authenticated-user
+- https://docs.github.com/en/rest/repos/contents#get-repository-content
+- https://developers.notion.com/reference/get-self
+- https://developers.notion.com/reference/get-block-children
