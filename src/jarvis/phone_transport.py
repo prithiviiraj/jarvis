@@ -2,7 +2,7 @@
 import hashlib,http.server,ipaddress,json,pathlib,ssl,threading,time,urllib.parse
 from .phone_http import PhoneHTTP
 class PhoneTransport:
- def __init__(self,endpoints,assets):self.endpoints=endpoints;self.assets=pathlib.Path(assets);self.pending=None;self.server=None;self.worker=None;self.timer=None;self.state='off';self.active=None;self.review_deadline=0;self.lock=threading.RLock()
+ def __init__(self,endpoints,assets):self.endpoints=endpoints;self.assets=pathlib.Path(assets);self.pending=None;self.server=None;self.worker=None;self.timer=None;self.state='off';self.active=None;self.review_deadline=0;self.lock=threading.RLock();self.generation=0
  @staticmethod
  def certificate(path):
   p=pathlib.Path(path).resolve()
@@ -10,6 +10,9 @@ class PhoneTransport:
   return p,p.read_bytes()
  def prepare(self,origin,certificate,key,consent=False):
   if consent is not True:raise ValueError('Review private phone transport first')
+  with self.lock:
+   if self.server:raise ValueError('Stop current listener first')
+   self.generation+=1;ticket=self.generation;self.pending=None;self.state='off'
   if any(not(self.assets/name).is_file()for name in PhoneHTTP.FILES.values()):raise ValueError('Bundled phone web assets missing; no listener prepared')
   u=urllib.parse.urlsplit(origin)
   try:address=ipaddress.ip_address(u.hostname);port=u.port
@@ -26,6 +29,7 @@ class PhoneTransport:
   fingerprint=hashlib.sha256(ssl.PEM_cert_to_DER_cert(raw.decode())).hexdigest()
   payload={'origin':origin,'interface':str(address),'port':port,'certificate_sha256':fingerprint,'expires_after_seconds':900,'limits':'Private listener only, no firewall/tunnel/remote actions. Phone must independently trust this certificate; self-signed is not plug-and-play.'}
   with self.lock:
+   if ticket!=self.generation:raise ValueError('Phone transport preparation stopped; review again')
    if self.server:raise ValueError('Stop current listener first')
    self.pending={'review':payload,'context':context,'certificate':cert,'certificate_bytes':raw,'not_after':not_after};self.review_deadline=time.monotonic()+120;self.state='review'
   return dict(payload)
@@ -46,7 +50,7 @@ class PhoneTransport:
   return self.snapshot()
  def stop(self):
   with self.lock:
-   server=self.server;worker=self.worker;timer=self.timer;self.server=None;self.worker=None;self.timer=None;self.pending=None;self.active=None;self.state='off';self.endpoints.stop_local()
+   self.generation+=1;server=self.server;worker=self.worker;timer=self.timer;self.server=None;self.worker=None;self.timer=None;self.pending=None;self.active=None;self.state='off';self.endpoints.stop_local()
   if timer:timer.cancel()
   if server:server.shutdown();server.server_close()
   if worker and worker is not threading.current_thread():worker.join(2)
