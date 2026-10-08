@@ -18,7 +18,7 @@ $env:SETUPTOOLS_SCM_PRETEND_VERSION='1.8.1'
 python prepare-mp3-source.py
 if ($LASTEXITCODE -ne 0) { throw 'MP3 source preparation failed' }
 # Upstream CMake verifies the retained local LAME tar against its published hash.
-cmake -S mp3-wrapper -B mp3-build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DPYTHON_VERSIONS=3.12
+cmake -S mp3-wrapper -B mp3-build "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" "-DPYTHON_VERSIONS=3.12"
 if ($LASTEXITCODE -ne 0) { throw 'MP3 encoder configure failed' }
 cmake --build mp3-build --config Release --parallel 2
 if ($LASTEXITCODE -ne 0) { throw 'MP3 encoder build failed' }
