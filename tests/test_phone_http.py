@@ -23,3 +23,8 @@ class Tests(unittest.TestCase):
   self.assertEqual(self.h.validate('POST','/phone/stop',self.headers,'127.0.0.1',True),2)
   self.h.clock=lambda:1000000000000
   self.h.validate('POST','/phone/pair',self.headers,'192.168.1.8',True);self.assertNotIn('127.0.0.1',self.h.windows)
+ def test_reserved_linklocal_and_ipv6_peers_refused(self):
+  for peer in ('192.0.2.1','240.0.0.1','169.254.1.1','0.0.0.0','::1','fc00::1','::ffff:192.168.1.4'):
+   with self.assertRaises(ValueError):self.h.validate('POST','/phone/pair',self.headers,peer,True)
+  for peer in ('10.0.0.2','172.16.0.2','192.168.1.4','127.0.0.1'):
+   self.assertEqual(self.h.validate('POST','/phone/pair',self.headers,peer,True),2)
