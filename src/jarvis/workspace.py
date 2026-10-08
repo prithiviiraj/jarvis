@@ -1,12 +1,12 @@
 """Phase2 workspace preview. Real UI navigation, no simulated worker completion.
-Five planned profiles, not five running agents. Sensors/network stay off on launch.
+Three profiles, not five running agents. Sensors/network stay off on launch.
 """
 import tkinter as tk
 from tkinter import messagebox,ttk
 from .workspace_voice import WorkspaceVoice,VOICES
 import queue,threading,time
 from .ui_theme import BG,RAIL,PANEL,LINE,TEXT,MUTED,glass,hover
-ROSTER=[('JARVIS','Team leader','#5bc8b2'),('NOVA','Secretary','#aa8be9'),('SILA','Researcher','#ec9d65'),('LYRA','Writer','#e287b5'),('DEX','Coder','#79a9e8')]
+ROSTER=[('JARVIS','Team leader','#5bc8b2'),('LYRA','Writer','#e287b5'),('DEX','Coder','#79a9e8')]
 class Workspace:
  def __init__(self,root,controller=None):
   self.root=root;self.voice=controller or WorkspaceVoice();self.voice_status='off';self.caption='No conversation yet. Nothing is listening.';self.response='';self.setup_busy=False;self.download_cancel=threading.Event();root.title('JARVIS - Voice workspace / experimental');root.geometry(f'{min(1220,root.winfo_screenwidth()-30)}x{min(720,root.winfo_screenheight()-145)}+8+8');root.minsize(940,580);root.configure(bg=BG);glass(root)
@@ -106,9 +106,9 @@ class Workspace:
   choices=tk.Frame(self.body,bg=BG);choices.pack(fill='x')
   self.round_agents={}
   for name,role,color in ROSTER:
-   var=tk.BooleanVar(value=name in ('NOVA','JARVIS'));self.round_agents[name]=var
+   var=tk.BooleanVar(value=name in ('DEX','JARVIS'));self.round_agents[name]=var
    tk.Checkbutton(choices,text=name,variable=var,bg=BG,fg=color,selectcolor=LINE,activebackground=BG,font=('Segoe UI',8),padx=0,pady=0).pack(side='left')
-  self.round_status_label=self.label(self.body,'Choose 2-5 profiles. Order: JARVIS, NOVA, SILA, LYRA, DEX. Text only.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
+  self.round_status_label=self.label(self.body,'Choose 2-3 profiles. Order: JARVIS, LYRA, DEX. Text only.',8,MUTED,wraplength=480);self.round_status_label.pack(anchor='w')
   self.label(self.body,'SHARED SESSION CONVERSATION',8,MUTED).pack(anchor='w',pady=(10,4))
   transcript_frame=tk.Frame(self.body,bg=PANEL);transcript_frame.pack(fill='both',expand=True)
   transcript_scroll=tk.Scrollbar(transcript_frame);transcript_scroll.pack(side='right',fill='y')
@@ -128,7 +128,7 @@ class Workspace:
   topic=tk.Entry(f,bg=LINE,fg=TEXT,insertbackground=TEXT,font=('Segoe UI',10),relief='flat');topic.pack(fill='x',pady=5)
   names={};row=tk.Frame(f,bg=PANEL);row.pack(fill='x')
   for name,role,color in ROSTER:
-   v=tk.BooleanVar(value=name in ('NOVA','JARVIS'));names[name]=v
+   v=tk.BooleanVar(value=name in ('DEX','JARVIS'));names[name]=v
    tk.Checkbutton(row,text=name,variable=v,bg=PANEL,fg=color,selectcolor=LINE,activebackground=PANEL,font=('Segoe UI',9)).pack(side='left')
   row=tk.Frame(f,bg=PANEL);row.pack(fill='x',pady=6)
   self.label(row,'Turns 2-12',9,MUTED).pack(side='left');turns=tk.Spinbox(row,from_=2,to=12,width=3,bg=LINE,fg=TEXT);turns.delete(0,'end');turns.insert(0,'2');turns.pack(side='left',padx=8)
@@ -373,7 +373,7 @@ class Workspace:
   def page(tab):
    for x in content.winfo_children():x.destroy()
    self.label(content,tab,19).pack(anchor='w',pady=(0,12))
-   texts={'General':'Dark workspace preview\nFive planned profiles\nStartup: OFF\nAuto-update: not enabled','Computer':'Optional local camera/app awareness: open Camera controls.\nStarts OFF. No screen capture or model sharing.\nVisible indicator + one-click OFF while sensing.','Usage & Billing':'No paid providers or billing setup.\nGroq requires verified Free-tier status.\nAPI keys must use Windows Credential Manager.','Voice':'JARVIS: am_michael\nNOVA: am_puck\nSILA: am_liam\nLYRA: af_heart\nDEX: am_fenrir\nHeadphone half-duplex. Hardware acceptance pending.'}
+   texts={'General':'Dark workspace preview\nThree profiles\nStartup: OFF\nAuto-update: not enabled','Computer':'Optional local camera/app awareness: open Camera controls.\nStarts OFF. No screen capture or model sharing.\nVisible indicator + one-click OFF while sensing.','Usage & Billing':'No paid providers or billing setup.\nGroq requires verified Free-tier status.\nAPI keys must use Windows Credential Manager.','Voice':'JARVIS: am_michael\nNOVA: am_puck\nSILA: am_liam\nLYRA: af_heart\nDEX: am_fenrir\nHeadphone half-duplex. Hardware acceptance pending.'}
    self.label(content,texts[tab],11,wraplength=400).pack(anchor='w')
    if tab=='Usage & Billing':
     self.button(content,'Manage Groq API key',self.groq_key).pack(anchor='w',pady=10)
