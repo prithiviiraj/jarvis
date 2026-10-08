@@ -199,6 +199,19 @@ try:
  # Native connection controls are inert until explicit owner review. Never
  # enter fixture credentials into the product's fixed registered-client slot.
  click('Settings');click('Advanced')
+ # Latest named workflows: native inert pixels and real IPC Stop only, not
+ # model inference, sensors, account sends or a private TLS listener.
+ source_question=window.child_window(title='Source question',control_type='Edit');reveal_field(source_question)
+ assert not button('Review source question/model').is_enabled();click('Stop and clear source answer');window.capture_as_image().save('ui-evidence/native-source-answer-inert.png')
+ switch_model=window.child_window(title='Switch loaded model',control_type='ComboBox');reveal_field(switch_model)
+ assert not button('Review exact local switch').is_enabled();click('Stop pending brain verification');window.capture_as_image().save('ui-evidence/native-brain-switch-inert.png')
+ watch_window=window.child_window(title='Watch window',control_type='ComboBox');reveal_field(watch_window)
+ assert not button('Review Watch session').is_enabled();click('Stop shared screen session');window.capture_as_image().save('ui-evidence/native-watch-inert.png')
+ reflex_text=window.child_window(title='Reflex request preview',control_type='Edit');reveal_field(reflex_text)
+ assert not button('Check five questions, do not execute').is_enabled();click('Stop Reflex and clear evidence');window.capture_as_image().save('ui-evidence/native-reflex-inert.png')
+ phone_origin=window.child_window(title='Private HTTPS phone origin',control_type='Edit');reveal_field(phone_origin)
+ assert not button('Review private TLS listener').is_enabled();click('Stop phone session');window.capture_as_image().save('ui-evidence/native-phone-tls-inert.png')
+ checks.append('native source answer/local switch/Watch/Reflex/phone TLS inert controls and IPC Stop; no inference/capture/listener')
  focus_goal=window.child_window(title='Focus goal',control_type='Edit');reveal_field(focus_goal);assert 'Focus off'in ui_text();window.capture_as_image().save('ui-evidence/native-focus-inert.png');checks.append('native focus timer off on launch, no sensors/speech/notification')
  email_field=window.child_window(title='Google account email',control_type='Edit');reveal_field(email_field)
  assert 'Google not connected'in ui_text(), 'Google falsely connected on launch'
