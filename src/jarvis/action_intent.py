@@ -18,7 +18,7 @@ def parse(text):
  if re.fullmatch(r'open (?:this |the |a )?browser(?: (?:for me|now|please)){1,2}',t,re.I):t=re.sub(r'(?: (?:for me|now|please)){1,2}$','',t,flags=re.I)
  t=re.sub(r'\s+please$','',t,flags=re.I).strip()
  if re.fullmatch(r'(?:open (?:this |the |a )?browser and )?open (?:the )?youtube',t,re.I):return {'command':'open','value':'https://www.youtube.com/'}
- if re.fullmatch(r'open (?:this |the |a )?browser',t,re.I):return {'command':'open-window','value':''}
+ if re.fullmatch(r'open (?:this |the |a )?(?:browser|brave|brave browser)',t,re.I):return {'command':'open-window','value':''}
  m=re.fullmatch(r'scroll\s+(?:(slightly|a little)\s*)?(up|down)?(?:\s+(slightly|a little))?',t,re.I)
  if m:
   return {'command':'scroll-'+(m.group(2)or'down')+('-small'if m.group(1)or m.group(3)else''),'value':''}
