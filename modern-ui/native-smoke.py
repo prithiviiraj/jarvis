@@ -323,9 +323,9 @@ try:
  else:raise RuntimeError('Native knowledge retrieval/source IPC missing: '+content[-1500:])
  assert 'Full captured note.' in content,'Source capture completeness missing'
  assert not any('body'in row for row in requests),'Local source was disclosed to inference'
- button('Read captured source aloud').wait('exists',timeout=10) # Never invoked: source capture must not start speech with or without cached assets.
+ button('Master, read this source aloud').wait('exists',timeout=10) # Never invoked: source capture must not start speech with or without cached assets.
  window.capture_as_image().save('ui-evidence/native-knowledge-retrieval.png')
- click('Rotate knowledge right');click('Tilt knowledge view');click('Flat view');click('Depth view')
+ click('Rotate knowledge right');click('Tilt knowledge view');click('Flat view');click('Neural view')
  click('Close knowledge note');source.unlink()
  checks.append('actual native source retrieval, capture and depth controls; no model disclosure or unapproved audio')
 
