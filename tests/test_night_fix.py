@@ -77,7 +77,7 @@ class Broker(unittest.TestCase):
  def test_awareness_actual_toggles(self):
   b=Bridge(WorkspaceVoice())
   try:
-   self.assertIn('"enabled": false',b.interface_context());b.browser_enabled=True;self.assertIn('"enabled": true',b.interface_context());self.assertIn('isolated Edge only',b.interface_context());self.assertIn('credentials',b.interface_context())
+   self.assertIn('"enabled": false',b.interface_context());b.browser_enabled=True;self.assertIn('"enabled": true',b.interface_context());self.assertIn('isolated Brave only',b.interface_context());self.assertIn('credentials',b.interface_context())
   finally:b.close()
 
 class Notice(unittest.TestCase):
