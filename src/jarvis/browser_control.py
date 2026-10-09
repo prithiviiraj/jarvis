@@ -94,7 +94,8 @@ class BrowserSession:
      if context is None:
       from playwright.sync_api import sync_playwright
       p=sync_playwright().start()
-      context=p.chromium.launch_persistent_context(self.root,channel='msedge',headless=False,accept_downloads=False,service_workers='block')
+      from .brave_path import find_brave
+      context=p.chromium.launch_persistent_context(self.root,executable_path=find_brave(),headless=False,accept_downloads=False,service_workers='block')
       context.route('**/*',self.route)
      page=context.pages[0]if context.pages else context.new_page()
      if expected_url is not None:
