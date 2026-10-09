@@ -21,7 +21,11 @@ def capture(target):
  if os.name!='nt':raise RuntimeError('Game capture requires Windows')
  import ctypes
  from ctypes import wintypes
- u=ctypes.windll.user32;hwnd=int(target['id'])
+ u=ctypes.windll.user32
+ if target=={'id':1,'title':'Full primary laptop screen'}:
+  from PIL import ImageGrab
+  image=ImageGrab.grab(all_screens=False);image.thumbnail((640,360));out=io.BytesIO();image.convert('RGB').save(out,format='JPEG',quality=65);frame=out.getvalue();return frame if len(frame)<=200000 else None
+ hwnd=int(target['id'])
  for name in ('IsWindow','IsIconic','GetClientRect','ClientToScreen','GetWindowTextW'):
   getattr(u,name).argtypes=[wintypes.HWND]+({'GetClientRect':[ctypes.POINTER(wintypes.RECT)],'ClientToScreen':[ctypes.POINTER(wintypes.POINT)],'GetWindowTextW':[wintypes.LPWSTR,ctypes.c_int]}.get(name,[]))
  u.GetForegroundWindow.restype=wintypes.HWND
@@ -76,7 +80,7 @@ class GameCompanion:
   if consent is not True or type(audio)is not bool or type(export)is not bool or target!=reviewed:raise ValueError('Review capture target, audio and export permissions')
   if not isinstance(target,dict)or set(target)!={'id','title'}or type(target['id'])is not int or target['id']<=0 or not isinstance(target['title'],str)or not 0<len(target['title'])<=160:raise ValueError('Invalid selected window')
   model.verify()
-  with self.lock:self.generation+=1;self.enabled=True;self.target=dict(target);self.model=model;self.audio=audio;self.export=export;self.last=-1e20;self.status='Watching selected foreground window only'
+  with self.lock:self.generation+=1;self.enabled=True;self.target=dict(target);self.model=model;self.audio=audio;self.export=export;self.last=-1e20;self.status='Watching full primary screen locally'if target['title']=='Full primary laptop screen'else'Watching selected foreground window only'
  def stop(self):
   with self.lock:self.generation+=1;self.enabled=False;self.audio=False;self.export=False;self.status='Stopped; frames not retained'
  def poll(self,conversation_busy=False):
@@ -110,4 +114,4 @@ class GameCompanion:
     with self.lock:self.busy=False
   worker=threading.Thread(target=work,daemon=True);worker.start();return worker
  def snapshot(self):
-  with self.lock:return {'enabled':self.enabled,'busy':self.busy,'target':self.target,'audio':self.audio,'export':self.export,'status':self.status,'metrics':dict(self.metrics),'scope':'Explicit selected foreground window only, RAM-only frames, local vision model. May include overlays within the window.4s sample, single inference,30s comment cap. No no-lag or perfect-game guarantee.'}
+  with self.lock:return {'enabled':self.enabled,'busy':self.busy,'target':self.target,'audio':self.audio,'export':self.export,'status':self.status,'metrics':dict(self.metrics),'scope':('Full primary screen including visible private apps/notifications, local only. 'if self.target and self.target.get('title')=='Full primary laptop screen'else'Explicit selected foreground window only. ')+'RAM-only frames, local vision model. May include overlays within the window.4s sample, single inference,30s comment cap. No no-lag or perfect-game guarantee.'}
