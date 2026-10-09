@@ -15,6 +15,8 @@ class Bridge:
   self.obsidian=Vault(data_root()/'obsidian-connect.json')
   from .knowledge_graph import KnowledgeGraph
   from .knowledge_workspace import KnowledgeWorkspace
+  from .neural_panel import NeuralPanel
+  self.neural=NeuralPanel(lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')));self.neural_topic='';self.neural_pending=None;self.neural_source=None;self.camera_master=False;self.camera_master_status='Camera off'
   self.knowledge=KnowledgeWorkspace(lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   from .desktop_controller import DesktopController
   self.desktop_control=DesktopController()
@@ -123,7 +125,11 @@ class Bridge:
    if self.news_speech.busy and (state.get('state')!='ready' or state.get('url')!=self.news.observed_url):self.news_speech.stop()
    captured=state.get('news_text')
    if self.news.requested and state.get('state')=='ready' and state.get('url')==self.news.observed_url and captured and captured.get('url')==self.news.observed_url and captured!=self.news.text_preview:
-    try:self.news.accept_text(captured)
+    try:
+     self.news.accept_text(captured)
+     row=self.neural.offer('news','JARVIS',captured.get('title','News page'),captured['text'],'Captured page snapshot: '+captured['url']+' (may include ads/navigation)')
+     picture=captured.get('picture')
+     if isinstance(picture,str)and picture.startswith('data:image/jpeg;base64,')and len(picture)<340000:self.neural.picture=picture
     except ValueError:self.news.text_preview=None;self.news.status='Page text changed; capture and review again'
    if self.reo_submitted and state.get('state') in ('ready','error','stopping'):
     self.reo_submitted=False;self.reo_event('completed' if state.get('state')=='ready' else 'stopped','Browser reports '+state.get('state','unknown')+': '+str(state.get('url',''))[:200]+'. '+(state.get('error','')or'This verifies browser state, not the whole user goal.'))
@@ -148,7 +154,7 @@ class Bridge:
   self.failure_notices.add(key)
   self.failure_detail={'surface':surface,'detail':reason}
   self.status=surface+' could not complete. No action or code fix was started.'
-  self.error='Local operation did not complete. No action or automatic fix was started.'
+  self.error=surface+' could not complete: '+reason+'. No action or automatic fix was started.'
  def time_action(self,text,spoken=False):
   import re,datetime
   from zoneinfo import ZoneInfo
@@ -223,7 +229,7 @@ class Bridge:
  def planning_action(self,text):
   import re
   if not isinstance(text,str)or not re.fullmatch(r"\s*(?:jarvis[,.:]?\s+)?(?:what(?:'s| is)\s+(?:the |my )?plan(?:s)?(?: for)? today|open (?:the )?(?:planning area|today plan))[?.!]*\s*",text,re.I):return False
-  self.execute({'command':'plan-preview'});self.reo_event('review','Review opening Today plan in Obsidian. No note changed.');return True
+  self.execute({'command':'plan-preview'});self.reo_event('review','Today plan is shown in the neural area. Master, read pannava? No app opened or note changed.');return True
  def desktop_action(self,text):
   from .desktop_actions import prepare
   proposal=prepare(text)
@@ -238,10 +244,10 @@ class Bridge:
   self.brains.refresh_live()
   engine=self.laya_engine.snapshot();live=self.brains.live_snapshot()
   browser_fix=('Laya engine is loaded and browser permission is enabled; do not ask to load or enable it again. Check the actual browser page/session state if an action fails.'if engine.get('ready')and self.browser_enabled else'Laya engine is loaded; browser session permission is OFF. Open Settings > Tools > Laya activate to review the session, not download the model again.'if engine.get('ready')else'Laya is loading; wait for actual ready state.'if engine.get('loading')else'Laya engine is not loaded. Open Settings > Tools > Laya activate to check the actual setup error and review loading.')
-  state={'browser':{'enabled':self.browser_enabled,'active_direct_session':self.laya_active,'controlled_browser':'isolated Edge only','model_ready':self.laya_engine.snapshot().get('ready',False),'setup_busy':self.control_busy,'pending_review':self.browser_pending is not None},'apps':{'enabled':self.desktop_enabled,'approved':['Notepad','Calculator','Paint'],'confirmation_required':not self.laya_active},'microphone_on':self.voice.runtime is not None,'speech_engine':self.voice.tts_engine,'live_brains':live,'last_failure':getattr(self,'failure_detail',None),'laya_engine':engine,'camera_enabled':self.context.camera=='on','camera_vision_enabled':self.vision.enabled,'vault_connected':self.vault is not None,'obsidian_exports_enabled':self.obsidian.enabled,'obsidian_registration':getattr(self.obsidian,'registration','not checked'), 'obsidian_error':self.obsidian.error,'unsupported':['arbitrary desktop automation','shell','file deletion','forms','credentials','sending messages','payments'],'fixes':{'browser':browser_fix,'apps':'Settings > Tools > Laya activate > Reviewed Windows apps > Review app launch permission. Outside active Laya mode, review each exact app launch.','microphone':'Voices > Talk to selected profile starts a consented mic session. Typed chat works with mic OFF.','voice':'Voices > Check local voice models, or review Download local voice models if missing.','vault':'Settings > Memory > connect local vault. Managed AUTO registration may need Obsidian closed; check actual error instead of claiming connection. Calendar saves local reviewed notes only, no Google sync/reminders.'}}
+  state={'browser':{'enabled':self.browser_enabled,'active_direct_session':self.laya_active,'controlled_browser':'isolated Brave only','model_ready':self.laya_engine.snapshot().get('ready',False),'setup_busy':self.control_busy,'pending_review':self.browser_pending is not None},'apps':{'enabled':self.desktop_enabled,'approved':['Notepad','Calculator','Paint'],'confirmation_required':not self.laya_active},'microphone_on':self.voice.runtime is not None,'speech_engine':self.voice.tts_engine,'live_brains':live,'last_failure':getattr(self,'failure_detail',None),'laya_engine':engine,'camera_enabled':self.context.camera=='on','camera_vision_enabled':self.vision.enabled,'camera_vision_requirements':'Settings > Tools > Camera ON enables presence and checks local vision in one switch. Exactly one loaded LOCAL vision-capable LM Studio model; Groq text chat never sees camera images.','vault_connected':self.vault is not None,'obsidian_exports_enabled':self.obsidian.enabled,'obsidian_registration':getattr(self.obsidian,'registration','not checked'), 'obsidian_error':self.obsidian.error,'unsupported':['arbitrary desktop automation','shell','file deletion','forms','credentials','sending messages','payments'],'fixes':{'browser':browser_fix,'apps':'Settings > Tools > Laya activate > Reviewed Windows apps > Review app launch permission. Outside active Laya mode, review each exact app launch.','microphone':'Voices > Talk to selected profile starts a consented mic session. Typed chat works with mic OFF.','voice':'Voices > Check local voice models, or review Download local voice models if missing.','vault':'Settings > Memory > connect local vault. Managed AUTO registration may need Obsidian closed; check actual error instead of claiming connection. Calendar saves local reviewed notes only, no Google sync/reminders.'}}
   import re
   hints=[]
-  relevant=[('camera',r'\b(?:camera|see me|look at me|can you see|webcam)\b',not self.vision.enabled,'Camera features are available but OFF. Use the CAM control and review camera permission to enable the current-frame feature; I cannot see you while it is OFF.'),('browser',r'\b(?:browser|laya|navigate|brave)\b',not self.browser_enabled,'Browser control is available but OFF. Type or say activate laya for direct isolated Edge navigation, or enable reviewed browser control in Settings > Tools.'),('apps',r'\b(?:notepad|calculator|paint)\b',not self.desktop_enabled,'Approved app launches are available but OFF. Review app launch permission in Settings > Tools first.'),('vault',r'\b(?:vault|obsidian)\b',not(self.vault or self.obsidian.enabled),'Local vault features are available but not connected. Connect the vault in Settings > Memory; private note text is not automatically shared.')]
+  relevant=[('camera',r'\b(?:camera|see me|look at me|can you see|webcam)\b',not self.vision.enabled,'Camera vision is OFF. Settings > Privacy > Allow local camera detects presence only. Load one vision-capable LOCAL LM Studio model, then Allow camera vision. Groq text chat cannot see images.'),('browser',r'\b(?:browser|laya|navigate|brave)\b',not self.browser_enabled,'Browser control is available but OFF. Type or say activate laya for direct isolated Brave navigation, or enable reviewed browser control in Settings > Tools.'),('apps',r'\b(?:notepad|calculator|paint)\b',not self.desktop_enabled,'Approved app launches are available but OFF. Review app launch permission in Settings > Tools first.'),('vault',r'\b(?:vault|obsidian)\b',not(self.vault or self.obsidian.enabled),'Local vault features are available but not connected. Connect the vault in Settings > Memory; private note text is not automatically shared.')]
   for key,pattern,off,hint in relevant:
    if not off:self.capability_notices.discard(key)
    elif isinstance(text,str)and re.search(pattern,text,re.I)and key not in self.capability_notices:
@@ -273,7 +279,7 @@ class Bridge:
    self.execute({'command':'browser-stop'});self.reo_event('off','Laya session deactivated. Browser stopped; direct app mode ended.');return True
   self.laya_active=True;self.browser_enabled=True;self.desktop_enabled=True;self.laya_support=None
   self.messages.append({'name':'DEX','text':'I am assigned to report real Laya capability gaps during this active session. I can offer local code proposals, but never install untested fixes.','provider':'verified-app-state','cloud':False});self.archive_dirty=True
-  self.reo_event('active','LAYA ACTIVE this session: isolated Edge open/navigation/scroll run directly. Notepad, Calculator and Paint open directly. No forms, sending, credentials, payments, files or shell. Local model setup is separate if page reasoning is needed.')
+  self.reo_event('active','LAYA ACTIVE this session: isolated Brave open/navigation/scroll run directly. Notepad, Calculator and Paint open directly. No forms, sending, credentials, payments, files or shell. Local model setup is separate if page reasoning is needed.')
   return True
  def auto_browser(self):
   if not self.laya_active or not self.browser_pending:return
@@ -338,6 +344,21 @@ class Bridge:
   try:self.brain_switch.prepare('JARVIS',local[0].id,model);self.reo_event('review','Review exact loaded local brain switch in Advanced; route unchanged')
   except ValueError as e:self.reo_event('blocked',str(e))
   return True
+ def news_action(self,text):
+  if not self.news.request(text):return False
+  self.neural.offer('news','JARVIS','News area','Which public HTTPS news page should I open? Choose a source. The observed page picture and text appear here after capture.','No headlines fetched yet');return True
+ def knowledge_action(self,text):
+  from .knowledge_command import parse
+  query=parse(text)
+  if query is None:return False
+  root=self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None
+  try:
+   data=self.knowledge.search(root,query)
+   text='\n'.join(x['name']+'\n'+x['preview'][:180]for x in data['results'])or'No exact local matches in the checked scope. This does not prove absence.'
+   self.neural.offer('sources','JARVIS','Local notes: '+query,text,'Exact local text results. Not semantic similarity or answer confidence.')
+   self.status='Local note matches shown in the neural area; no cloud sharing'
+  except (ValueError,OSError)as error:self.explain_failure('Local note search',error)
+  return True
  def voice_action(self,text):
   self.source_answer.stop()
   self.voice.memory.restore([m for m in self.messages if not m.get('transient_screen')])
@@ -352,8 +373,10 @@ class Bridge:
    self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False;self.browser_pending=None;self.stop_laya()
    if self.browser:self.browser.close()
    self.browser_enabled=False;self.news_speech.stop();self.game.stop();self.idle.stop();self.interrupt_conversation();return True
+  if self.knowledge_action(text):return True
   if self.teammate_query(text):return True
-  if self.news.request(text):return True
+  if self.news.request(text):
+   self.neural.offer('news','JARVIS','News area','Which public HTTPS news page should I open? Choose a source. Once captured, the actual page picture and text appear here.','No headlines fetched yet');return True
   if self.planning_action(text):return True
   if self.calendar_action(text):return True
   if self.desktop_action(text):return True
@@ -476,7 +499,7 @@ class Bridge:
   self.design.cancel();self.phone_transport.stop();self.phone_pair_code=None
   self.embedding_service.stop();self.export_cancel.set()
   self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
-  self.desktop_control.stop();self.knowledge.stop();self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
+  self.desktop_control.stop();self.camera_master=False;self.neural.clear();self.neural_pending=None;self.knowledge.stop();self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
   self.idle.stop();self.turn_setup.stop()
   self.stop_laya()
   self.local_speed.stop();self.brains.stop_warmup()
@@ -504,12 +527,14 @@ class Bridge:
   if any(key in request for key in ('cloud','cloud_consent','provider','api_key','model','path','url')):raise ValueError('Use scoped account settings; arbitrary destinations are unavailable')
   cmd=request.get('command')
   if cmd in ('pause','close','conversation-interrupt','history-new','history-open','select'):self.reply_wait=None
+  if cmd in ('pause','close','conversation-interrupt','history-new','history-open','select','chat','voice-on','vault-connect','vault-disconnect','obsidian-disable'):
+   self.neural.clear();self.neural_pending=None;self.neural_source=None
   if cmd in ('pause','close'):self.reflex.stop();self.brain_switch.stop()
   if cmd in ('pause','close','chat','voice-on','history-new','history-open','vault-connect','vault-disconnect','obsidian-disable','knowledge-search','knowledge-read','knowledge-stop','embedding2-select','embedding2-search'):self.source_answer.stop()
   if cmd in ('pause','close','browser-stop','laya-stop','laya-cancel','conversation-interrupt'):self.laya_active=False
   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open','pause','conversation-interrupt','close','browser-stop','desktop-cancel'):
    self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
-  allowed={'design-prepare','design-save','design-stop','phone-handoff-prepare','phone-handoff-apply','phone-handoff-stop','calendar-telegram-prepare','calendar-telegram-stop','drive-text-prepare','drive-text-submit','drive-text-stop','notion-text-prepare','notion-text-submit','notion-text-stop','sheets-write-prepare','sheets-write-submit','sheets-write-stop','github-issue-prepare','github-issue-submit','github-issue-stop','source-answer-prepare','source-answer-start','source-answer-stop','phone-transport-prepare','phone-transport-start','phone-pair-open','brain-switch-prepare','brain-switch-apply','brain-switch-stop','watch-windows','watch-start','watch-stop','reflex-mode','reflex-preview','reflex-stop','focus-prepare','focus-start','focus-pause','focus-resume','focus-finish','focus-stop','projects-connect','projects-read','projects-stop','projects-disconnect','invoice-open','invoice-prepare','invoice-save','invoice-stop','telegram-voice-prepare','telegram-output-prepare','telegram-output-submit','telegram-output-stop','telegram-resume','telegram-configure','telegram-pair','telegram-approve','telegram-stop','gcal-prepare','gcal-submit','gcal-stop','gcal-reconcile','gmail-prepare','gmail-submit','gmail-stop','gmail-reconcile','google-read','google-read-stop','google-configure','google-connect','google-stop','google-disconnect','phone-stop','phone-pair-approve','desktop-windows','desktop-task-preview','desktop-task-run','desktop-task-stop','knowledge-search','knowledge-read','knowledge-speak','knowledge-stop','embedding2-select','embedding2-check','embedding2-setup','embedding2-search','embedding2-links','embedding2-stop','awareness-mode','presence-mode','news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','laya-session','proactive-session','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+  allowed={'neural-edit','screen-master','camera-master','neural-read','neural-dismiss','neural-stop','neural-prompt','design-prepare','design-save','design-stop','phone-handoff-prepare','phone-handoff-apply','phone-handoff-stop','calendar-telegram-prepare','calendar-telegram-stop','drive-text-prepare','drive-text-submit','drive-text-stop','notion-text-prepare','notion-text-submit','notion-text-stop','sheets-write-prepare','sheets-write-submit','sheets-write-stop','github-issue-prepare','github-issue-submit','github-issue-stop','source-answer-prepare','source-answer-start','source-answer-stop','phone-transport-prepare','phone-transport-start','phone-pair-open','brain-switch-prepare','brain-switch-apply','brain-switch-stop','watch-windows','watch-start','watch-stop','reflex-mode','reflex-preview','reflex-stop','focus-prepare','focus-start','focus-pause','focus-resume','focus-finish','focus-stop','projects-connect','projects-read','projects-stop','projects-disconnect','invoice-open','invoice-prepare','invoice-save','invoice-stop','telegram-voice-prepare','telegram-output-prepare','telegram-output-submit','telegram-output-stop','telegram-resume','telegram-configure','telegram-pair','telegram-approve','telegram-stop','gcal-prepare','gcal-submit','gcal-stop','gcal-reconcile','gmail-prepare','gmail-submit','gmail-stop','gmail-reconcile','google-read','google-read-stop','google-configure','google-connect','google-stop','google-disconnect','phone-stop','phone-pair-approve','desktop-windows','desktop-task-preview','desktop-task-run','desktop-task-stop','knowledge-search','knowledge-read','knowledge-speak','knowledge-stop','embedding2-select','embedding2-check','embedding2-setup','embedding2-search','embedding2-links','embedding2-stop','awareness-mode','presence-mode','news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','laya-session','proactive-session','game-windows','game-enable','game-stop','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
   if cmd not in allowed:raise ValueError('Unknown command')
   if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):
    self.phone_endpoints.stop_local();self.warning=''
@@ -597,6 +622,21 @@ class Bridge:
   elif cmd=='phone-pair-open':
    if self.phone_transport.state!='listening':raise ValueError('Start independently trusted private TLS transport first')
    self.phone_pair_code=self.phone.enable(request.get('consent')is True)
+  elif cmd=='neural-edit':
+   from .neural_edit import text as edit_text
+   if request.get('reviewed')!=self.neural.row or not self.neural.row:raise ValueError('Visual popup changed; edit again')
+   row=self.neural.row;self.neural.offer(row['kind'],row['actor'],row['title'],edit_text(request.get('text')),'Owner-edited unsaved visual draft. Not written to vault or sent.');self.neural_source=None
+  elif cmd in ('neural-read','neural-prompt'):
+   if not self.setup.ready:raise ValueError('Verify installed local speech models first')
+   if self.neural_source and self.neural.row and self.neural_source['id']==self.neural.row['id']:
+    root=self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None
+    if root is None or str(root)!=self.neural_source['root']:raise ValueError('Plan source connection changed; review again')
+    from .obsidian import Vault as ReadVault
+    import hashlib
+    if hashlib.sha256(ReadVault(root).read(self.neural_source['name']).encode()).hexdigest()!=self.neural_source['sha256']:raise ValueError('Plan note changed; capture and review again')
+   self.neural.speak(request.get('reviewed'),request.get('confirm')is True,self.voice.busy or self.voice.runtime is not None or self.knowledge.busy or self.news_speech.busy or self.game_speech.busy,prompt_only=cmd=='neural-prompt')
+  elif cmd=='neural-dismiss':self.neural.clear();self.neural_pending=None
+  elif cmd=='neural-stop':self.neural.stop()
   elif cmd=='phone-stop':self.phone_transport.stop();self.phone_pair_code=None
   elif cmd=='phone-pair-approve':self.phone_endpoints.approve_local(request.get('reviewed'),request.get('confirm')is True)
   elif cmd=='desktop-windows':self.desktop_control.discover(request.get('consent')is True)
@@ -812,7 +852,7 @@ class Bridge:
    if not self.browser_enabled or not self.browser or not self.news.observed_url:raise ValueError('Open the reviewed news page first')
    if request.get('confirm')is not True or request.get('observed_url')!=self.news.observed_url:raise ValueError('Review exact observed page before capture')
    self.browser.submit('news-text',confirmed=True,expected_url=self.news.observed_url)
-  elif cmd=='news-preview':self.news_speech.stop();self.news.preview(request.get('source_url'))
+  elif cmd=='news-preview':self.news_speech.stop();self.news.preview(request.get('source_url'));self.neural.offer('news','JARVIS','News source',request.get('source_url'),'Selected URL, no article captured yet')
   elif cmd=='news-cancel':self.news_speech.stop();self.news.cancel()
   elif cmd=='news-open':
    if not self.browser_enabled or not self.browser:raise ValueError('Enable reviewed browser control first')
@@ -831,6 +871,13 @@ class Bridge:
    self.obsidian.open('Calendar/Home.md');self.calendar_open_pending=False
   elif cmd=='plan-preview':
    if not self.obsidian.enabled:raise ValueError('Create managed Brain of Brain vault first')
+   root=self.vault.root if self.vault else self.obsidian.root
+   try:
+    row=self.knowledge.read(root,'Planning/Today.md')
+    visual=self.neural.offer('plan','JARVIS','Today plan',row['text'],'Quoted local note: Planning/Today.md. Not instructions.')
+    self.neural_source={'id':visual['id'],'root':str(root),'name':row['name'],'sha256':row['sha256']}
+   except (ValueError,OSError):
+    self.neural.offer('plan','JARVIS','Today plan unavailable','No readable Planning/Today.md was found in the connected vault. No plan was invented.','Local source unavailable')
    self.plan_pending={'note':'Planning/Today.md','label':'Open Brain of Brain Today plan in Obsidian','scope':'Visual open only, no plan edits, tools or microphone'}
   elif cmd=='plan-open':
    if request.get('confirm')is not True or not self.plan_pending or request.get('reviewed')!=self.plan_pending:raise ValueError('Review exact planning-area visual open')
@@ -903,6 +950,16 @@ class Bridge:
    self.game_speech.stop()
    self.game.enable(target,request.get('reviewed'),LocalWatchModel(request.get('vision_model'),gate=self.brains.local_gate),True,False,False);self.screen_mode='Watch'
   elif cmd=='watch-stop':self.game_speech.stop();self.game.stop();self.screen_mode='off';self.idle.gaming=False;self.judge.gaming=False
+  elif cmd=='screen-master':
+   if request.get('enabled')is False:self.game_speech.stop();self.game.stop();self.screen_mode='off'
+   else:
+    if request.get('consent')is not True:raise ValueError('Full primary screen local capture consent required')
+    from .game_companion import LocalGameModel
+    from .providers import local_live_models
+    loaded=local_live_models()
+    if len(loaded)!=1 or not loaded[0].get('vision'):raise ValueError('Full-screen share needs exactly one loaded local vision-capable LM Studio model. Groq/Spark text cannot analyze images.')
+    target={'id':1,'title':'Full primary laptop screen'}
+    self.game_speech.stop();self.game.enable(target,target,LocalGameModel(loaded[0]['id'],gate=self.brains.local_gate),True,False,False);self.screen_mode='Full screen local';self.idle.gaming=True;self.judge.gaming=True
   elif cmd=='game-windows':
    from .game_companion import windows
    self.game_windows=windows()
@@ -947,7 +1004,7 @@ class Bridge:
    action=bool(prepare(text)or parse_action(text)or parse_goal(text))
    if not isinstance(text,str)or not text.strip()or len(text)>2000:raise ValueError('Enter a message up to2000characters')
    if not action and (self.voice.busy or self.voice.runtime is not None):self.interrupt_conversation()
-   if self.news.request(text)or self.teammate_query(text)or self.planning_action(text)or self.calendar_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text)or self.understand_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
+   if self.knowledge_action(text)or self.news_action(text)or self.teammate_query(text)or self.planning_action(text)or self.calendar_action(text)or self.desktop_action(text)or self.shared_action(text)or self.reo_action(text)or self.understand_action(text):self.messages.append({'name':'You','text':str(text)[:2000]});self.archive_dirty=True
    else:
     self.voice.memory.restore([m for m in self.messages if not m.get('transient_screen')])
     from .team_discussion import requested
@@ -983,10 +1040,17 @@ class Bridge:
    if request.get('reasoning_off')is True:self.voice.start(consent=True,cloud=False,reasoning_off=True,barge_in=self.barge_in)
    else:self.voice.start(consent=True,cloud=False,barge_in=self.barge_in)
   elif cmd=='voice-off':self.voice.pause();self.barge_in=False
+  elif cmd=='camera-master':
+   if request.get('enabled')is False:
+    self.camera_master=False;self.camera_master_status='Camera off';self.vision.disable();self.camera.stop()
+   else:
+    if request.get('consent')is not True:raise ValueError('Camera session consent required')
+    if self.context.camera not in ('on','starting'):self.camera.start(True)
+    self.camera_master=True;self.camera_master_status='Camera starting; local vision readiness will be checked'
   elif cmd=='camera-on':
    if request.get('consent') is not True:raise ValueError('Camera consent required')
    self.camera.start(True)
-  elif cmd=='camera-off':self.vision.disable();self.judge.stop();self.camera.stop();self.context.presence='unknown';self.context.events.clear()
+  elif cmd=='camera-off':self.camera_master=False;self.camera_master_status='Camera off';self.vision.disable();self.judge.stop();self.camera.stop();self.context.presence='unknown';self.context.events.clear()
   elif cmd=='camera-vision':
    if request.get('enabled') is False:self.vision.disable()
    else:
@@ -1001,8 +1065,13 @@ class Bridge:
    if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
    self.judge.stop();self.judge.gaming=request.get('gaming',False);self.idle.gaming=self.judge.gaming
    if request['enabled']:self.judge.enable(True,request.get('audio',False))
-  elif cmd=='close':self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.knowledge.close();self.desktop_control.close();self.phone.close();self.voice.close();self.closed=True
+  elif cmd=='close':self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.neural.close();self.knowledge.close();self.desktop_control.close();self.phone.close();self.voice.close();self.closed=True
   self.poll()
+  if self.camera_master and self.context.camera=='on' and not self.vision.enabled:
+   self.camera_master=False
+   try:self.vision.enable(True);self.camera_master_status='Camera + local vision ready'
+   except Exception:self.camera_master_status='Presence on, vision unavailable. Load exactly one vision-capable local LM Studio model, then click Camera ON again. No frame sent to cloud.'
+  elif self.camera_master and self.context.camera=='error':self.camera_master=False;self.camera_master_status='Camera unavailable or Windows permission denied'
   for _ in range(80):
    try:kind,value=self.voice.events.get_nowait()
    except queue.Empty:break
@@ -1017,14 +1086,16 @@ class Bridge:
     if metrics.get('turn_s')is not None:self.dialogue_metrics=(self.dialogue_metrics+[dict(metrics,profile=value['profile'][:40],audio=value.get('audio')is True,scope='Software turn timings; prefetched text may already be queued. Not audible latency.')])[-12:]
    elif kind=='response-diagnostics':self.response_diagnostics=value[-2:]
    elif kind=='error':
+    if not value:self.error='';self.failure_detail=None
     if value and not str(value).startswith('Reply reached the completion limit'):
      self.reply_wait=None;self.explain_failure('Reply/voice runtime',value)
     if str(value).startswith('Reply reached the completion limit'):self.warning=str(value)[:300]
-    else:self.error='Local model did not answer. Check LM Studio connection and the selected model; Mic can listen again. No action was taken.'if any(w in str(value).lower()for w in ('model','brain','lm studio'))else'Local speech assets are missing. Open Voices and check the installed files.'if 'speech assets' in str(value).lower()else'Operation could not complete. No successful action was verified.'
+    elif value:self.error='Local model did not answer. Check LM Studio connection and the selected model; Mic can listen again. No action was taken.'if any(w in str(value).lower()for w in ('model','brain','lm studio'))else'Local speech assets are missing. Open Voices and check the installed files.'if 'speech assets' in str(value).lower()else'Operation could not complete. No successful action was verified.'
    elif kind=='action-handled':self.reply_wait=None
    elif kind=='voice-actor':self.voice.reply_actor=str(value)
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
    elif kind=='transcript':
+    self.neural_topic=str(value)[:2000];self.neural_pending=None;self.neural.clear()
     self.warning='';self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
     if self.reply_wait is None:self.reply_wait={'started':time.monotonic(),'chat':self.chat_id}
    elif kind=='game-comment':
@@ -1041,6 +1112,9 @@ class Bridge:
     if 'stream_id' in value:row['stream_id']=value['stream_id']
     if self.messages and self.messages[-1]['name']==row['name'] and (self.voice.runtime is not None or ('stream_id' in row and self.messages[-1].get('stream_id')==row['stream_id'])):self.messages[-1]=row
     else:self.messages.append(row)
+    self.neural_pending=dict(row)
+  if self.neural_pending and not self.voice.busy and not(getattr(self.voice.runtime,'busy',False)):
+   self.neural.generated(self.neural_pending,self.neural_topic);self.neural_pending=None;self.neural_source=None
   if self.reply_wait and self.reply_wait['chat']==self.chat_id and time.monotonic()-self.reply_wait['started']>=90:
    self.reply_wait=None;self.voice.pause();self.explain_failure('Reply timeout','No reply reached the interface within 90 seconds. The route cause is not yet known; the reply was stopped, not completed.')
   obs_error=self.obsidian.snapshot().get('error')
@@ -1053,7 +1127,7 @@ class Bridge:
   speaking=active and ('speaking' in voice_state or 'team-leader speech' in voice_state)
   state='speaking' if speaking else 'thinking' if active else 'idle'
   if self.caption.get('active')and time.monotonic()>self.caption.get('expires',0):self.caption={'active':False,'name':'','text':''}
-  return {'design':self.design.snapshot(),'reflex':self.reflex.snapshot(),'calendar_telegram':self.calendar_telegram.snapshot(),'focus_session':self.focus_session.snapshot(),'github_issue':self.github_issue.snapshot(),'notion_text':self.notion_text.snapshot(),'projects':self.projects.snapshot(),'invoice':self.invoice.snapshot(),'telegram':{**self.telegram.snapshot(),'output':self.telegram_output.snapshot()},'google':{**self.google.snapshot(),'sheets_write':self.sheets_write.snapshot(),'drive_text':self.drive_text.snapshot(),'read':self.google_queries.snapshot(),'mail':self.google_mail.snapshot(),'calendar':self.google_calendar.snapshot()},'phone':{**self.phone.snapshot(),'tls':self.phone_transport.snapshot(),'pair_code':self.phone_pair_code if self.phone.session.pair_hash and time.monotonic()<self.phone.session.pair_deadline else None},'desktop_control':self.desktop_control.snapshot(),'knowledge':self.knowledge.snapshot(),'laya_route':self.laya_route,'embedding2':self.embedding_service.snapshot(),'knowledge_graph':self.knowledge_graph.snapshot(self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None),'failure_detail':getattr(self,'failure_detail',None),'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'mode':self.screen_mode if self.game.enabled else'off','speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','source_answer':self.source_answer.snapshot(),'brain_switch':self.brain_switch.snapshot(),'brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+  return {'neural':self.neural.snapshot(),'design':self.design.snapshot(),'reflex':self.reflex.snapshot(),'calendar_telegram':self.calendar_telegram.snapshot(),'focus_session':self.focus_session.snapshot(),'github_issue':self.github_issue.snapshot(),'notion_text':self.notion_text.snapshot(),'projects':self.projects.snapshot(),'invoice':self.invoice.snapshot(),'telegram':{**self.telegram.snapshot(),'output':self.telegram_output.snapshot()},'google':{**self.google.snapshot(),'sheets_write':self.sheets_write.snapshot(),'drive_text':self.drive_text.snapshot(),'read':self.google_queries.snapshot(),'mail':self.google_mail.snapshot(),'calendar':self.google_calendar.snapshot()},'phone':{**self.phone.snapshot(),'tls':self.phone_transport.snapshot(),'pair_code':self.phone_pair_code if self.phone.session.pair_hash and time.monotonic()<self.phone.session.pair_deadline else None},'desktop_control':self.desktop_control.snapshot(),'knowledge':self.knowledge.snapshot(),'laya_route':self.laya_route,'embedding2':self.embedding_service.snapshot(),'knowledge_graph':self.knowledge_graph.snapshot(self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None),'failure_detail':getattr(self,'failure_detail',None),'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'mode':self.screen_mode if self.game.enabled else'off','speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','source_answer':self.source_answer.snapshot(),'brain_switch':self.brain_switch.snapshot(),'brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'camera_master_status':self.camera_master_status,'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
  def save_history(self,force=False):
   if not self.history or not self.archive_dirty:return
   if not force and self.voice.busy and time.monotonic()-self.archive_saved_at<1:return
@@ -1062,7 +1136,7 @@ class Bridge:
  def close(self):
   self.export_cancel.set()
   if self.export_worker and self.export_worker is not threading.current_thread():self.export_worker.join(10)
-  self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.knowledge.close();self.desktop_control.close();self.phone.close();self.voice.close()
+  self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.neural.close();self.knowledge.close();self.desktop_control.close();self.phone.close();self.voice.close()
 def main():
  bridge=Bridge()
  try:
