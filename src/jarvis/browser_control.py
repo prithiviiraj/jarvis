@@ -119,7 +119,8 @@ class BrowserSession:
     except Exception as error:
      category=type(error).__name__
      detail=str(error).lower()
-     if 'executable' in detail or 'browser distribution' in detail:reason='Installed Microsoft Edge or bundled automation executable was not found.'
+     if 'brave not found' in detail:reason='Brave not found in standard install locations. Install Brave first; no Edge fallback.'
+     elif 'executable' in detail or 'browser distribution' in detail:reason='Installed Brave executable was not found.'
      elif 'timeout' in detail:reason='Browser startup or navigation timed out.'
      elif isinstance(error,ValueError):reason='Reviewed command or current page no longer matches.'
      else:reason='Browser startup or navigation failed ('+category+').'
