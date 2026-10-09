@@ -18,10 +18,14 @@ class LocalVision:
             if len(raw)>262144:raise RuntimeError('Model list too large.')
             models=json.loads(raw).get('models',[])
         if not isinstance(models,list):raise RuntimeError('LM Studio model list unavailable.')
+        loaded=[]
         for m in models:
-            if isinstance(m,dict) and isinstance(m.get('capabilities'),dict) and m['capabilities'].get('vision') is True:
-                return str(m.get('key') or '')
-        return None
+            if not isinstance(m,dict)or m.get('type','llm')!='llm':continue
+            for instance in m.get('loaded_instances',[]):
+                if isinstance(instance,dict)and isinstance(instance.get('id'),str):loaded.append((instance['id'],m.get('capabilities',{}).get('vision')is True))
+        if not loaded:return None
+        if len(loaded)!=1:raise RuntimeError('Load exactly one local chat instance for camera vision. Downloaded model files alone are not loaded.')
+        return loaded[0][0]if loaded[0][1]else None
     def enable(self,consent=False):
         if not consent:raise ValueError('Camera vision needs explicit consent.')
         model=self.vision_model()
