@@ -10,7 +10,7 @@ class WorkerStale(unittest.TestCase):
   runtime=Mock();runtime.chromium.launch_persistent_context.return_value=context
   opener=Mock();opener.start.return_value=runtime
   def fresh(page):s.cancel.set();return {'links':[{'url':'https://example.com/new','id':'1','label':'new'}]}
-  with patch('playwright.sync_api.sync_playwright',return_value=opener),patch('jarvis.browser_links.links',side_effect=fresh):s.run()
+  with patch('jarvis.brave_path.find_brave',return_value='/fixture/brave.exe'),patch('playwright.sync_api.sync_playwright',return_value=opener),patch('jarvis.browser_links.links',side_effect=fresh):s.run()
   page.goto.assert_not_called();self.assertEqual(s.state['state'],'off');context.close.assert_called_once()
 
  @unittest.skipUnless(importlib.util.find_spec('playwright'),'Playwright worker integration tested separately')
@@ -21,5 +21,5 @@ class WorkerStale(unittest.TestCase):
   def close():s.cancel.set()
   runtime=Mock();runtime.chromium.launch_persistent_context.side_effect=lambda *a,**k:(s.cancel.set()or context)
   opener=Mock();opener.start.return_value=runtime
-  with patch('playwright.sync_api.sync_playwright',return_value=opener):s.run()
+  with patch('jarvis.brave_path.find_brave',return_value='/fixture/brave.exe'),patch('playwright.sync_api.sync_playwright',return_value=opener):s.run()
   page.mouse.wheel.assert_not_called()
