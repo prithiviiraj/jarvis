@@ -190,6 +190,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Actual owner command bridge failed' }
           python polish-state.py
           if ($LASTEXITCODE -ne 0) { throw 'Polish actual Bridge state failed' }
+          node neural-live-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Neural live motion/popup/review renderer failed' }
           node universe-smoke.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Knowledge graph fixture failed' }
           node next-track-smoke.mjs
