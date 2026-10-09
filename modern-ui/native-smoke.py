@@ -552,6 +552,7 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-chat-streaming-partial.png')
  checks.append('actual partial streamed text visible before completion')
  time.sleep(3)
+ click('Expand conversation')
  text=ui_text()
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  assert 'Local · LM Studio · qwen2.5-vl-3b-instruct'in text,'True local provider/model source label missing'
