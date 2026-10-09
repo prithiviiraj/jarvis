@@ -159,6 +159,14 @@ jobs:
           path: modern-ui/public/faces
           run-id: ${{ inputs.face_art_run }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install required Brave browser for real frozen navigation acceptance
+        shell: pwsh
+        run: |
+          choco install brave --version=1.88.134 --yes --no-progress --limit-output
+          if ($LASTEXITCODE -notin @(0, 3010)) { throw 'Brave installation failed' }
+          $env:PYTHONPATH='../src'
+          python -c "from jarvis.brave_path import find_brave; print('Verified Brave executable:', find_brave())"
+          if ($LASTEXITCODE -ne 0) { throw 'Required Brave executable not found' }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
