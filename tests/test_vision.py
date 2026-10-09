@@ -72,3 +72,11 @@ class VisionWiringTests(unittest.TestCase):
     bad=Mock();bad.attach.side_effect=RuntimeError('model changed');v.vision=bad
     v.enable(True);v.turn([0],v.generation,False,[])
     self.assertEqual(router.ask.call_args.args[0][-1]['content'],'hi')
+
+class LoadedVisionContractTests(unittest.TestCase):
+ def test_downloaded_vision_is_not_loaded(self):
+  v=LocalVision(lambda:b'x',opener=opener([{'type':'llm','key':'vision','capabilities':{'vision':True},'loaded_instances':[]}]))
+  with self.assertRaises(RuntimeError):v.enable(True)
+ def test_several_loaded_instances_refused(self):
+  v=LocalVision(lambda:b'x',opener=opener([{'type':'llm','key':'vision','capabilities':{'vision':True},'loaded_instances':[{'id':'one'},{'id':'two'}]}]))
+  with self.assertRaisesRegex(RuntimeError,'exactly one'):v.enable(True)
