@@ -1,5 +1,16 @@
 """Local visual review. Generated replies and quoted notes never execute actions."""
 import hashlib,re,threading
+def requested_area(text):
+ if not isinstance(text,str):return None
+ # Owner request only, never keyword inference from the generated reply.
+ text=text.strip()
+ if re.search(r"\b(?:don't|do not|no|never)\s+(?:show|open|make|create|display)\b",text,re.I):return None
+ request=re.search(r'\b(?:show|display|visualize|visualise|make|create|build|add|put|book|reserve|give|tell|read|open)\b',text,re.I)
+ if not request and not re.search(r'\bplan\s+(?:my|our|the|a|an)\b',text,re.I):return None
+ for kind,terms in [('news',r'news|headlines'),('booking',r'booking|book|reserve|reservation'),('calendar',r'calendar|appointment|schedule'),('plan',r'plan|planning|roadmap')]:
+  if re.search(r'\b(?:'+terms+r')\b',text,re.I):return kind
+ if re.search(r'\b(?:visual|visually|visualize|visualise|diagram|chart|popup|pop up)\b',text,re.I):return 'answer'
+ return None
 class NeuralPanel:
  def __init__(self,factory):
   self.factory=factory;self.row=None;self.picture=None;self.seq=0;self.worker=None;self.speaker=None;self.generation=0;self.busy=False;self.status='No visual answer yet';self.lock=threading.RLock()
@@ -10,8 +21,10 @@ class NeuralPanel:
   return self.row
  def generated(self,row,topic):
   if not isinstance(row,dict)or not isinstance(row.get('text'),str)or row.get('name')=='You':return
-  plan=bool(re.search(r'\b(?:plan|planning|schedule|steps|roadmap|strategy)\b',str(topic),re.I))
-  self.offer('plan'if plan else'answer',row.get('name','JARVIS'),'Your plan'if plan else'Agent answer',row['text'])
+  kind=requested_area(topic)
+  if kind is None:return
+  titles={'plan':'Your plan','calendar':'Calendar draft','booking':'Booking draft','news':'News draft','answer':'Visual answer'}
+  self.offer(kind,row.get('name','JARVIS'),titles[kind],row['text'])
  def stop(self):
   with self.lock:self.generation+=1;speaker=self.speaker;self.status='Reading stopped'
   if speaker:speaker.stop()
