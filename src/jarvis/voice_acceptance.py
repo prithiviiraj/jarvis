@@ -95,11 +95,11 @@ def run():
     runtime.popup_worker.join(30);assert not runtime.popup_worker.is_alive(),'Popup question exceeded30seconds'
     row=dict(bridge.neural.row);assert bridge.neural_question and bridge.neural_question['row']==row
     assert any(e['event']=='start'and e['text']=='Master, shall I read this aloud?'for e in caption_events)
-    with patch.object(runtime.stt,'transcribe_cancellable',return_value='yes'):
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='yes'):
      runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
     assert len(calls)==before,'Popup choice must not call model'
     assert samples,'Popup question/read must synthesize real local PCM'
-    with patch.object(runtime.stt,'transcribe_cancellable',return_value='not now'):
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='not now'):
      runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
     assert bridge.neural.row is None and len(calls)==before
     rows[-1]['popup_scope']='Real automatic question and current-row speech, controlled yes/not-now STT phrases, simulated mic/output; no new model calls'
