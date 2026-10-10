@@ -73,7 +73,7 @@ class LocalContext:
 class CameraWorker:
     def __init__(self,context,capture_factory=None,detect=None):
         self.context=context;self.capture_factory=capture_factory;self.detect=detect
-        self.stop_event=threading.Event();self.thread=None;self.capture=None;self.frame=None;self.lock=threading.RLock()
+        self.stop_event=threading.Event();self.thread=None;self.capture=None;self.frame=None;self.frame_at=0;self.lock=threading.RLock()
     def start(self,consent=False):
         if not consent:raise ValueError('Camera consent required')
         with self.lock:
@@ -106,7 +106,7 @@ class CameraWorker:
                 if not ok:raise RuntimeError('Camera frame unavailable')
                 try:changed=state.update(bool(detect(frame)))
                 finally:
-                    with self.lock:self.frame=frame
+                    with self.lock:self.frame=frame;self.frame_at=time.monotonic()
                     frame=None
                 if changed:self.context.presence_event(changed)
                 if self.stop_event.wait(1.0):break
@@ -125,7 +125,7 @@ class CameraWorker:
     def stopped(self):return not self.thread or not self.thread.is_alive()
     def latest_jpeg(self):
         """Current RAM frame as bounded JPEG bytes, or None. Never written to disk."""
-        with self.lock:frame=self.frame
+        with self.lock:frame=self.frame if time.monotonic()-self.frame_at<3 else None
         if frame is None:return None
         import cv2
         h,w=frame.shape[:2]
