@@ -27,7 +27,7 @@ def run():
  class Handler(http.server.BaseHTTPRequestHandler):
   def log_message(self,*args):pass
   def do_GET(self):
-   self.send_response(200);self.end_headers();self.wfile.write(b'{"data":[{"id":"speech-fixture-not-real-llm"}]}')
+   self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'models':[{'type':'llm','capabilities':{'vision':True},'loaded_instances':[{'id':'speech-fixture-not-real-llm'}]}]}).encode()if self.path=='/api/v1/models'else b'{"data":[{"id":"speech-fixture-not-real-llm"}]}')
   def do_POST(self):
    body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));calls.append(body)
    assert body['stream']
@@ -92,6 +92,8 @@ def run():
     # Keep initial reply measurements isolated, then exercise real popup question
     # and playback with the installed speaker, only STT input phrase controlled.
     samples.clear();before=len(calls);bridge.execute({'command':'status'})
+    assert bridge.neural.row is None and bridge.neural_question is None,'Ordinary microphone conversation opened a popup'
+    bridge.voice.notify('transcript','show this answer visually');bridge.voice.notify('answer',{'profile':name,'text':'Hello. I am ready when you are.'});bridge.execute({'command':'status'})
     runtime.popup_worker.join(30);assert not runtime.popup_worker.is_alive(),'Popup question exceeded30seconds'
     row=dict(bridge.neural.row);assert bridge.neural_question and bridge.neural_question['row']==row
     assert any(e['event']=='start'and e['text']=='Master, shall I read this aloud?'for e in caption_events)
@@ -103,6 +105,17 @@ def run():
      runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
     assert bridge.neural.row is None and len(calls)==before
     rows[-1]['popup_scope']='Real automatic question and current-row speech, controlled yes/not-now STT phrases, simulated mic/output; no new model calls'
+    # Actual image-bearing runtime turn to loopback, synthetic pixels only.
+    import io
+    from PIL import Image
+    pixels=io.BytesIO();Image.new('RGB',(64,64),'blue').save(pixels,format='JPEG');frame=pixels.getvalue()
+    bridge.vision.base_url=f'http://127.0.0.1:{server.server_port}';bridge.vision.enable_screen(lambda:frame,True)
+    before=len(calls)
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='what is on my screen'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert len(calls)==before+1 and any(part['type']=='image_url'for part in calls[-1]['messages'][-1]['content']),'Screen frame absent from actual loopback user turn'
+    assert calls[-1]['model']=='speech-fixture-not-real-llm';bridge.vision.disable_screen()
+    rows[-1]['screen_scope']='Actual runtime question contains synthetic JPEG in loopback local vision request; no physical screen or semantic vision verification'
     state=bridge.execute({'command':'status'})
     progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and off['messages']==state['messages']
     assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
