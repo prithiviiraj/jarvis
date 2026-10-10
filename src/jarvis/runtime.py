@@ -105,12 +105,19 @@ class VoiceRuntime:
                     self.persona=actor;self.notify('voice-actor',actor);self.notify('state',actor+' thinking')
                     request=addressed_request(actor,text,context)if direct else discussion_messages(actor,text,context,index)
                     if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(text)
+                    discussion_router=self.router;discussion_cloud=cloud
+                    if self.vision is not None:
+                        request=self.vision.attach(request)
+                        vision_route=getattr(type(self.vision),'route',None)
+                        if callable(vision_route):discussion_router=vision_route(self.vision,discussion_router,request)
+                        from .router import image_turn
+                        if image_turn(request):discussion_cloud=False
                     if self.streaming:
                         from .speech_queue import SpeechQueue
                         pieces=[];last={};stream_id=str(generation)+'-voice-dialogue-'+str(index)
                         def chunks():
                             nonlocal last
-                            for delta in self.router.stream(request,cloud_consent=cloud,cancel=self.cancel):
+                            for delta in discussion_router.stream(request,cloud_consent=discussion_cloud,cancel=self.cancel):
                                 if not self.valid(generation)or self.cancel.is_set():return
                                 pieces.append(delta['text']);partial=strip_speaker_tag(''.join(pieces));own_reply(partial,actor,context)
                                 if len(partial)>1500:raise ValueError('Team reply too long')
@@ -123,7 +130,7 @@ class VoiceRuntime:
                         if not self.valid(generation)or self.cancel.is_set():return
                         answer_text=clean_reply(strip_speaker_tag(''.join(pieces)));own_reply(answer_text,actor,context)
                     else:
-                        reply=self.router.ask(request,cloud_consent=cloud,cancel=self.cancel)
+                        reply=discussion_router.ask(request,cloud_consent=discussion_cloud,cancel=self.cancel)
                         answer_text=clean_reply(reply.get('text'));own_reply(answer_text,actor,context)
                         if len(answer_text)>1500:raise ValueError('Team reply too long')
                         if not self.valid(generation)or self.cancel.is_set():return
@@ -157,8 +164,13 @@ class VoiceRuntime:
                     messages,attached=source.attach(messages,self.persona);state_local=state_local or attached
             if state_local:cloud=False
             if self.vision is not None:
-                try:messages=self.vision.attach(messages)
-                except Exception as vision_error:self.notify('error','Vision frame skipped: '+str(vision_error)[:140])
+                stage='local vision frame';messages=self.vision.attach(messages)
+            turn_router=self.router
+            route=getattr(type(self.vision),'route',None)
+            if callable(route):
+                turn_router=route(self.vision,turn_router,messages)
+                from .router import image_turn
+                if image_turn(messages):cloud=False
             if self.streaming:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
@@ -168,7 +180,7 @@ class VoiceRuntime:
                     if isinstance(providers,list)and len(providers)==1 and not providers[0].cloud and 'spark-x2.5' in providers[0].model.lower():
                         from .lmstudio_rest import NativeSparkTransport,SparkRecoveryTransport
                         options['stream_transport']=NativeSparkTransport() if self.reasoning_off else SparkRecoveryTransport(notify=self.notify)
-                    for delta in self.router.stream(messages,cloud_consent=cloud,cancel=self.cancel,**options):
+                    for delta in turn_router.stream(messages,cloud_consent=cloud,cancel=self.cancel,**options):
                         with self.lock:
                             if not self.valid(generation):return
                             if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
@@ -193,7 +205,7 @@ class VoiceRuntime:
                 records=getattr(self.router,'last_diagnostics',[])
                 if isinstance(records,list):self.notify('response-diagnostics',records)
             else:
-                answer=self.router.ask(messages,cloud_consent=cloud,**({'local_only':True}if state_local else{}))
+                answer=turn_router.ask(messages,cloud_consent=cloud,**({'local_only':True}if state_local else{}))
                 answer['text']=strip_speaker_tag(answer['text'])
                 with self.lock:
                     if not self.valid(generation):return
