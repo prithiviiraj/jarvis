@@ -199,6 +199,11 @@ jobs:
           python polish-state.py
           if ($LASTEXITCODE -ne 0) { throw 'Polish actual Bridge state failed' }
           node neural-live-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Neural live renderer failed' }
+          node neural-native-audit-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Neural native audit lifecycle renderer failed' }
+          node neural-native-viewport-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Native viewport Master visibility renderer failed' }
           if ($LASTEXITCODE -ne 0) { throw 'Neural live motion/popup/review renderer failed' }
           node universe-smoke.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Knowledge graph fixture failed' }
