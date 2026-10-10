@@ -221,11 +221,20 @@ class Bridge:
  def calendar_action(self,text):
   import re
   if not isinstance(text,str):return False
-  if not (re.search(r'\b(?:tomorrow|today|calendar|appointment)\b',text,re.I)and re.search(r'\b(?:go|open|plan|appointment|calendar|meeting)\b',text,re.I)):return False
+  from .calendar_dialogue import update
+  updated=update(self.calendar_draft,text)
+  if updated is not None:
+   self.calendar_draft=updated;self.calendar.cancel();self.calendar_visual();self.reo_event('review','Exact local calendar draft field updated. Review all fields before saving. Nothing opened or saved.');return True
+  if not (re.search(r'\b(?:tomorrow|today|calendar|appointment)\b',text,re.I)and re.search(r'\b(?:go|open|show|add|put|create|schedule|plan|have)\b',text,re.I)):return False
   if not self.obsidian.enabled:raise ValueError('Create Brain of Brain local calendar first')
   from .calendar_handoff import draft
   self.calendar_draft=draft(text)
-  self.calendar_open_pending=True;self.reo_event('review','Review local calendar area open. Fill exact title/date/start/end/timezone/place before saving; relative words are not an event.');return True
+  self.calendar_open_pending=True;self.calendar_visual();self.reo_event('review','Review local calendar area open. Fill exact title/date/start/end/timezone/place before saving; relative words are not an event.');return True
+ def calendar_visual(self):
+  d=self.calendar_draft
+  if not d:return
+  text='\n'.join(k.capitalize()+': '+(d.get(k)or'Not provided')for k in ('title','start','end','timezone','place'))+'\nMissing: '+', '.join(d['missing'])+'\n'+d['scope']
+  self.neural.offer('calendar','JARVIS','Unsaved calendar draft',text,'Owner request. No event, reminder, booking or invitation created.')
  def planning_action(self,text):
   import re
   if not isinstance(text,str)or not re.fullmatch(r"\s*(?:jarvis[,.:]?\s+)?(?:what(?:'s| is)\s+(?:the |my )?plan(?:s)?(?: for)? today|open (?:the )?(?:planning area|today plan))[?.!]*\s*",text,re.I):return False
@@ -535,7 +544,7 @@ class Bridge:
   self.design.cancel();self.phone_transport.stop();self.phone_pair_code=None
   self.embedding_service.stop();self.export_cancel.set()
   self.laya_active=False;self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
-  self.desktop_control.stop();self.camera_master=False;self.neural.clear();self.neural_pending=None;self.knowledge.stop();self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
+  self.desktop_control.stop();self.vision.disable_screen();self.camera_master=False;self.neural.clear();self.neural_pending=None;self.knowledge.stop();self.news_speech.stop();self.news.cancel();self.calendar.cancel();self.calendar_open_pending=False;self.calendar_draft=None;self.plan_pending=None;self.obsidian.nodes_connected=False;self.teammate_awareness.stop();self.evolution_cancel.set();self.evolution.cancel();self.game_speech.stop();self.game.stop();self.specialists.stop()
   self.idle.stop();self.turn_setup.stop()
   self.stop_laya()
   self.local_speed.stop();self.brains.stop_warmup()
@@ -984,9 +993,9 @@ class Bridge:
    if self.game.enabled:raise ValueError('Stop shared screen session before switching')
    self.game_speech.stop()
    self.game.enable(target,request.get('reviewed'),LocalWatchModel(request.get('vision_model'),gate=self.brains.local_gate),True,False,False);self.screen_mode='Watch'
-  elif cmd=='watch-stop':self.game_speech.stop();self.game.stop();self.screen_mode='off';self.idle.gaming=False;self.judge.gaming=False
+  elif cmd=='watch-stop':self.vision.disable_screen();self.game_speech.stop();self.game.stop();self.screen_mode='off';self.idle.gaming=False;self.judge.gaming=False
   elif cmd=='screen-master':
-   if request.get('enabled')is False:self.game_speech.stop();self.game.stop();self.screen_mode='off'
+   if request.get('enabled')is False:self.vision.disable_screen();self.game_speech.stop();self.game.stop();self.screen_mode='off'
    else:
     if request.get('consent')is not True:raise ValueError('Full primary screen local capture consent required')
     from .game_companion import LocalGameModel
@@ -994,6 +1003,8 @@ class Bridge:
     loaded=local_live_models()
     if len(loaded)!=1 or not loaded[0].get('vision'):raise ValueError('Full-screen share needs exactly one loaded local vision-capable LM Studio model. Groq/Spark text cannot analyze images.')
     target={'id':1,'title':'Full primary laptop screen'}
+    from .game_companion import capture
+    self.vision.enable_screen(lambda:capture(target),True)
     self.game_speech.stop();self.game.enable(target,target,LocalGameModel(loaded[0]['id'],gate=self.brains.local_gate),True,False,False);self.screen_mode='Full screen local';self.idle.gaming=True;self.judge.gaming=True
   elif cmd=='game-windows':
    from .game_companion import windows
@@ -1006,8 +1017,11 @@ class Bridge:
    if request.get('audio')is True and not self.setup.snapshot().get('ready'):raise ValueError('Set up and verify local speech assets before game audio')
    self.game_speech.stop()
    self.game.enable(target,request.get('reviewed'),LocalGameModel(request.get('vision_model'),gate=self.brains.local_gate),request.get('consent')is True,request.get('audio',False),request.get('export',False))
+   from .game_companion import capture
+   self.vision.enable_screen(lambda:capture(target),True)
    self.screen_mode='Live screen';self.idle.gaming=True;self.judge.gaming=True;self.idle.activity()
   elif cmd=='game-stop':
+   self.vision.disable_screen()
    self.game_speech.stop();self.game.stop();self.idle.gaming=False;self.judge.gaming=False
   elif cmd=='idle-mode':
    if type(request.get('enabled'))is not bool or type(request.get('audio',False))is not bool:raise ValueError('Invalid idle options')
@@ -1149,7 +1163,8 @@ class Bridge:
     if 'stream_id' in value:row['stream_id']=value['stream_id']
     if self.messages and self.messages[-1]['name']==row['name'] and (self.voice.runtime is not None or ('stream_id' in row and self.messages[-1].get('stream_id')==row['stream_id'])):self.messages[-1]=row
     else:self.messages.append(row)
-    self.neural_pending=dict(row)
+    from .neural_panel import requested_area
+    if kind=='answer' and getattr(self.voice,'dialogue_origin','user')=='user' and requested_area(self.neural_topic):self.neural_pending=dict(row)
   if self.neural_pending and not self.voice.busy and not(getattr(self.voice.runtime,'busy',False)):
    self.neural.generated(self.neural_pending,self.neural_topic);self.neural_pending=None;self.neural_source=None
   if cmd not in ('pause','close','voice-off','neural-stop','neural-dismiss','conversation-interrupt','neural-read','neural-prompt'):self.maybe_ask_neural()
