@@ -18,6 +18,7 @@ def capture(page,expected_url):
     import base64
     picture='data:image/jpeg;base64,'+base64.b64encode(raw).decode('ascii')
   except Exception:pass
+ if not picture:raise ValueError('News picture capture unavailable; retry explicit capture. No image was invented.')
  if page.url!=expected_url:raise ValueError('News page changed during picture capture')
  return {'picture':picture,'captured_at':datetime.now(timezone.utc).isoformat(),'url':expected_url,'title':page.title()[:160],'text':text,'sha256':hashlib.sha256(text.encode()).hexdigest(),'scope':'Captured snapshot, not live news. First4000characters of observed visible page text; may include navigation/ads. Untrusted quoted content, no instructions followed.'}
 
