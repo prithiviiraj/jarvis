@@ -26,19 +26,21 @@ class LocalVisionTests(unittest.TestCase):
     v=LocalVision(lambda:b'jpeg-bytes',opener=opener(VISION));v.enable(consent=True)
     out=v.attach([{'role':'system','content':'s'},{'role':'user','content':'what do you see'}])
     content=out[-1]['content'];self.assertEqual(content[0],{'type':'text','text':'what do you see'})
-    self.assertEqual(content[1]['type'],'image_url');self.assertTrue(content[1]['image_url']['url'].startswith('data:image/jpeg;base64,'))
+    self.assertEqual(content[-1]['type'],'image_url');self.assertTrue(content[-1]['image_url']['url'].startswith('data:image/jpeg;base64,'))
     self.assertEqual(out[0]['content'],'s')
  def test_no_attach_when_disabled_or_no_frame(self):
     msgs=[{'role':'user','content':'hi'}]
     self.assertIs(LocalVision(lambda:b'x',opener=opener(VISION)).attach(msgs),msgs)
-    v=LocalVision(lambda:None,opener=opener(VISION));v.enable(consent=True);self.assertIs(v.attach(msgs),msgs)
+    v=LocalVision(lambda:None,opener=opener(VISION));v.enable(consent=True)
+    with self.assertRaisesRegex(RuntimeError,'frame unavailable'):v.attach(msgs)
  def test_reverify_after_cache_expiry(self):
     clock=[0.0];v=LocalVision(lambda:b'x',opener=opener(VISION),clock=lambda:clock[0],recheck_seconds=15);v.enable(consent=True)
     v.opener=opener(PLAIN);clock[0]=20.0
     with self.assertRaisesRegex(RuntimeError,'no longer advertises vision'):v.attach([{'role':'user','content':'hi'}])
  def test_oversize_frame_dropped(self):
     v=LocalVision(lambda:b'x'*300001,opener=opener(VISION));v.enable(consent=True)
-    msgs=[{'role':'user','content':'hi'}];self.assertIs(v.attach(msgs),msgs)
+    msgs=[{'role':'user','content':'hi'}]
+    with self.assertRaisesRegex(RuntimeError,'frame unavailable'):v.attach(msgs)
 
 class VisionWiringTests(unittest.TestCase):
  def test_ui_bridge_command_flow(self):
@@ -63,15 +65,15 @@ class VisionWiringTests(unittest.TestCase):
         def attach(self,messages):
             m=[dict(x) for x in messages];m[-1]['content']=[{'type':'text','text':m[-1]['content']},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,AA'}}];return m
     v.vision=FakeVision();v.enable(True);v.turn([0],v.generation,False,[])
-    content=router.ask.call_args.args[0][-1]['content'];self.assertEqual(content[1]['type'],'image_url')
+    content=router.ask.call_args.args[0][-1]['content'];self.assertEqual(content[-1]['type'],'image_url')
     speaker.speak.assert_called_once()
- def test_runtime_vision_failure_continues_text_only(self):
+ def test_runtime_vision_failure_stops_turn_without_fake_sight(self):
     from jarvis.runtime import VoiceRuntime
     stt=Mock();stt.transcribe.return_value='hi';router=Mock();router.ask.return_value={'text':'hello'};speaker=Mock();speaker.generation=1
     v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock()
     bad=Mock();bad.attach.side_effect=RuntimeError('model changed');v.vision=bad
     v.enable(True);v.turn([0],v.generation,False,[])
-    self.assertEqual(router.ask.call_args.args[0][-1]['content'],'hi')
+    router.ask.assert_not_called();speaker.speak.assert_not_called();v.mic.resume.assert_called_once()
 
 class LoadedVisionContractTests(unittest.TestCase):
  def test_downloaded_vision_is_not_loaded(self):
