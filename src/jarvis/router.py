@@ -79,6 +79,9 @@ class HttpTransport:
         finally:
             if not provider.cloud:self.last_diagnostics=[diagnostic.snapshot()]
 
+def image_turn(messages):
+ return any(isinstance(m,dict)and isinstance(m.get('content'),list)and any(isinstance(p,dict)and p.get('type')=='image_url'for p in m['content'])for m in messages)
+
 class BrainRouter:
     def __init__(self,providers,transport=None,key_store=None,clock=time.monotonic,break_seconds=60):
         if not providers or len({p.name for p in providers})!=len(providers):raise ValueError('Unique providers required.')
@@ -90,6 +93,7 @@ class BrainRouter:
             byname={p.name:p for p in self.providers};self.providers=[byname[n] for n in names]
     def ask(self,messages,cloud_consent=False,preferred=None,contains_image=False,cloud_image_consent=False,verified_free_providers=(),cancel=None):
         if not isinstance(messages,list) or not messages:raise RouterError('A conversation is required.')
+        contains_image=contains_image or image_turn(messages)
         ordered=list(self.providers)
         if preferred:
             if preferred not in {p.name for p in ordered}:raise RouterError('Preferred provider not configured.')
@@ -98,7 +102,7 @@ class BrainRouter:
         for p in ordered:
             if cancel is not None and cancel.is_set():raise RouterError('Brain request stopped')
             if p.requires_free_plan and p.name not in verified_free_providers:continue
-            if p.cloud and (not cloud_consent or (contains_image and not cloud_image_consent)):continue
+            if p.cloud and (not cloud_consent or contains_image):continue
             if self.disabled_until.get(p.name,0)>self.clock():continue
             if p.cloud:
                 try:key=self.key_store.get(p.name) if self.key_store else None
@@ -140,7 +144,7 @@ class BrainRouter:
             if is_fallback and not pending_fallback:continue
             if cancel is not None and cancel.is_set():return
             if p.requires_free_plan and p.name not in verified_free_providers:continue
-            if p.cloud and not cloud_consent:continue
+            if p.cloud and (not cloud_consent or image_turn(messages)):continue
             with self.lock:
                 if self.disabled_until.get(p.name,0)>self.clock():continue
             key=None
