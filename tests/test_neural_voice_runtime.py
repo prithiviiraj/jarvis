@@ -55,6 +55,17 @@ class NeuralVoiceRuntime(unittest.TestCase):
    r.speaker.speak.side_effect=speak;b.maybe_ask_neural();entered.wait(2);b.execute({'command':'neural-stop'});release.set();r.popup_worker.join(2)
    self.assertIsNone(b.neural_question);self.assertIsNone(b.neural_voice_choice('yes'));self.assertEqual(b.neural.row,row);r.speaker.stop.assert_called()
   finally:b.close()
+ def test_real_class_cancellable_adapter_choice_not_instance_mock(self):
+  from unittest.mock import patch
+  class CancellableSTT:
+   def transcribe_cancellable(self,audio,cancel):return 'wrong fixture'
+  b=Bridge()
+  try:
+   row=b.neural.offer('plan','LYRA','Plan','Current exact plan');r=self.runtime(b,'unused');r.stt=CancellableSTT()
+   with patch.object(type(r.stt),'transcribe_cancellable',return_value='read aloud')as transcript:
+    r.turn([],1,False,[])
+   transcript.assert_called_once();r.speaker.speak.assert_called_once_with(row['text'],generation=0);r.router.ask.assert_not_called();r.router.stream.assert_not_called()
+  finally:b.close()
  def test_stale_note_rejected_on_actual_microphone_path(self):
   b=Bridge()
   try:
