@@ -16,7 +16,7 @@ class Bridge:
   from .knowledge_graph import KnowledgeGraph
   from .knowledge_workspace import KnowledgeWorkspace
   from .neural_panel import NeuralPanel
-  self.neural=NeuralPanel(lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')));self.neural_topic='';self.neural_pending=None;self.neural_source=None;self.camera_master=False;self.camera_master_status='Camera off'
+  self.neural=NeuralPanel(lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')));self.neural_topic='';self.neural_question=None;self.neural_question_seen=None;self.neural_pending=None;self.neural_source=None;self.camera_master=False;self.camera_master_status='Camera off'
   self.knowledge=KnowledgeWorkspace(lambda:build_proactive_speaker(getattr(self.voice,'tts_engine','kokoro')))
   from .desktop_controller import DesktopController
   self.desktop_control=DesktopController()
@@ -70,7 +70,7 @@ class Bridge:
   self.brain_switch=BrainSwitch(self.brains)
   from .source_answer import SourceAnswer
   self.source_answer=SourceAnswer(self.brains.local_gate)
-  self.voice=voice or WorkspaceVoice();self.voice.action_handler=self.voice_action;self.voice.interface_context=self.interface_context;self.voice_preferences=None
+  self.voice=voice or WorkspaceVoice();self.voice.action_handler=self.voice_action;self.voice.neural_handler=self.neural_voice_choice;self.voice.interface_context=self.interface_context;self.voice_preferences=None
   if voice is None:
    from .voice_preferences import VoicePreferences
    self.voice_preferences=VoicePreferences(data_root()/'voice-preferences.json');self.voice.tts_engine=self.voice_preferences.load()
@@ -143,7 +143,7 @@ class Bridge:
   if busy and self.judge.busy:self.judge.stop()
   if not self.judge.busy and not self.judge.gaming:self.idle.poll()
   if not self.idle.busy:self.judge.poll(self.voice.busy or self.voice.runtime is not None)
-  if self.voice.runtime is not None:self.voice.runtime.action_handler=self.voice_action
+  if self.voice.runtime is not None:self.voice.runtime.action_handler=self.voice_action;self.voice.runtime.neural_handler=self.neural_voice_choice
   self.obsidian.start('sync',[m for m in self.messages if not m.get('transient_screen')],self.agents.snapshot(),{'tts_engine':self.voice.tts_engine,'turn_mode':self.voice.turn_mode,'endpoint_mode':self.voice.endpoint_mode,'selected':self.voice.name},self.chat_id,force=False)if not self.obsidian.closed and self.obsidian.enabled and self.obsidian.auto_sync and not self.obsidian.busy and time.monotonic()-self.obsidian.last>=5 else None
  def explain_failure(self,surface,reason,propose=True):
   # Error text is local diagnostic data, never code or instruction authority.
@@ -359,6 +359,42 @@ class Bridge:
    self.status='Local note matches shown in the neural area; no cloud sharing'
   except (ValueError,OSError)as error:self.explain_failure('Local note search',error)
   return True
+ def neural_voice_choice(self,text):
+  # Only explicit owner microphone phrases. A model reply is never routed here.
+  import re
+  short=re.fullmatch(r'\s*(yes|no|yes please|read it|not now|vena|vendam|padi)[.!?]*\s*',text,re.I)if isinstance(text,str)else None
+  question=self.neural_question;current=self.neural.row
+  if short and question and current and current==question['row'] and self.voice.runtime is question['runtime'] and getattr(self.voice.runtime,'enabled',False) and self.voice.runtime.generation==question['generation'] and time.monotonic()<question['until']:
+   text='not now'if short.group(1).lower()in ('no','not now','vena','vendam')else'read aloud'
+  match=re.fullmatch(r"\s*(?:(?:hey\s+)?(?:jarvis|lyra|dex)[,.:]?\s+)?(read (?:this|the) (?:popup|plan|answer)(?: aloud)?|read aloud|not now|dismiss (?:this|the) popup)[.!?]*\s*",text,re.I)if isinstance(text,str)else None
+  if not match or not self.neural.row:return None
+  row=dict(self.neural.row);choice=match.group(1).lower();self.neural_question=None;self.neural_question_seen=(row['id'],row['sha256'])
+  if choice=='not now' or choice.startswith('dismiss'):
+   self.neural.clear();self.neural_pending=None;return {'text':'','row_id':row['id'],'choice':'dismiss'}
+  self.validate_neural_source(row)
+  if self.neural.busy:raise ValueError('Popup speech is still stopping')
+  self.neural.status='Reading current popup through the active local microphone session'
+  return {'text':row['text'],'row_id':row['id'],'choice':'read'}
+ def maybe_ask_neural(self):
+  runtime=self.voice.runtime;row=self.neural.row
+  if not row or not runtime or not getattr(runtime,'enabled',False)or self.voice.busy or getattr(runtime,'busy',False)or self.neural.busy:return
+  key=(row['id'],row['sha256'])
+  if key==self.neural_question_seen or row['kind'] not in ('plan','answer','news'):return
+  ask=getattr(type(runtime),'ask_popup',None)
+  if not callable(ask):return
+  reviewed=dict(row);ticket=self.neural.generation
+  def current():return self.neural.row==reviewed and self.neural.generation==ticket
+  def asked():
+   if current():self.neural_question={'row':reviewed,'runtime':runtime,'generation':runtime.generation,'until':time.monotonic()+45}
+  if ask(runtime,current,asked):self.neural_question_seen=key
+ def validate_neural_source(self,row):
+  if not row or row!=self.neural.row:raise ValueError('Visual popup changed; review again')
+  if self.neural_source and self.neural_source['id']==row['id']:
+   root=self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None
+   if root is None or str(root)!=self.neural_source['root']:raise ValueError('Plan source connection changed; review again')
+   from .obsidian import Vault as ReadVault
+   import hashlib
+   if hashlib.sha256(ReadVault(root).read(self.neural_source['name']).encode()).hexdigest()!=self.neural_source['sha256']:raise ValueError('Plan note changed; capture and review again')
  def voice_action(self,text):
   self.source_answer.stop()
   self.voice.memory.restore([m for m in self.messages if not m.get('transient_screen')])
@@ -628,15 +664,14 @@ class Bridge:
    row=self.neural.row;self.neural.offer(row['kind'],row['actor'],row['title'],edit_text(request.get('text')),'Owner-edited unsaved visual draft. Not written to vault or sent.');self.neural_source=None
   elif cmd in ('neural-read','neural-prompt'):
    if not self.setup.ready:raise ValueError('Verify installed local speech models first')
-   if self.neural_source and self.neural.row and self.neural_source['id']==self.neural.row['id']:
-    root=self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None
-    if root is None or str(root)!=self.neural_source['root']:raise ValueError('Plan source connection changed; review again')
-    from .obsidian import Vault as ReadVault
-    import hashlib
-    if hashlib.sha256(ReadVault(root).read(self.neural_source['name']).encode()).hexdigest()!=self.neural_source['sha256']:raise ValueError('Plan note changed; capture and review again')
+   self.validate_neural_source(request.get('reviewed'))
    self.neural.speak(request.get('reviewed'),request.get('confirm')is True,self.voice.busy or self.voice.runtime is not None or self.knowledge.busy or self.news_speech.busy or self.game_speech.busy,prompt_only=cmd=='neural-prompt')
-  elif cmd=='neural-dismiss':self.neural.clear();self.neural_pending=None
-  elif cmd=='neural-stop':self.neural.stop()
+  elif cmd in ('neural-dismiss','neural-stop'):
+   self.neural_question=None
+   runtime=self.voice.runtime
+   if runtime is not None and getattr(runtime,'popup_active',False):runtime.speaker.stop()
+   self.neural.stop()
+   if cmd=='neural-dismiss':self.neural.clear();self.neural_pending=None
   elif cmd=='phone-stop':self.phone_transport.stop();self.phone_pair_code=None
   elif cmd=='phone-pair-approve':self.phone_endpoints.approve_local(request.get('reviewed'),request.get('confirm')is True)
   elif cmd=='desktop-windows':self.desktop_control.discover(request.get('consent')is True)
@@ -1094,6 +1129,8 @@ class Bridge:
    elif kind=='action-handled':self.reply_wait=None
    elif kind=='voice-actor':self.voice.reply_actor=str(value)
    elif kind in ('state','status','proactive-status'):self.status=str(value)[:220]
+   elif kind=='popup-transcript':
+    self.reply_wait=None;self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
    elif kind=='transcript':
     self.neural_topic=str(value)[:2000];self.neural_pending=None;self.neural.clear()
     self.warning='';self.messages.append({'name':'You','text':str(value)[:2000]});self.archive_dirty=True
@@ -1115,6 +1152,7 @@ class Bridge:
     self.neural_pending=dict(row)
   if self.neural_pending and not self.voice.busy and not(getattr(self.voice.runtime,'busy',False)):
    self.neural.generated(self.neural_pending,self.neural_topic);self.neural_pending=None;self.neural_source=None
+  if cmd not in ('pause','close','voice-off','neural-stop','neural-dismiss','conversation-interrupt','neural-read','neural-prompt'):self.maybe_ask_neural()
   if self.reply_wait and self.reply_wait['chat']==self.chat_id and time.monotonic()-self.reply_wait['started']>=90:
    self.reply_wait=None;self.voice.pause();self.explain_failure('Reply timeout','No reply reached the interface within 90 seconds. The route cause is not yet known; the reply was stopped, not completed.')
   obs_error=self.obsidian.snapshot().get('error')
