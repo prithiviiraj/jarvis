@@ -576,7 +576,12 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-chat-streaming-partial.png')
  checks.append('actual partial streamed text visible before completion')
  time.sleep(3)
- # Completed real frozen-core reply must expose the new exact-row visual popup.
+ # Ordinary chat must remain in chat, with no visual popup or Master question.
+ assert not window.child_window(title='Not now',control_type='Button').exists(),'Ordinary chat opened a popup'
+ assert 'Master, read pannava?' not in ui_text(),'Ordinary chat asked a visual question'
+ checks.append('ordinary actual frozen-core conversation stays in chat without popup or Master question')
+ field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('show this answer visually');click('Add local draft')
+ # Only the explicit visual request opens the exact-row popup.
  # Missing local speech assets keep read controls disabled; never start audio.
  button('Not now').wait('exists',timeout=10)
  button('Read aloud').wait('exists',timeout=10)
@@ -591,7 +596,7 @@ try:
  assert 'Master, read pannava?' in ui_text(),'Completed reply Master choice missing'
  window.capture_as_image().save('ui-evidence/native-neural-reply-choice.png')
  focus_workspace();button('Not now').wrapper_object().click_input();window.child_window(title='Not now',control_type='Button').wait_not('exists',timeout=10)
- checks.append('completed actual reply opens Master read/not-now/edit popup; Not now removes popup but preserves chat; no audio invoked')
+ checks.append('explicit visual request completed reply opens Master read/not-now/edit popup; Not now removes popup but preserves chat; no audio invoked')
  # Live React polling may detach Invoke-pattern wrappers. Use native mouse
  # input with fresh bounds and confirm the state changed before source checks.
  focus_workspace()
