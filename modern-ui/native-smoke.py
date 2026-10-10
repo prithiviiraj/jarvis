@@ -133,7 +133,7 @@ try:
     if error.args!=(None,) or attempt==4:raise
     time.sleep(.05)
  def focus_workspace():
-  # Edge startup can steal focus after an earlier successful set_focus.
+  # Brave startup can steal focus after an earlier successful set_focus.
   # Verify the OS foreground owner immediately before every mouse action.
   for _ in range(15):
    window.set_focus()
@@ -165,8 +165,8 @@ try:
    mouse.scroll(coords=(min(bounds.right-40,bounds.left+760),bounds.top+450),wheel_dist=direction);time.sleep(.2)
   raise RuntimeError('Field could not be brought into Settings viewport: '+control.window_text())
  def expand_advanced():
-  # Isolated Edge can own foreground after browser-run. Mouse input must
-  # target the JARVIS workspace, not the newly launched Edge window.
+  # Isolated Brave can own foreground after browser-run. Mouse input must
+  # target the JARVIS workspace, not the newly launched Brave window.
   window.set_focus()
   # HTML summary exposes Button semantics but has no Windows UIA Invoke pattern.
   # Use real mouse input, as the already-passing initial expansion does.
@@ -333,6 +333,12 @@ try:
  time.sleep(2)
  assert not any('body'in row for row in requests),'Launch discovery must not send inference or user text'
  click('Settings');click('Tools');assert button('Proactive').exists(),'Single Proactive control missing';assert not window.child_window(title='Confirm proactive team',control_type='Button').exists();checks.append('single Proactive control present; no automatic speech or model start on mount')
+ # Audit new Master entries without invoking sensors or local vision inference.
+ button('Camera').wait('exists',timeout=10);button('Live screen').wait('exists',timeout=10)
+ assert 'One switch: presence + loaded local vision. No cloud images.' in ui_text()
+ assert 'Full primary screen, including private windows. Local vision only, no recording.' in ui_text()
+ window.capture_as_image().save('ui-evidence/native-master-controls-inert.png')
+ checks.append('camera Master and full-primary-screen Master entries visible; local-only/privacy scope shown; no camera/screen session started')
  click('Settings');click('Brain & APIs')
  assert not window.child_window(title='Review local speed test',control_type='Button').exists(),'Removed speed control remains'
  button('Check LM Studio connection').wait('exists',timeout=10);click('Check LM Studio connection')
@@ -511,11 +517,11 @@ try:
  while time.monotonic()<deadline:
   content=ui_text()
   if 'about:blank'in content and 'ready'in content:break
-  if 'Browser reports error' in content:raise RuntimeError('Actual isolated Edge startup failed: '+content)
+  if 'Browser reports error' in content:raise RuntimeError('Actual isolated Brave startup failed: '+content)
   time.sleep(.3)
- else:raise RuntimeError('Actual reviewed isolated Edge open did not become ready')
- window.set_focus();window.capture_as_image().save('ui-evidence/native-reviewed-edge-ready.png')
- checks.append('actual bundled Playwright starts isolated installed Edge after exact Confirm, reports about:blank ready; no external site or Laya inferred action')
+ else:raise RuntimeError('Actual reviewed isolated Brave open did not become ready')
+ window.set_focus();window.capture_as_image().save('ui-evidence/native-reviewed-brave-ready.png')
+ checks.append('actual bundled Playwright starts isolated installed Brave after exact Confirm, reports about:blank ready; no external site or Laya inferred action')
 
 
  click('Team room');field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS, open the browser and open YouTube.');click('Add local draft')
@@ -552,6 +558,20 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-chat-streaming-partial.png')
  checks.append('actual partial streamed text visible before completion')
  time.sleep(3)
+ # Completed real frozen-core reply must expose the new exact-row visual popup.
+ # Missing local speech assets keep read controls disabled; never start audio.
+ button('Not now').wait('exists',timeout=10)
+ button('Read aloud').wait('exists',timeout=10)
+ button("Hear Master's question").wait('exists',timeout=10)
+ button('Edit visual draft').wait('exists',timeout=10)
+ bounds=window.rectangle()
+ for label in ('Read aloud','Not now',"Hear Master's question"):
+  rect=button(label).wrapper_object().rectangle()
+  assert bounds.top<rect.top and rect.bottom<bounds.bottom and bounds.left<=rect.left and rect.right<=bounds.right,('Master choice clipped',label,rect,bounds)
+ assert 'Master, read pannava?' in ui_text(),'Completed reply Master choice missing'
+ window.capture_as_image().save('ui-evidence/native-neural-reply-choice.png')
+ focus_workspace();button('Not now').wrapper_object().click_input();button('Not now').wait_not('exists',timeout=10)
+ checks.append('completed actual reply opens Master read/not-now/edit popup; Not now removes popup but preserves chat; no audio invoked')
  # Live React polling may detach Invoke-pattern wrappers. Use native mouse
  # input with fresh bounds and confirm the state changed before source checks.
  focus_workspace()
