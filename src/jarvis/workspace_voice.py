@@ -96,8 +96,11 @@ class WorkspaceVoice:
                     messages,node_state=nodes.attach(messages,name);local_state=local_state or node_state
                 scope={'local_only':True}if local_state else{}
                 if self.vision is not None:
-                    try:messages=self.vision.attach(messages)
-                    except Exception as vision_error:self.notify('error','Vision frame skipped: '+str(vision_error)[:140])
+                    messages=self.vision.attach(messages)
+                    route=getattr(type(self.vision),'route',None)
+                    if callable(route):router=route(self.vision,router,messages)
+                    from .router import image_turn
+                    if image_turn(messages):scope={}
                 for delta in router.stream(messages,cloud_consent=False,cancel=cancel,**scope):
                     with self.lock:
                         if self.closed or ticket!=self.generation:return
@@ -172,7 +175,13 @@ class WorkspaceVoice:
                     if cancel.is_set()or self.closed or ticket!=self.generation:return
                     self.reply_actor=name;self.notify('state',name+' thinking')
                     request=make_request(index,name,context)
-                    router=brains.router(name)
+                    router=brains.router(name);image_request=False
+                    if origin=='user' and self.vision is not None:
+                        request=self.vision.attach(request)
+                        route=getattr(type(self.vision),'route',None)
+                        if callable(route):router=route(self.vision,router,request)
+                        from .router import image_turn
+                        image_request=image_turn(request)
                     stream_id=str(ticket)+'-dialogue-'+str(index)
                     started=time.monotonic();first_text=None;generation_done=None
                     answer={};pieces=[]
@@ -196,7 +205,7 @@ class WorkspaceVoice:
                                     self.notify('answer',{**answer,'profile':name,'stream_id':stream_id})
                                 yield piece
                             generation_done=time.monotonic()-started
-                            if speaker and index+1<len(actors)and not cancel.is_set():
+                            if speaker and not image_request and index+1<len(actors)and not cancel.is_set():
                                 actual=clean_reply(answer.get('text'));own_reply(actual,name,context)
                                 next_name=actors[index+1];next_router=brains.router(next_name)
                                 if callable(getattr(type(next_router),'stream',None)):
