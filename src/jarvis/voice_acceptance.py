@@ -27,7 +27,7 @@ def run():
  class Handler(http.server.BaseHTTPRequestHandler):
   def log_message(self,*args):pass
   def do_GET(self):
-   self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'models':[{'type':'llm','capabilities':{'vision':True},'loaded_instances':[{'id':'speech-fixture-not-real-llm'}]}]}).encode()if self.path=='/api/v1/models'else b'{"data":[{"id":"speech-fixture-not-real-llm"}]}')
+   self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'models':[{'type':'llm','key':'speech-fixture-not-real-llm','capabilities':{'vision':True},'loaded_instances':[{'id':'speech-fixture-not-real-llm'}]}]}).encode()if self.path=='/api/v1/models'else b'{"data":[{"id":"speech-fixture-not-real-llm"}]}')
   def do_POST(self):
    body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));calls.append(body)
    assert body['stream']
