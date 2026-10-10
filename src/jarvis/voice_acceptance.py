@@ -116,6 +116,36 @@ def run():
     assert len(calls)==before+1 and any(part['type']=='image_url'for part in calls[-1]['messages'][-1]['content']),'Screen frame absent from actual loopback user turn'
     assert calls[-1]['model']=='speech-fixture-not-real-llm';bridge.vision.disable_screen()
     rows[-1]['screen_scope']='Actual runtime question contains synthetic JPEG in loopback local vision request; no physical screen or semantic vision verification'
+    # Camera plus screen must both reach actual user request as current pixels.
+    bridge.vision.frame_source=lambda:frame;bridge.vision.enable(True);bridge.vision.enable_screen(lambda:frame,True)
+    before=len(calls)
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='what can you see now'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert len(calls)==before+1
+    images=[p['image_url']['url']for p in calls[-1]['messages'][-1]['content']if p['type']=='image_url']
+    import base64
+    assert len(images)==2 and all(base64.b64decode(u.split(',',1)[1])==frame for u in images)
+    bridge.vision.disable();bridge.vision.disable_screen();before=len(calls)
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='hello after sharing stopped'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert len(calls)==before+1 and isinstance(calls[-1]['messages'][-1]['content'],str),'Stop left image attached'
+    rows[-1]['camera_screen_stop_scope']='Actual runtime carries both synthetic camera/screen JPEGs to loopback local request; stop removes images from next question. No hardware or semantic model proof'
+    # CI runner's actual primary desktop frame, only to controlled loopback.
+    # This exercises frozen PIL capture, not the owner's hardware/model.
+    from .game_companion import capture
+    captured=capture({'id':1,'title':'Full primary laptop screen'},question=True)
+    assert captured and len(captured)<=300000
+    observed=Image.open(io.BytesIO(captured));assert observed.width<=1280 and observed.height<=720
+    if name=='JARVIS':(out/'frozen-primary-screen-question.jpg').write_bytes(captured)
+    bridge.vision.enable_screen(lambda:captured,True);before=len(calls)
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='describe the captured runner desktop'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert len(calls)==before+1
+    sent=[p['image_url']['url']for p in calls[-1]['messages'][-1]['content']if p['type']=='image_url'];assert len(sent)==1 and base64.b64decode(sent[0].split(',',1)[1])==captured
+    bridge.vision.disable_screen()
+    rows[-1]['runner_screen_scope']='Frozen actual Windows primary capture reaches loopback fixture; no owner desktop or real model semantic proof'
+
+
     state=bridge.execute({'command':'status'})
     progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and off['messages']==state['messages']
     assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
