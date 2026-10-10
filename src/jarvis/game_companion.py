@@ -17,14 +17,23 @@ def windows():
  cb=ctypes.WINFUNCTYPE(wintypes.BOOL,wintypes.HWND,wintypes.LPARAM)(each);u.EnumWindows(cb,0)
  return rows[:100]
 
-def capture(target):
+def encode_frame(image,question=False):
+ # Larger question frame preserves readable text; background capture stays small.
+ cap=300000 if question else 200000
+ image=image.convert('RGB');image.thumbnail((1280,720)if question else(640,360))
+ for quality in ((80,65,50)if question else(65,)):
+  out=io.BytesIO();image.save(out,format='JPEG',quality=quality);frame=out.getvalue()
+  if len(frame)<=cap:return frame
+ return None
+
+def capture(target,question=False):
  if os.name!='nt':raise RuntimeError('Game capture requires Windows')
  import ctypes
  from ctypes import wintypes
  u=ctypes.windll.user32
  if target=={'id':1,'title':'Full primary laptop screen'}:
   from PIL import ImageGrab
-  image=ImageGrab.grab(all_screens=False);image.thumbnail((640,360));out=io.BytesIO();image.convert('RGB').save(out,format='JPEG',quality=65);frame=out.getvalue();return frame if len(frame)<=200000 else None
+  image=ImageGrab.grab(all_screens=False);return encode_frame(image,question)
  hwnd=int(target['id'])
  for name in ('IsWindow','IsIconic','GetClientRect','ClientToScreen','GetWindowTextW'):
   getattr(u,name).argtypes=[wintypes.HWND]+({'GetClientRect':[ctypes.POINTER(wintypes.RECT)],'ClientToScreen':[ctypes.POINTER(wintypes.POINT)],'GetWindowTextW':[wintypes.LPWSTR,ctypes.c_int]}.get(name,[]))
@@ -41,8 +50,7 @@ def capture(target):
  image=ImageGrab.grab(bbox=(start.x,start.y,end.x,end.y),all_screens=True)
  # Do not deliver a frame if focus changed during capture.
  if u.GetForegroundWindow()!=hwnd:return None
- image.thumbnail((640,360));out=io.BytesIO();image.convert('RGB').save(out,format='JPEG',quality=65)
- frame=out.getvalue();return frame if len(frame)<=200000 else None
+ return encode_frame(image,question)
 
 class LocalGameModel:
  def __init__(self,model,opener=None,gate=None):
