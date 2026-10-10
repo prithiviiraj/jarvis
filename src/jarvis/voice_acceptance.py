@@ -42,6 +42,7 @@ def run():
   def start(self,consent=False):assert consent;self.enabled=True
   def close(self):self.enabled=False
   def resume(self):pass
+  def suspend(self):pass
  class Sink:
   def __init__(self,sr):assert sr==24000
   def start(self):pass
@@ -75,7 +76,7 @@ def run():
     turn=threading.Thread(target=runtime.turn,args=(audio,runtime.generation,False,[]),daemon=True);faulthandler.dump_traceback_later(60,file=trace);turn.start();turn.join(60);faulthandler.cancel_dump_traceback_later()
     if turn.is_alive():
      progress('turn-timeout',persona=name);faulthandler.dump_traceback(file=trace);trace.flush();raise RuntimeError('Speech software turn exceeded60seconds: '+name)
-    progress('turn-done',persona=name,turn_s=time.monotonic()-started);state=bridge.execute({'command':'status'})
+    progress('turn-done',persona=name,turn_s=time.monotonic()-started);runtime.busy=True;state=bridge.execute({'command':'status'});runtime.busy=False
     assert any('country' in x['text'].lower() for x in state['messages'])
     assert any(x['name']==name and x['text']=='Hello. I am ready when you are.' for x in state['messages']),state
     assert len(samples)>0
@@ -88,6 +89,21 @@ def run():
     pcm=np.concatenate(samples)
     with wave.open(str(out/(name+'-local-voice.wav')),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes((pcm*32767).astype('<i2').tobytes())
     rows.append({'persona':name,'voice_metrics':metrics,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'clean_caption_playback_events':caption_events,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
+    # Keep initial reply measurements isolated, then exercise real popup question
+    # and playback with the installed speaker, only STT input phrase controlled.
+    samples.clear();before=len(calls);bridge.execute({'command':'status'})
+    runtime.popup_worker.join(30);assert not runtime.popup_worker.is_alive(),'Popup question exceeded30seconds'
+    row=dict(bridge.neural.row);assert bridge.neural_question and bridge.neural_question['row']==row
+    assert any(e['event']=='start'and e['text']=='Master, shall I read this aloud?'for e in caption_events)
+    with patch.object(runtime.stt,'transcribe_cancellable',return_value='yes'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert len(calls)==before,'Popup choice must not call model'
+    assert samples,'Popup question/read must synthesize real local PCM'
+    with patch.object(runtime.stt,'transcribe_cancellable',return_value='not now'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert bridge.neural.row is None and len(calls)==before
+    rows[-1]['popup_scope']='Real automatic question and current-row speech, controlled yes/not-now STT phrases, simulated mic/output; no new model calls'
+    state=bridge.execute({'command':'status'})
     progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and off['messages']==state['messages']
     assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
     runtime=None;turn=None
