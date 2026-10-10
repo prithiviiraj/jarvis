@@ -69,7 +69,7 @@ p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/t
 checks=[];window=None
 try:
  main=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');main.wait('visible',timeout=30)
- main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
+ main=Desktop(backend='uia').window(handle=main.handle);main.maximize();main.set_focus()
  # The published workspace starts on Knowledge universe; composer is Team-only.
  main.child_window(title='Team room',control_type='Button').wait('exists',timeout=30)
  main.child_window(title='Team room',control_type='Button').wrapper_object().invoke()
@@ -575,7 +575,7 @@ try:
   assert bounds.top<rect.top and rect.bottom<bounds.bottom and bounds.left<=rect.left and rect.right<=bounds.right,('Master choice clipped',label,rect,bounds)
  assert 'Master, read pannava?' in ui_text(),'Completed reply Master choice missing'
  window.capture_as_image().save('ui-evidence/native-neural-reply-choice.png')
- focus_workspace();button('Not now').wrapper_object().click_input();button('Not now').wait_not('exists',timeout=10)
+ focus_workspace();button('Not now').wrapper_object().click_input();window.child_window(title='Not now',control_type='Button').wait_not('exists',timeout=10)
  checks.append('completed actual reply opens Master read/not-now/edit popup; Not now removes popup but preserves chat; no audio invoked')
  # Live React polling may detach Invoke-pattern wrappers. Use native mouse
  # input with fresh bounds and confirm the state changed before source checks.
@@ -665,7 +665,7 @@ try:
  window=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30)
  restarted_workspace_handle=window.handle
  window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
- window.minimize()
+ window.maximize();window.minimize()
  # Hidden WebViews are not in UIA. Enumerate this restarted process only,
  # with pointer-safe Win32 signatures and a bounded creation wait.
  from ctypes import wintypes
