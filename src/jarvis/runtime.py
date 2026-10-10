@@ -29,6 +29,24 @@ class VoiceRuntime:
         # Never wait on the turn worker under its state lock.
         with self.lock:self.enabled=False;self.generation+=1;self.cancel.set()
         self.mic.close();self.speaker.stop();self.notify('state','off')
+    def ask_popup(self,current,asked):
+        """One local question between turns. No model request or extra player."""
+        with self.lock:
+            if not self.enabled or self.busy or self.cancel.is_set():return False
+            self.busy=True;self.popup_active=True;generation=self.generation;ticket=self.speaker.generation
+            self.mic.suspend()
+        def work():
+            try:
+                if self.valid(generation) and current():
+                    self.notify('state','asking Master')
+                    self.speaker.speak('Master, shall I read this aloud?',generation=ticket)
+                    if self.valid(generation) and self.speaker.generation==ticket and current():asked()
+            except Exception as error:self.notify('error','Popup question could not play locally: '+type(error).__name__)
+            finally:
+                with self.lock:
+                    self.busy=False;self.popup_active=False
+                    if self.valid(generation) and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
+        self.popup_worker=threading.Thread(target=work,daemon=True);self.popup_worker.start();return True
     def on_utterance(self,audio):
         with self.lock:
             if not self.enabled or self.busy:return
@@ -41,6 +59,20 @@ class VoiceRuntime:
         self.notify('metrics',{})
         try:
             self.notify('response-diagnostics',[]);self.notify('error','');self.notify('state','transcribing');cancellable=getattr(type(self.stt),'transcribe_cancellable',None);text=cancellable(self.stt,audio,self.cancel)if callable(cancellable)else self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
+            with self.lock:
+                if not self.valid(generation):return
+            # An explicit spoken popup choice uses this already paused mic and
+            # installed session speaker, not a second playback or model request.
+            popup_handler=getattr(self,'neural_handler',None)
+            stage='popup choice validation';popup=popup_handler(text)if callable(popup_handler)else None
+            if isinstance(popup,dict):
+                with self.lock:
+                    if not self.valid(generation):return
+                    self.notify('popup-transcript',text);self.notify('action-handled',text)
+                if popup.get('text'):
+                    self.popup_active=True;stage='popup speech synthesis/playback';self.notify('state','reading popup')
+                    self.speaker.speak(popup['text'],generation=ticket)
+                return
             with self.lock:
                 if not self.valid(generation):return
                 self.notify('transcript',text);self.notify('state','thinking')
@@ -179,7 +211,7 @@ class VoiceRuntime:
             if stage=='local model response' and isinstance(records,list):self.notify('response-diagnostics',records)
             from .router import RouterError
             from .speech import UnclearSpeech
-            detail=str(exc)[:200] if isinstance(exc,RouterError) else type(exc).__name__
+            detail=str(exc)[:200] if isinstance(exc,RouterError) or (stage=='popup choice validation' and isinstance(exc,ValueError)) else type(exc).__name__
             if 'local-empty-after-retry' in str(exc):detail='local model returned no usable final text after retry (empty streaming and non-streaming replies). This model may not fit this chat template; load a proven chat-instruct model in LM Studio (for example spark-x2.5-4b) or test an enabled cloud account.'
             if 'native-reasoning-off-' in detail:detail+=' Use a non-reasoning model in LM Studio or update LM Studio; no reasoning was spoken'
             with self.lock:
@@ -188,7 +220,7 @@ class VoiceRuntime:
                     else:self.notify('error','Voice turn failed at '+stage+': '+detail+'. Microphone can listen again; no action was taken.')
         finally:
             with self.lock:
-                self.busy=False
+                self.busy=False;self.popup_active=False
                 if self.valid(generation):
                     metrics['turn_s']=time.monotonic()-started;metrics['scope']='session voice processing; first output write is PCM submitted to an adapter, not sound heard; no hardware latency measurement';self.notify('metrics',dict(metrics))
                 self.turn_metrics=None;self.mic.on_onset=None
