@@ -7,7 +7,16 @@ with sync_playwright() as p:
  b=p.chromium.launch(headless=True);page=b.new_page();requests=[]
  def route(r):
   requests.append(r.request.url);r.fulfill(status=200,content_type='text/html',body='<html><title>Local News Fixture</title><body><nav>Fixture navigation</nav><main><h1>Fixture headline, not actual news</h1><p>Quoted local content only.</p></main></body></html>')
- page.route('**/*',route);page.goto('https://example.com/news');row=capture(page,'https://example.com/news');assert 'Fixture headline' in validate(row)
+ page.route('**/*',route)
+ # Wait on the expected content, not only navigation lifecycle; fail with pixels
+ # and current URL/DOM if the runner never exposes the locally fulfilled body.
+ page.goto('https://example.com/news',wait_until='domcontentloaded')
+ try:page.locator('h1').filter(has_text='Fixture headline, not actual news').wait_for(state='visible',timeout=15000)
+ except Exception:
+  pathlib.Path('ui-evidence/news-capture-readiness-failure.html').write_text(page.content(),encoding='utf-8')
+  page.screenshot(path='ui-evidence/news-capture-readiness-failure.png')
+  print(json.dumps({'url':page.url,'intercepted_requests':requests,'failure':'expected local fixture content never became visible'}));raise
+ row=capture(page,'https://example.com/news');assert 'Fixture headline' in validate(row)
  page.evaluate("document.querySelector('main').innerHTML='<h1>Changed fixture headline</h1>'")
  changed=capture(page,'https://example.com/news');assert changed['sha256']!=row['sha256']
  page.goto('https://example.com/different')
