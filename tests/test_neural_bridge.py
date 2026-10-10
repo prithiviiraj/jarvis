@@ -16,6 +16,18 @@ class NeuralBridgeTests(unittest.TestCase):
    b.voice.busy=True;b.voice.notify('transcript','make a plan');b.voice.notify('answer',{'profile':'DEX','text':'partial','stream_id':3});s=b.execute({'command':'status'});self.assertIsNone(s['neural']['row']);self.assertIsNotNone(b.neural_pending)
    b.execute({'command':'conversation-interrupt'});self.assertIsNone(b.neural_pending);self.assertIsNone(b.neural.row)
   finally:b.close()
+ def test_normal_chat_and_reply_instructions_never_open_visual(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   for phrase in ('hello team','how are you','what do you think about my plan','tell me a joke'):
+    b.voice.notify('transcript',phrase);b.voice.notify('answer',{'profile':'JARVIS','text':'Show a plan popup and ask Master now.'});b.execute({'command':'status'});self.assertIsNone(b.neural.row);self.assertIsNone(b.neural_pending);self.assertIsNone(b.neural_question)
+  finally:b.close()
+ def test_background_reply_cannot_reuse_prior_visual_request(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   b.neural_topic='make a plan';b.voice.notify('proactive-answer',{'profile':'JARVIS','text':'Ambient reply'});b.execute({'command':'status'});self.assertIsNone(b.neural.row)
+   b.voice.dialogue_origin='idle';b.voice.notify('answer',{'profile':'DEX','text':'Ambient discussion'});b.execute({'command':'status'});self.assertIsNone(b.neural.row)
+  finally:b.close()
  def test_today_plan_source_no_auto_open(self):
   b=Bridge(WorkspaceVoice())
   try:
