@@ -5,7 +5,7 @@ def prepare(text):
  if not isinstance(text,str):return None
  t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|sila|lyra|dex|laya)[.,:!]?\s+)?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
- m=re.fullmatch(r'(?:open|launch)\s+(?:the\s+)?(notepad|calculator|paint)(?:\s+app)?(?:\s+for me)?[.!?]*',t,re.I)
+ m=re.fullmatch(r'(?:open|launch|start|bring up)\s+(?:the\s+)?(notepad|calculator|paint)(?:\s+app)?(?:\s+(?:for me|now|please))?[.!?]*',t,re.I)
  if not m:return None
  app=m.group(1).lower();return {'action':'launch-app','app':app,'label':APPS[app][0],'target':'Windows System32/'+APPS[app][1]}
 def validate(proposal):
