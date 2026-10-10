@@ -88,6 +88,16 @@ try:
     if not reply['data']['obsidian'].get('busy'):break
     time.sleep(.1);p.stdin.write(json.dumps({'command':'status'})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30))
    assert reply['data']['obsidian']['enabled'],reply
+ # Actual frozen conversational unsaved date move; no save/open/model call.
+ original=reply['data']['calendar']['pending']
+ for phrase in ('show calendar appointment','calendar title Move fixture','calendar start 2026-10-11T23:30','calendar end 2026-10-12T00:30','calendar timezone Asia/Kolkata','move calendar draft to 2026-10-13'):
+  p.stdin.write(json.dumps({'command':'chat','text':phrase})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply
+ moved=reply['data']['calendar']['draft'];assert moved['start']=='2026-10-13T23:30'and moved['end']=='2026-10-14T00:30'and moved['weekday']=='Tuesday',moved
+ assert reply['data']['calendar']['pending']is None and not reply['data']['calendar']['events'] and not reply['data']['calendar']['result'],reply
+ assert reply['data']['neural']['row']['kind']=='calendar'and '2026-10-13'in reply['data']['neural']['row']['text'],reply
+ (root/'ui-evidence/frozen-calendar-move-draft.json').write_text(json.dumps({'scope':'Actual frozen conversational date move, unsaved draft only, no external calendar/app/model','draft':moved},indent=2),encoding='utf-8')
+ p.stdin.write(json.dumps({'command':'calendar-cancel'})+'\n');p.stdin.flush();assert json.loads(lines.get(timeout=30))['ok']
+ p.stdin.write(json.dumps({'command':'calendar-preview','event':{k:original[k]for k in ('title','start','end','place','notes','timezone')}})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply
  proposal=reply['data']['calendar']['pending'];assert proposal['weekday']=='Wednesday'
  p.stdin.write(json.dumps({'command':'calendar-save','reviewed':proposal,'confirm':False})+'\n');p.stdin.flush();assert not json.loads(lines.get(timeout=30))['ok']
  p.stdin.write(json.dumps({'command':'calendar-save','reviewed':proposal,'confirm':True})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply;assert any(r['title']=='CI local calendar fixture'for r in reply['data']['calendar']['events'])
