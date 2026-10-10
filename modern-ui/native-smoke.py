@@ -120,10 +120,15 @@ try:
  window=Desktop(backend='uia').window(handle=main.handle);window.wait('visible',timeout=20);window.set_focus()
  def button(name,root=None):
   import re
-  # Animated Tools tiles include live status and descriptions in their UIA names.
+  # UIA tree confirms exact tile names under the named Tools launcher Group.
+  # Scope avoids the separate Live screen share navigation button.
   tiles=('Laya activate','Camera','Live screen','Proactive')
-  pattern=('(?s)^'+re.escape(name)+r'(?:\s+.*)?$' if name in tiles else '(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
-  item=(root or window).child_window(title_re=pattern,control_type='Button',visible_only=False);item.wait('exists',timeout=20);return item
+  pattern=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
+  target=root or window
+  if name in tiles:
+   target=target.child_window(title='Tools launcher',control_type='Group');target.wait('exists',timeout=20)
+   pattern='^'+re.escape(name)+'$'
+  item=target.child_window(title_re=pattern,control_type='Button',visible_only=False);item.wait('exists',timeout=20);return item
  def ui_text(root=None):
   # WebView2 may detach a UIA node during React updates. pywinauto's class
   # lookup then raises KeyError(None). Retry that specific snapshot race only.
