@@ -69,7 +69,20 @@ p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/t
 checks=[];window=None
 try:
  main=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');main.wait('visible',timeout=30)
- main=Desktop(backend='uia').window(handle=main.handle);main.maximize();main.set_focus()
+ main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
+ # Real work-area readback, including decorated borders and taskbar exclusion.
+ from ctypes import wintypes
+ class MonitorInfo(ctypes.Structure):
+  _fields_=[('cbSize',wintypes.DWORD),('rcMonitor',wintypes.RECT),('rcWork',wintypes.RECT),('dwFlags',wintypes.DWORD)]
+ ctypes.windll.user32.MonitorFromWindow.argtypes=[wintypes.HWND,wintypes.DWORD];ctypes.windll.user32.MonitorFromWindow.restype=wintypes.HANDLE
+ ctypes.windll.user32.GetMonitorInfoW.argtypes=[wintypes.HANDLE,ctypes.POINTER(MonitorInfo)];ctypes.windll.user32.GetMonitorInfoW.restype=wintypes.BOOL
+ def work_area_bounds():
+  info=MonitorInfo();info.cbSize=ctypes.sizeof(info)
+  assert ctypes.windll.user32.GetMonitorInfoW(ctypes.windll.user32.MonitorFromWindow(main.handle,2),ctypes.byref(info)),'Monitor work area unavailable'
+  return info.rcWork
+ area=work_area_bounds();bounds=main.rectangle()
+ assert bounds.left>=area.left and bounds.top>=area.top and bounds.right<=area.right and bounds.bottom<=area.bottom,('Workspace outside usable monitor',bounds,area.left,area.top,area.right,area.bottom)
+ checks.append('native decorated initial workspace fits actual monitor work area, including taskbar exclusion')
  # The published workspace starts on Knowledge universe; composer is Team-only.
  main.child_window(title='Team room',control_type='Button').wait('exists',timeout=30)
  main.child_window(title='Team room',control_type='Button').wrapper_object().invoke()
@@ -573,6 +586,8 @@ try:
  for label in ('Read aloud','Not now',"Hear Master's question"):
   rect=button(label).wrapper_object().rectangle()
   assert bounds.top<rect.top and rect.bottom<bounds.bottom and bounds.left<=rect.left and rect.right<=bounds.right,('Master choice clipped',label,rect,bounds)
+  area=work_area_bounds()
+  assert rect.top>=area.top and rect.bottom<=area.bottom and rect.left>=area.left and rect.right<=area.right,('Master choice outside physical work area',label,rect)
  assert 'Master, read pannava?' in ui_text(),'Completed reply Master choice missing'
  window.capture_as_image().save('ui-evidence/native-neural-reply-choice.png')
  focus_workspace();button('Not now').wrapper_object().click_input();window.child_window(title='Not now',control_type='Button').wait_not('exists',timeout=10)
@@ -665,7 +680,7 @@ try:
  window=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30)
  restarted_workspace_handle=window.handle
  window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
- window.maximize();window.minimize()
+ window.minimize()
  # Hidden WebViews are not in UIA. Enumerate this restarted process only,
  # with pointer-safe Win32 signatures and a bounded creation wait.
  from ctypes import wintypes
