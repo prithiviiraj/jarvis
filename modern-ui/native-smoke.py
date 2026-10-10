@@ -552,7 +552,12 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-chat-streaming-partial.png')
  checks.append('actual partial streamed text visible before completion')
  time.sleep(3)
- click('Expand conversation')
+ # Live React polling may detach Invoke-pattern wrappers. Use native mouse
+ # input with fresh bounds and confirm the state changed before source checks.
+ focus_workspace()
+ expand=button('Expand conversation');expand.wait('enabled',timeout=20)
+ expand.wrapper_object().click_input()
+ button('Collapse conversation').wait('exists',timeout=10)
  text=ui_text()
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  assert 'Local · LM Studio · qwen2.5-vl-3b-instruct'in text,'True local provider/model source label missing'
