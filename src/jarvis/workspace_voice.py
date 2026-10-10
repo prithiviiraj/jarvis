@@ -55,7 +55,7 @@ class WorkspaceVoice:
                         detector=SmartTurn(data_root()/'models'/'smart-turn.onnx').complete
                     runtime.mic.endpointer=Endpointer(silence_frames=ENDPOINT_FRAMES[self.endpoint_mode],turn_complete=detector)
                     runtime.teammate_awareness=getattr(self,'teammate_awareness',None);runtime.agent_nodes=getattr(self,'agent_nodes',None);runtime.vision=self.vision;runtime.barge_in=barge_in is True
-                    runtime.interface_context=getattr(self,'interface_context',None);runtime.action_handler=getattr(self,'action_handler',None);self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
+                    runtime.interface_context=getattr(self,'interface_context',None);runtime.action_handler=getattr(self,'action_handler',None);runtime.neural_handler=getattr(self,'neural_handler',None);self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
             except Exception as exc:
                 if runtime:runtime.close()
