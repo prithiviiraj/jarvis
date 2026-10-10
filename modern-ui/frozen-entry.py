@@ -23,12 +23,14 @@ if __name__ == '__main__':
         import os
         sys.stdout.flush();sys.stderr.flush();os._exit(0)
     elif len(sys.argv)==2 and sys.argv[1]=='--voice-self-test':
+        import os,traceback
         from jarvis.voice_acceptance import run
-        run()
-        # Test resources are already closed/report flushed. Native model caches stay
-        # process-scoped; avoid interpreter-finalization disposal stalls on Windows.
-        import os
-        sys.stdout.flush();sys.stderr.flush();os._exit(0)
+        code=0
+        try:run()
+        except BaseException:
+            traceback.print_exc();code=1
+        # Test-only process. Preserve failure code/log, avoid native finalization hang.
+        sys.stdout.flush();sys.stderr.flush();os._exit(code)
     elif len(sys.argv)==2 and sys.argv[1]=='--search-self-test':
         from jarvis.search_acceptance import run
         run()
