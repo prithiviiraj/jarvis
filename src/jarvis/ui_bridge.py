@@ -1004,7 +1004,7 @@ class Bridge:
     if len(loaded)!=1 or not loaded[0].get('vision'):raise ValueError('Full-screen share needs exactly one loaded local vision-capable LM Studio model. Groq/Spark text cannot analyze images.')
     target={'id':1,'title':'Full primary laptop screen'}
     from .game_companion import capture
-    self.vision.enable_screen(lambda:capture(target),True)
+    self.vision.enable_screen(lambda:capture(target,question=True),True)
     self.game_speech.stop();self.game.enable(target,target,LocalGameModel(loaded[0]['id'],gate=self.brains.local_gate),True,False,False);self.screen_mode='Full screen local';self.idle.gaming=True;self.judge.gaming=True
   elif cmd=='game-windows':
    from .game_companion import windows
@@ -1018,7 +1018,7 @@ class Bridge:
    self.game_speech.stop()
    self.game.enable(target,request.get('reviewed'),LocalGameModel(request.get('vision_model'),gate=self.brains.local_gate),request.get('consent')is True,request.get('audio',False),request.get('export',False))
    from .game_companion import capture
-   self.vision.enable_screen(lambda:capture(target),True)
+   self.vision.enable_screen(lambda:capture(target,question=True),True)
    self.screen_mode='Live screen';self.idle.gaming=True;self.judge.gaming=True;self.idle.activity()
   elif cmd=='game-stop':
    self.vision.disable_screen()
