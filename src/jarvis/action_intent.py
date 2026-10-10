@@ -14,6 +14,8 @@ def parse(text):
  t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|sila|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
  t=t.strip().rstrip('.!?')
+ # Only bounded launch verbs, never remove question/negation clauses.
+ t=re.sub(r'^(?:launch|start|bring up)\s+(?=(?:this |the |a )?(?:browser|brave)(?: browser)?(?:$|\s+(?:for me|now|please)$))','open ',t,flags=re.I)
  # Bounded politeness only; do not remove arbitrary suffixes or URL text.
  if re.fullmatch(r'open (?:this |the |a )?browser(?: (?:for me|now|please)){1,2}',t,re.I):t=re.sub(r'(?: (?:for me|now|please)){1,2}$','',t,flags=re.I)
  t=re.sub(r'\s+please$','',t,flags=re.I).strip()
