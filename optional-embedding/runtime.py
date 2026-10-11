@@ -9,25 +9,39 @@ def digest(p):
  with p.open('rb')as f:
   for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
  return h.hexdigest()
-def verified():return all((CACHE/a['name']).is_file()and(CACHE/a['name']).stat().st_size==a['bytes']and digest(CACHE/a['name'])==a['sha256']for a in ASSETS)
+def progress(phase,status,percent=None,done_bytes=None,total_bytes=None):
+ print(json.dumps({'event':'progress','data':{'phase':phase,'status':status,'percent':percent,'done_bytes':done_bytes,'total_bytes':total_bytes}}),flush=True)
+def verified():
+ total=sum(a['bytes']for a in ASSETS);done=0;valid=True
+ for a in ASSETS:
+  p=CACHE/a['name'];progress('verifying','Checking '+a['name'],round(done*100/total,1))
+  valid=((p.is_file()and p.stat().st_size==a['bytes']and digest(p)==a['sha256'])and valid);done+=a['bytes']
+ progress('verified'if valid else'missing','Search model verified'if valid else'Search model needs download or repair',100)
+ return valid
 def setup():
+ total=sum(a['bytes']for a in ASSETS);done=0
  for a in ASSETS:
   p=CACHE/a['name'];p.parent.mkdir(parents=True,exist_ok=True)
-  if p.is_file()and p.stat().st_size==a['bytes']and digest(p)==a['sha256']:continue
+  progress('verifying','Checking existing '+a['name'],round(done*100/total,1),done,total)
+  if p.is_file()and p.stat().st_size==a['bytes']and digest(p)==a['sha256']:done+=a['bytes'];continue
   part=p.with_suffix(p.suffix+'.part')
   try:
+   progress('connecting','Connecting to download '+a['name'],round(done*100/total,1),done,total)
    with urllib.request.urlopen(a['url'],timeout=60)as r,part.open('wb')as f:
-    size=0
+    size=0;reported=-1
     while True:
      b=r.read(1024*1024)
      if not b:break
      size+=len(b)
      if size>a['bytes']:raise ValueError('Oversize model asset')
-     f.write(b)
+     f.write(b);pct=round((done+size)*100/total,1)
+     if pct!=reported:progress('downloading','Downloading '+a['name'],pct,done+size,total);reported=pct
+   progress('verifying','Verifying downloaded '+a['name'],round((done+size)*100/total,1),done+size,total)
    if size!=a['bytes']or digest(part)!=a['sha256']:raise ValueError('Model checksum mismatch')
-   part.replace(p)
+   part.replace(p);done+=size
   finally:part.unlink(missing_ok=True)
- return {'status':'Verified EmbeddingGemma assets ready; no owner files indexed'}
+ progress('complete','Search model ready. No personal files scanned.',100,total,total)
+ return {'status':'Verified search model ready; no personal files scanned'}
 def load(mode):
  global MODEL,MODE
  if MODEL is not None and MODE==mode:return MODEL
@@ -42,6 +56,7 @@ def load(mode):
  MODEL=None
  import gc;gc.collect()
  if torch.cuda.is_available():torch.cuda.empty_cache()
+ progress('loading','Loading local search model. This can take a while; no files leave your laptop.')
  MODEL=SentenceTransformer(str(CACHE),config_kwargs=configs[mode],model_kwargs={'torch_dtype':dtype},device=device,local_files_only=True,trust_remote_code=False);MODE=mode;return MODEL
 def records(folder,mode):
  root=pathlib.Path(folder).resolve(strict=True)
@@ -94,7 +109,8 @@ def retrieve(request,model=None):
  if not rows:return {'status':'No supported files in the selected scope','results':[],'links':[]}
  model=model or load(mode);vectors=[]
  if len(rows)>100:raise ValueError('Retrieval scope exceeded')
- for r in rows:
+ for index,r in enumerate(rows):
+  progress('searching','Reading selected file '+str(index+1)+' of '+str(len(rows)),round(index*100/len(rows),1))
   kwargs={'truncate_dim':dims,'normalize_embeddings':True,'convert_to_numpy':True}
   if r['kind']in ('text','code'):kwargs['prompt_name']='Document'
   vector=np.asarray(model.encode(media_input(r)if r['kind']in ('audio','video')else r['input'],**kwargs),dtype='float32').reshape(-1)
