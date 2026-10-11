@@ -355,7 +355,9 @@ class Bridge:
   return True
  def news_action(self,text):
   if not self.news.request(text):return False
-  self.neural.offer('news','JARVIS','News area','Which public HTTPS news page should I open? Choose a source. The observed page picture and text appear here after capture.','No headlines fetched yet');return True
+  if self.news.pending:self.neural.offer('news','JARVIS','News source',self.news.source+'\nReview exact source before opening. Picture and text appear only after actual capture.','Supplied URL, no page opened or headlines fetched')
+  else:self.neural.offer('news','JARVIS','News area','Which public HTTPS news page should I open? Choose a source. The observed page picture and text appear here after capture.','No headlines fetched yet')
+  return True
  def knowledge_action(self,text):
   from .knowledge_command import parse
   query=parse(text)
@@ -897,7 +899,9 @@ class Bridge:
    if request.get('confirm')is not True or request.get('observed_url')!=self.news.observed_url:raise ValueError('Review exact observed page before capture')
    self.browser.submit('news-text',confirmed=True,expected_url=self.news.observed_url)
   elif cmd=='news-preview':self.news_speech.stop();self.news.preview(request.get('source_url'));self.neural.offer('news','JARVIS','News source',request.get('source_url'),'Selected URL, no article captured yet')
-  elif cmd=='news-cancel':self.news_speech.stop();self.news.cancel()
+  elif cmd=='news-cancel':
+   self.news_speech.stop();self.news.cancel()
+   if self.neural.row and self.neural.row.get('kind')=='news':self.neural.clear();self.neural_question=None
   elif cmd=='news-open':
    if not self.browser_enabled or not self.browser:raise ValueError('Enable reviewed browser control first')
    proposal=self.news.confirm(request.get('reviewed'),request.get('confirm')is True)
