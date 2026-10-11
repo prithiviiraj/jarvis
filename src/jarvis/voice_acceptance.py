@@ -146,8 +146,14 @@ def run():
     rows[-1]['runner_screen_scope']='Frozen actual Windows primary capture reaches loopback fixture; no owner desktop or real model semantic proof'
 
 
-    state=bridge.execute({'command':'status'})
-    progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and off['messages']==state['messages']
+    # More image test turns can exceed one bounded UI poll event batch.
+    # Observe the completed turn's queue, then preserve exact pause equality.
+    deadline=time.monotonic()+5
+    while True:
+     state=bridge.execute({'command':'status'})
+     if bridge.voice.events.empty():break
+     if time.monotonic()>=deadline:raise RuntimeError('Completed voice event queue did not drain')
+    progress('pause-start',persona=name);off=bridge.execute({'command':'pause'});progress('pause-done',persona=name);assert not off['voice_active'] and off['messages']==state['messages'],{'before_messages':state['messages'],'after_messages':off['messages'],'remaining_events':bridge.voice.events.qsize()}
     assert off['awareness']['camera']=='off' and off['awareness']['app_monitor'] is False and off['judgment']['enabled'] is False
     runtime=None;turn=None
 
