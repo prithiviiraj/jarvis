@@ -66,7 +66,7 @@ class IncrementalChatTests(unittest.TestCase):
   r=Mock()
   def chunks(*a,**k):yield {'text':'Partial','provider':'local'};raise RuntimeError('stream stopped')
   r.stream.side_effect=chunks;c=WorkspaceVoice(text_factory=lambda:r);b=Bridge(c);c.send_text('hi').join(2);s=b.execute({'command':'status'})
-  self.assertTrue(any(m['text']=='Partial'for m in s['messages']));self.assertFalse(any(m['name']=='LYRA'for m in s['messages']));self.assertIn('stream stopped',s['failure_detail']['detail']);self.assertIn('Local model did not answer',s['error']);self.assertEqual(c.memory.snapshot(),[]);b.close()
+  self.assertTrue(any(m['text']=='Partial'for m in s['messages']));self.assertFalse(any(m['name']=='LYRA'for m in s['messages']));self.assertIn('stream stopped',s['failure_detail']['detail']);self.assertIn('Chat failed: stream stopped',s['error']);self.assertEqual(c.memory.snapshot(),[]);b.close()
 
 class OwnProfileRetry(unittest.TestCase):
  def test_narrated_other_reply_retried_without_fake_bubble(self):
@@ -84,3 +84,24 @@ class GenerationCleanup(unittest.TestCase):
     else:second.set();newrelease.wait(2)
     yield {'text':'Done.','provider':'fixture'}
   v=WorkspaceVoice(text_factory=Router);old=v.send_text('old');first.wait(1);v.pause();new=v.send_text('new');second.wait(1);oldrelease.set();old.join(1);self.assertTrue(v.busy);newrelease.set();new.join(2);self.assertFalse(v.busy);self.assertEqual(len(v.memory.snapshot()),1);v.close()
+
+class ConfiguredChatRoutingTests(unittest.TestCase):
+ def test_actual_send_callback_explicitly_uses_configured_chat_for_greeting(self):
+
+  class ConfiguredMock(Mock):supports_configured_chat=True
+  r=ConfiguredMock();r.stream.return_value=iter([{'text':'Cloud answer','provider':'groq'}]);v=WorkspaceVoice(text_factory=lambda:r);v.send_text('Hey Jarvis, can you hear me?').join(2)
+  self.assertTrue(r.stream.call_args.kwargs['configured_chat']);self.assertFalse(r.stream.call_args.kwargs.get('local_only',False));self.assertEqual(v.memory.snapshot()[0][2],'Cloud answer');v.close()
+ def test_private_sensor_state_remains_local(self):
+  r=Mock();r.stream.return_value=iter([{'text':'Local answer','provider':'local'}]);v=WorkspaceVoice(text_factory=lambda:r)
+  class Awareness:
+   def attach(self,messages,name):return messages,True
+  v.teammate_awareness=Awareness();v.send_text('Hello').join(2);self.assertTrue(r.stream.call_args.kwargs['local_only']);self.assertNotIn('configured_chat',r.stream.call_args.kwargs);v.close()
+ def test_real_configured_router_greeting_cloud_needs_no_local_discovery(self):
+  from jarvis.brain_settings import BrainSettings
+  keys=Mock();keys.status.return_value={'present':True};settings=BrainSettings(keys);settings.configure([{'id':'slot1','provider':'groq','model':'fixture','enabled':True,'consent':True,'free':True}],{'JARVIS':'slot1'});seen=[]
+  class TransportOnly:
+   def __init__(self,providers,**kw):seen.extend(providers);self.last_diagnostics=[];self.last_warnings=[]
+   def stream(self,*a,**kw):yield {'text':'Cloud fixture answer','cloud':True}
+  v=WorkspaceVoice(text_factory=lambda:settings.router('JARVIS'))
+  with patch('jarvis.brain_settings.local_models',side_effect=AssertionError('Local discovery must not run'))as local,patch('jarvis.brain_settings.BrainRouter',TransportOnly):v.send_text('Hey Jarvis, can you hear me?').join(2)
+  self.assertEqual(v.memory.snapshot()[0][2],'Cloud fixture answer');self.assertEqual(seen[0].name,'slot1');local.assert_not_called();v.close()
