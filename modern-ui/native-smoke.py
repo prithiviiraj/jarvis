@@ -67,9 +67,35 @@ archived_bytes=json.dumps({'version':1,'agents':[{'name':'MIRA','personality':'S
 archive_path.write_bytes(archived_bytes)
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
+def navigation(main,name):
+ """Follow the real simplified product controls, not hidden/removed navigation."""
+ def invoke(title):
+  control=main.child_window(title=title,control_type='Button');control.wait('exists enabled',timeout=20);control.wrapper_object().invoke();time.sleep(.15)
+ if name=='Settings':
+  if main.child_window(title='Explore tools',control_type='Button').exists():invoke('Explore tools')
+  elif not main.child_window(title='Tools',control_type='Button').exists():
+   invoke('More');invoke('Settings');invoke('Explore tools')
+  more=main.child_window(title='More settings',control_type='Button')
+  if more.exists()and not main.child_window(title='Advanced',control_type='Button').exists():more.wrapper_object().invoke();time.sleep(.15)
+ elif name=='Team room':
+  if main.child_window(title='Previous view',control_type='Button').exists() and not main.child_window(title='Message draft',control_type='Edit').exists():
+   invoke('Previous view')
+   if not main.child_window(title='Message draft',control_type='Edit').exists():invoke('Previous view')
+ elif name in ('Expand conversation','Collapse conversation','New chat'):
+  if not main.child_window(title='More options',control_type='Group').exists()and not main.child_window(title='What would you like to do?',control_type='Text').exists():invoke('More')
+  if name=='New chat':main.child_window(title='Notes and chats',control_type='Button').wrapper_object().invoke()
+  invoke(name)
+ else:invoke(name)
+
 try:
  main=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');main.wait('visible',timeout=30)
  main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
+ # First-launch guide is automatic and explains all four features without enabling any.
+ main.child_window(title='Next',control_type='Button').wait('exists',timeout=15)
+ for index in range(3):
+  main.capture_as_image().save('ui-evidence/native-welcome-'+str(index+1)+'.png');main.child_window(title='Next',control_type='Button').wrapper_object().invoke()
+ main.capture_as_image().save('ui-evidence/native-welcome-4.png');main.child_window(title='Skip setup guide',control_type='Button').wrapper_object().invoke()
+ navigation(main,'Settings')
  # Real work-area readback, including decorated borders and taskbar exclusion.
  from ctypes import wintypes
  class MonitorInfo(ctypes.Structure):
@@ -84,13 +110,13 @@ try:
  assert bounds.left>=area.left and bounds.top>=area.top and bounds.right<=area.right and bounds.bottom<=area.bottom,('Workspace outside usable monitor',bounds,area.left,area.top,area.right,area.bottom)
  checks.append('native decorated initial workspace fits actual monitor work area, including taskbar exclusion')
  # The published workspace starts on Knowledge universe; composer is Team-only.
- main.child_window(title='Team room',control_type='Button').wait('exists',timeout=30)
- main.child_window(title='Team room',control_type='Button').wrapper_object().invoke()
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
- main.child_window(title='Settings',control_type='Button').wrapper_object().invoke()
- main.child_window(title='Appearance',control_type='Button').wrapper_object().invoke()
+ navigation(main,'Team room')
+ main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
+ navigation(main,'Settings')
+ navigation(main,'Appearance')
  main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
- main.child_window(title='Team room',control_type='Button').wrapper_object().invoke()
+ navigation(main,'Team room')
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
  assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists(), 'Avatar window was removed'
  main.capture_as_image().save('ui-evidence/workspace-first-launch.png')
@@ -115,7 +141,7 @@ try:
  main.restore();main.set_focus();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Duplicate pill should hide while workspace visible'
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'Duplicate transcript should hide while workspace visible'
- main.child_window(title='Settings',control_type='Button').wrapper_object().invoke();main.child_window(title='Appearance',control_type='Button').wrapper_object().invoke();main.child_window(title='Transcript OFF',control_type='Button').wrapper_object().invoke();main.minimize();time.sleep(.8)
+ navigation(main,'Settings');navigation(main,'Appearance');main.child_window(title='Transcript OFF',control_type='Button').wrapper_object().invoke();main.minimize();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must survive minimization'
  main.restore();main.set_focus();main.child_window(title='Transcript ON',control_type='Button').wrapper_object().invoke();main.minimize();captions.wait('visible',timeout=10)
  # Controlled background verifies transparent pixels outside text/hover controls.
@@ -200,12 +226,13 @@ try:
  def click(name,root=None):
   # Navigation changed, effects/reviews remain real native controls.
   if name=='Add local draft':name='Send message'
+  if name in ('Settings','Team room','Expand conversation','Collapse conversation','New chat'):navigation(window,name);checks.append(name);return
   if name=='Agents':
    click('Settings');click('Team options');return
   if name=='Voice setup':
    click('Settings');click('Voices');return
   if name in ('Transcript ON','Transcript OFF'):
-   button('Settings').wrapper_object().invoke();button('Appearance').wrapper_object().invoke()
+   navigation(window,'Settings');button('Appearance').wrapper_object().invoke()
   # Re-entering Settings remounts the native <details> collapsed. Reveal it
   # only when the requested legacy review control is inside that panel.
   advanced_names={'Enable browser commands','Download Laya model','Load inbuilt Laya','Stop Laya setup / engine','Enable shared Laya','Stop Laya proposals','Prepare browser command','Review / run browser command','Read available links locally'}
@@ -331,7 +358,7 @@ try:
  # New source-backed graph controls run through REAL native IPC/frozen backend.
  # Chat words never choose evidence. Search uses the connected managed vault.
  source=auto_root/'phase2-native-source.md';source.write_text('# Exact native source\n\nPhase2 retrieval sentinel. Notes never grant permissions.',encoding='utf-8')
- query=window.child_window(title='Find knowledge source',control_type='Edit');query.wait('exists',timeout=15);query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
+ click('More');window.child_window(title='Notes and chats',control_type='Button').wrapper_object().invoke();query=window.child_window(title='Find knowledge source',control_type='Edit');query.wait('exists',timeout=15);query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
  click('Search knowledge sources')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
@@ -343,9 +370,9 @@ try:
  assert not any('body'in row for row in requests),'Local source was disclosed to inference'
  button('Master, read this source aloud').wait('exists',timeout=10) # Never invoked: source capture must not start speech with or without cached assets.
  window.capture_as_image().save('ui-evidence/native-knowledge-retrieval.png')
- click('Rotate knowledge right');click('Tilt knowledge view');click('Flat view');click('Neural view')
+ assert window.child_window(title='Living knowledge graph',control_type='Group').exists(),'Real graph region missing';window.capture_as_image().save('ui-evidence/native-approved-3d-graph.png')
  click('Close knowledge note');source.unlink()
- checks.append('actual native source retrieval, capture and depth controls; no model disclosure or unapproved audio')
+ checks.append('actual native source retrieval, capture and 3D graph region; no model disclosure or unapproved audio')
 
 
  time.sleep(2)
@@ -520,7 +547,7 @@ try:
 
 
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
- button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Activate team').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
+ button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Talk to Lyra').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS. OPEN. BROWSER.');click('Add local draft')
  button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'open-window'in ui_text()
@@ -600,9 +627,9 @@ try:
  # Live React polling may detach Invoke-pattern wrappers. Use native mouse
  # input with fresh bounds and confirm the state changed before source checks.
  focus_workspace()
- expand=button('Expand conversation');expand.wait('enabled',timeout=20)
+ click('More');expand=button('Expand conversation');expand.wait('enabled',timeout=20)
  expand.wrapper_object().click_input()
- button('Collapse conversation').wait('exists',timeout=10)
+ click('More');button('Collapse conversation').wait('exists',timeout=10);click('More')
  text=ui_text()
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  assert 'Local · LM Studio · qwen2.5-vl-3b-instruct'in text,'True local provider/model source label missing'
@@ -636,7 +663,7 @@ try:
  window.capture_as_image().save('ui-evidence/tauri-final-truncated.png');checks.append('length retains final answer, marks incomplete, split thinking tags suppressed')
  field.wrapper_object().set_edit_text('failure-probe');click('Add local draft');time.sleep(4)
  text=ui_text()
- assert 'Local model did not answer.' in text, 'Failure not persistently visible: '+text
+ assert 'Chat failed:' in text and 'http-503' in text, 'Failure not persistently visible: '+text
  window.capture_as_image().save('ui-evidence/tauri-chat-error.png');checks.append('model error remains visible after idle polling')
  pathlib.Path('ui-evidence/local-chat-http.json').write_text(json.dumps({'scope':'controlled local HTTP fixture, not real LM Studio','requests':requests},indent=2))
  # Native archive navigation and Pause preservation are visible, not metadata-only.
