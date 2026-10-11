@@ -144,6 +144,15 @@ def run():
     sent=[p['image_url']['url']for p in calls[-1]['messages'][-1]['content']if p['type']=='image_url'];assert len(sent)==1 and base64.b64decode(sent[0].split(',',1)[1])==captured
     bridge.vision.disable_screen()
     rows[-1]['runner_screen_scope']='Frozen actual Windows primary capture reaches loopback fixture; no owner desktop or real model semantic proof'
+    entered=threading.Event();release=threading.Event()
+    def pending_capture():entered.set();release.wait(10);return frame
+    bridge.vision.enable_screen(pending_capture,True);before=len(calls)
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='see screen during stop'):
+     runtime.busy=True;pending=threading.Thread(target=runtime.turn,args=(audio,runtime.generation,False,[]),daemon=True);pending.start();assert entered.wait(5),'Capture did not start'
+     bridge.vision.disable_screen();release.set();pending.join(10);assert not pending.is_alive(),'Stopped capture turn hung'
+    assert len(calls)==before,'Revoked in-flight frame sent to model'
+    rows[-1]['revoked_capture_scope']='Actual runtime Stop during controlled capture prevents loopback model request; synthetic capture only'
+
 
 
     # More image test turns can exceed one bounded UI poll event batch.
