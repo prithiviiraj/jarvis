@@ -2,6 +2,9 @@
 import subprocess,pathlib,time,json,ctypes,os
 from PIL import ImageGrab
 from pywinauto import Desktop,mouse
+import importlib.util
+_spec=importlib.util.spec_from_file_location("native_input",pathlib.Path(__file__).with_name("native-input.py"));_input=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_input)
+activate=_input.activate
 # Every acceptance run owns disposable data, never the runner/user default vault.
 os.environ.setdefault('JARVIS_DATA_DIR',str(pathlib.Path('ui-evidence/native-isolated-data').resolve()))
 # Controlled OpenAI-compatible local test server. Not a real model acceptance claim.
@@ -70,20 +73,20 @@ checks=[];window=None
 def navigation(main,name):
  """Follow the real simplified product controls, not hidden/removed navigation."""
  def invoke(title):
-  control=main.child_window(title=title,control_type='Button');control.wait('exists enabled',timeout=20);control.wrapper_object().invoke();time.sleep(.15)
+  control=main.child_window(title=title,control_type='Button');control.wait('exists enabled',timeout=20);activate(control);time.sleep(.15)
  if name=='Settings':
   if main.child_window(title='Explore tools',control_type='Button').exists():invoke('Explore tools')
   elif not main.child_window(title='Tools',control_type='Button').exists():
    invoke('More');invoke('Settings');invoke('Explore tools')
   more=main.child_window(title='More settings',control_type='Button')
-  if more.exists()and not main.child_window(title='Advanced',control_type='Button').exists():more.wrapper_object().invoke();time.sleep(.15)
+  if more.exists()and not main.child_window(title='Advanced',control_type='Button').exists():activate(more);time.sleep(.15)
  elif name=='Team room':
   if main.child_window(title='Previous view',control_type='Button').exists() and not main.child_window(title='Message draft',control_type='Edit').exists():
    invoke('Previous view')
    if not main.child_window(title='Message draft',control_type='Edit').exists():invoke('Previous view')
  elif name in ('Expand conversation','Collapse conversation','New chat'):
   if not main.child_window(title='More options',control_type='Group').exists()and not main.child_window(title='What would you like to do?',control_type='Text').exists():invoke('More')
-  if name=='New chat':main.child_window(title='Notes and chats',control_type='Button').wrapper_object().invoke()
+  if name=='New chat':activate(main.child_window(title='Notes and chats',control_type='Button'))
   invoke(name)
  else:invoke(name)
 
@@ -93,8 +96,8 @@ try:
  # First-launch guide is automatic and explains all four features without enabling any.
  main.child_window(title='Next',control_type='Button').wait('exists',timeout=15)
  for index in range(3):
-  main.capture_as_image().save('ui-evidence/native-welcome-'+str(index+1)+'.png');main.child_window(title='Next',control_type='Button').wrapper_object().invoke()
- main.capture_as_image().save('ui-evidence/native-welcome-4.png');main.child_window(title='Skip setup guide',control_type='Button').wrapper_object().invoke()
+  main.capture_as_image().save('ui-evidence/native-welcome-'+str(index+1)+'.png');activate(main.child_window(title='Next',control_type='Button'))
+ main.capture_as_image().save('ui-evidence/native-welcome-4.png');activate(main.child_window(title='Skip setup guide',control_type='Button'))
  navigation(main,'Settings')
  # Real work-area readback, including decorated borders and taskbar exclusion.
  from ctypes import wintypes
@@ -134,16 +137,16 @@ try:
  assert abs(pr.width()-240*scale)<=3 and abs(pr.height()-40*scale)<=3,('Slim pill size',pr,scale)
  assert -3<=pr.top<=int(4*scale),('Pill must sit at top edge',pr.top)
  pill.capture_as_image().save('ui-evidence/native-compact-pill-mic-off.png')
- pill.child_window(title='Open JARVIS workspace',control_type='Button').wrapper_object().invoke();main.wait('visible',timeout=10);time.sleep(.5)
+ activate(pill.child_window(title='Open JARVIS workspace',control_type='Button'));main.wait('visible',timeout=10);time.sleep(.5)
  assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Pill must hide on restore'
  main.minimize();pill.wait('visible',timeout=10)
  ImageGrab.grab().save('ui-evidence/native-minimize-transcript-and-pill.png')
  main.restore();main.set_focus();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Duplicate pill should hide while workspace visible'
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'Duplicate transcript should hide while workspace visible'
- navigation(main,'Settings');navigation(main,'Appearance');main.child_window(title='Transcript OFF',control_type='Button').wrapper_object().invoke();main.minimize();time.sleep(.8)
+ navigation(main,'Settings');navigation(main,'Appearance');activate(main.child_window(title='Transcript OFF',control_type='Button'));main.minimize();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must survive minimization'
- main.restore();main.set_focus();main.child_window(title='Transcript ON',control_type='Button').wrapper_object().invoke();main.minimize();captions.wait('visible',timeout=10)
+ main.restore();main.set_focus();activate(main.child_window(title='Transcript ON',control_type='Button'));main.minimize();captions.wait('visible',timeout=10)
  # Controlled background verifies transparent pixels outside text/hover controls.
  import tkinter as tk
  bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.attributes('-topmost',True);bg.update()
@@ -154,7 +157,7 @@ try:
  bg.destroy()
  # Reachable controls do not require an avatar strip.
  captions.move_mouse_input(coords=(captions.rectangle().width()-30,12));time.sleep(.3)
- captions.child_window(title='Reopen workspace',control_type='Button').wrapper_object().invoke();main.wait('visible',timeout=10);main.set_focus()
+ activate(captions.child_window(title='Reopen workspace',control_type='Button'));main.wait('visible',timeout=10);main.set_focus()
  checks.append('avatar window absent; transcript independent/default ON; OFF survives minimize; transparent pixels; caption OPEN restores workspace')
  window=Desktop(backend='uia').window(handle=main.handle);window.wait('visible',timeout=20);window.set_focus()
  def button(name,root=None):
@@ -232,7 +235,7 @@ try:
   if name=='Voice setup':
    click('Settings');click('Voices');return
   if name in ('Transcript ON','Transcript OFF'):
-   navigation(window,'Settings');button('Appearance').wrapper_object().invoke()
+   navigation(window,'Settings');activate(button('Appearance'))
   # Re-entering Settings remounts the native <details> collapsed. Reveal it
   # only when the requested legacy review control is inside that panel.
   advanced_names={'Enable browser commands','Download Laya model','Load inbuilt Laya','Stop Laya setup / engine','Enable shared Laya','Stop Laya proposals','Prepare browser command','Review / run browser command','Read available links locally'}
@@ -245,7 +248,7 @@ try:
   # Async work can leave a mounted control temporarily disabled. UIA Invoke
   # does not wait for HTML enabled state and fails with COMError in that gap.
   button(name,root).wait('enabled',timeout=20)
-  button(name,root).wrapper_object().invoke()
+  activate(button(name,root))
   if name in ('Transcript ON','Transcript OFF'):
    # UIA invoke queues async IPC. Wait for actual native save/readback before close.
    confirmed='Transcript confirmed '+('ON'if name=='Transcript ON'else'OFF')
@@ -358,7 +361,7 @@ try:
  # New source-backed graph controls run through REAL native IPC/frozen backend.
  # Chat words never choose evidence. Search uses the connected managed vault.
  source=auto_root/'phase2-native-source.md';source.write_text('# Exact native source\n\nPhase2 retrieval sentinel. Notes never grant permissions.',encoding='utf-8')
- click('More');window.child_window(title='Notes and chats',control_type='Button').wrapper_object().invoke();query=window.child_window(title='Find knowledge source',control_type='Edit');query.wait('exists',timeout=15);query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
+ click('More');activate(window.child_window(title='Notes and chats',control_type='Button'));query=window.child_window(title='Find knowledge source',control_type='Edit');query.wait('exists',timeout=15);query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
  click('Search knowledge sources')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
@@ -673,7 +676,7 @@ try:
   if 'Packaged local chat round-trip confirmed.'not in ui_text():break
   time.sleep(.1)
  assert 'Packaged local chat round-trip confirmed.' not in ui_text()
- saved=window.child_window(title='packaged-chat-probe',control_type='Button');saved.wait('exists',timeout=10);saved.wrapper_object().invoke()
+ saved=window.child_window(title='packaged-chat-probe',control_type='Button');saved.wait('exists',timeout=10);activate(saved)
  deadline=time.monotonic()+5
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.' in ui_text():break
@@ -703,7 +706,7 @@ try:
  assert not ctypes.windll.user32.IsWindowVisible(workspace_handle)
  assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists()
  overlay_text.move_mouse_input(coords=(overlay_text.rectangle().width()-30,12));time.sleep(.3)
- overlay_text.child_window(title='Reopen workspace',control_type='Button').wrapper_object().invoke();window.wait('visible',timeout=10);window.set_focus()
+ activate(overlay_text.child_window(title='Reopen workspace',control_type='Button'));window.wait('visible',timeout=10);window.set_focus()
  checks.append('workspace close keeps only transcript; caption OPEN restores same workspace; avatars absent')
  window.capture_as_image().save('ui-evidence/tauri-workspace-restored.png')
  # Persist OFF across a full native application restart, not only in renderer state.
