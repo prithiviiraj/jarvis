@@ -426,8 +426,7 @@ class Bridge:
    self.browser_enabled=False;self.news_speech.stop();self.game.stop();self.idle.stop();self.interrupt_conversation();return True
   if self.knowledge_action(text):return True
   if self.teammate_query(text):return True
-  if self.news.request(text):
-   self.neural.offer('news','JARVIS','News area','Which public HTTPS news page should I open? Choose a source. Once captured, the actual page picture and text appear here.','No headlines fetched yet');return True
+  if self.news_action(text):return True
   if self.planning_action(text):return True
   if self.calendar_action(text):return True
   if self.desktop_action(text):return True
