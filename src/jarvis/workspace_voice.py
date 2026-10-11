@@ -94,13 +94,13 @@ class WorkspaceVoice:
                 nodes=getattr(self,'agent_nodes',None)
                 if nodes is not None:
                     messages,node_state=nodes.attach(messages,name);local_state=local_state or node_state
-                scope={'local_only':True}if local_state else{}
+                scope={'local_only':True}if local_state else({'configured_chat':True}if getattr(type(router),'supports_configured_chat',False)is True else{})
                 if self.vision is not None:
                     messages=self.vision.attach(messages)
                     route=getattr(type(self.vision),'route',None)
                     if callable(route):router=route(self.vision,router,messages)
                     from .router import image_turn
-                    if image_turn(messages):scope={}
+                    if image_turn(messages):scope={'local_only':True}if local_state else{}
                 for delta in router.stream(messages,cloud_consent=False,cancel=cancel,**scope):
                     with self.lock:
                         if self.closed or ticket!=self.generation:return
@@ -132,8 +132,8 @@ class WorkspaceVoice:
                         if 'local-empty-after-retry' in str(exc):
                             recs=locals().get('records',[]);model=recs[0].get('model','') if isinstance(recs,list) and recs else ''
                             detail='LM Studio returned no final text in streaming or normal chat'+((' from model '+model) if model else '')+'. This model may not fit this chat template. Load a proven chat-instruct model in LM Studio (for example spark-x2.5-4b, which worked on this laptop) or test an enabled cloud account. Check its server log and try hi in LM Studio chat to verify the model/template. '
-                        else:detail='Local chat failed: '+str(exc)[:180]+'. '
-                        self.notify('error',detail+'LM Studio server port1234. Retry your message.')
+                        else:detail='Chat failed: '+str(exc)[:400]+'. '
+                        self.notify('error',detail+'Check the selected account test or LM Studio server log. Retry your message.')
             finally:
                 with self.lock:
                     if ticket==self.generation:self.busy=False
