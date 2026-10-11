@@ -23,3 +23,16 @@ class NewsSourceDialogue(unittest.TestCase):
 
  def test_new_missing_source_does_not_reuse_prior_pending(self):
   n=NewsConductor();n.preview('https://example.com/old');n.request('Dex show news');self.assertIsNone(n.pending);self.assertEqual(n.source,'');self.assertFalse(n.awaiting_open)
+
+ def test_actual_microphone_runtime_supplied_url_uses_source_review(self):
+  import threading
+  from jarvis.runtime import VoiceRuntime
+  for actor in ('Jarvis','Lyra','Dex'):
+   b=Bridge()
+   try:
+    r=VoiceRuntime.__new__(VoiceRuntime);r.lock=threading.RLock();r.enabled=True;r.generation=1;r.cancel=threading.Event();r.busy=True;r.stt=Mock();r.stt.transcribe.return_value=actor+' show news with pictures from https://example.com/news';r.speaker=Mock();r.speaker.generation=0;r.notify=b.voice.notify;r.action_handler=b.voice_action;r.neural_handler=b.neural_voice_choice;r.mic=Mock();r.router=Mock()
+    r.turn([],1,False,[])
+    self.assertEqual(b.news.pending['value'],'https://example.com/news');self.assertIn('https://example.com/news',b.neural.row['text']);self.assertNotIn('Which public',b.neural.row['text']);self.assertIsNone(b.neural.picture);self.assertIsNone(b.browser)
+    r.router.ask.assert_not_called();r.router.stream.assert_not_called();r.speaker.speak.assert_not_called();r.mic.resume.assert_called_once()
+    b.voice_action(actor+' show news');self.assertIsNone(b.news.pending);self.assertEqual(b.news.source,'');self.assertIn('Which public',b.neural.row['text'])
+   finally:b.close()
