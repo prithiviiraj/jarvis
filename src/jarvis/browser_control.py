@@ -78,18 +78,35 @@ class BrowserSession:
   if self.cancel.is_set():raise ValueError('Browser stopping; wait until closed before starting another session')
   if confirmed is not True:raise ValueError('Review browser command first')
   self.jobs.put_nowait((command,value,expected_url))
-  with self.lock:self.state['state']='working';self.state['error']=''
+  with self.lock:
+   self.state['state']='working';self.state['error']=''
+   if command in ('open','search','open-window'):self.state.pop('news_text',None);self.state['links']=[]
  def close(self):
   self.cancel.set()
   with self.lock:self.state['state']='stopping'
   return self.thread
+ def observe_page(self,page):
+  # Local browser events only. No reload, fetch, recapture or extra site traffic.
+  def navigated(frame):
+   if frame!=page.main_frame:return
+   with self.lock:
+    self.state.update(url=page.url,title='',requested_url='',links=[])
+    self.state.pop('news_text',None);self.state['page_revision']=self.state.get('page_revision',0)+1
+  def closed():
+   with self.lock:self.state.update(state='off',url='',title='',requested_url='',links=[]);self.state.pop('news_text',None)
+  page.on('framenavigated',navigated);page.on('close',closed)
  def run(self):
   import queue
-  context=None;p=None
+  context=None;p=None;page=None;watched=None
   try:
    while not self.cancel.is_set():
     try:command,value,expected_url=self.jobs.get(timeout=.2)
-    except queue.Empty:continue
+    except queue.Empty:
+     if page is not None:
+      try:page.wait_for_timeout(200)
+      except Exception:
+       with self.lock:self.state.update(state='off',url='',links=[]);self.state.pop('news_text',None)
+     continue
     try:
      if context is None:
       from playwright.sync_api import sync_playwright
@@ -98,6 +115,7 @@ class BrowserSession:
       context=p.chromium.launch_persistent_context(self.root,executable_path=find_brave(),headless=False,accept_downloads=False,service_workers='block')
       context.route('**/*',self.route)
      page=context.pages[0]if context.pages else context.new_page()
+     if page is not watched:self.observe_page(page);watched=page
      if expected_url is not None:
       if page.url!=expected_url:raise ValueError('Browser page changed; read links again')
       if command=='open':
