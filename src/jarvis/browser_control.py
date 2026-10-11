@@ -71,7 +71,7 @@ class BrowserSession:
  def __init__(self,root):
   import threading,queue
   self.root=str(root);self.jobs=queue.Queue(maxsize=3);self.lock=threading.RLock();self.state={'state':'off','url':'','requested_url':'','title':'','error':'','links':[]};self.cancel=threading.Event()
-  self.thread=threading.Thread(target=self.run,daemon=False);self.thread.start()
+  self.thread=threading.Thread(target=self.run,daemon=True);self.thread.start()
  def snapshot(self):
   with self.lock:return dict(self.state)
  def submit(self,command,value='',confirmed=False,expected_url=None):
@@ -88,6 +88,13 @@ class BrowserSession:
   self.cancel.set()
   with self.lock:self.state['state']='stopping'
   return self.thread
+ def wait_closed(self,timeout=20):
+  """Caller owns bounded shutdown; pending navigation already has a15second cap."""
+  import threading
+  self.close()
+  if self.thread is not threading.current_thread():self.thread.join(timeout)
+  if self.thread.is_alive():raise TimeoutError('Isolated browser shutdown did not finish; app is closing without further browser work')
+  return True
  def observe_page(self,page):
   # Local browser events only. No reload, fetch, recapture or extra site traffic.
   def navigated(frame):
