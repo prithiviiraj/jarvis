@@ -13,4 +13,4 @@ class NativeInputContractTests(unittest.TestCase):
   with self.assertRaises(ValueError):n.activate(c)
   c.wrapper_object.return_value.click_input.assert_not_called()
  def test_all_native_invokes_use_shared_pattern_handling(self):
-  self.assertNotIn('.invoke()', (ROOT/'modern-ui/native-smoke.py').read_text())
+  self.assertNotIn('.invoke()', (ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8'))
