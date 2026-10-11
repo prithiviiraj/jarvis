@@ -118,6 +118,16 @@ def run():
     assert bridge.news.pending is None and not bridge.news.source and 'Which public'in bridge.neural.row['text'] and len(calls)==before and len(samples)==output_count
     bridge.news.cancel();bridge.neural.clear();bridge.neural_question=None
     rows[-1]['news_source_voice_scope']='Actual frozen microphone command route, controlled STT phrases, exact supplied URL retained; missing source asks once; no page/model/speech before review'
+    # Real frozen mixed voice turn. Only isolated browser transport is mocked.
+    from unittest.mock import Mock
+    browser=Mock();browser.cancel.is_set.return_value=False;browser.snapshot.return_value={'state':'working'}
+    bridge.browser=browser;bridge.browser_enabled=True;bridge.laya_active=True;before=len(calls)
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='open browser and tell me who Iron Man is'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    browser.submit.assert_called_once_with(command='open-window',value='',confirmed=True)
+    assert len(calls)==before+1 and calls[-1]['messages'][-1]['content']=='who Iron Man is'
+    bridge.browser=None;bridge.browser_enabled=False;bridge.laya_active=False
+    rows[-1]['parallel_command_question_scope']='Actual frozen voice mixed command/question dispatch, browser submission mocked; independent model reply proceeds while browser reports working. No actual site/device latency proof'
     # Actual image-bearing runtime turn to loopback, synthetic pixels only.
     import io
     from PIL import Image
