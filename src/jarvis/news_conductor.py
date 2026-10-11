@@ -4,8 +4,12 @@ from .browser_control import BrowserControl
 class NewsConductor:
  def __init__(self):self.requested=False;self.source='';self.pending=None;self.status='Choose your news page';self.awaiting_open=False;self.observed_url='';self.text_preview=None
  def request(self,text):
-  if not isinstance(text,str)or not re.fullmatch(r"\s*(?:jarvis[,.:]?\s+)?(?:news|show (?:me )?(?:the )?news|open (?:the )?news|what(?:'s| is) (?:the )?news(?: today)?)(?: with (?:images|pictures))?[?!.]*\s*",text,re.I):return False
-  self.requested=True;self.status='Which news page should I open? Paste its HTTPS URL.';return True
+  if not isinstance(text,str):return False
+  pattern=r"\s*(?:(?:jarvis|lyra|dex)[,.:]?\s+)?(?:news|show (?:me )?(?:the )?news|open (?:the )?news|what(?:'s| is) (?:the )?news(?: today)?)(?: with (?:images|pictures))?(?: from (https://[^\s]+))?[?!.]*\s*"
+  match=re.fullmatch(pattern,text,re.I)
+  if not match:return False
+  if match.group(1):self.preview(match.group(1));return True
+  self.cancel();self.source='';self.requested=True;self.status='Which news page should I open? Paste its HTTPS URL.';return True
  def preview(self,url):
   url=BrowserControl.destination(url)
   self.source=url;self.pending={'command':'open','value':url,'scope':'Open this exact news page in the reviewed browser; no headlines or audio fetched yet'};self.requested=True;self.awaiting_open=False;self.observed_url='';self.text_preview=None;self.status='Review exact news page before opening';return dict(self.pending)
