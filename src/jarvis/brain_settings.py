@@ -240,6 +240,7 @@ class _Keys:
  def __init__(self,settings,slots):self.settings=settings;self.slots=slots
  def get(self,name):return self.settings.keys().get(self.slots[name].key_target)
 class RoutedBrain:
+ supports_configured_chat=True
  def __init__(self,settings,name):self.settings=settings;self.name=name;self.last_diagnostics=[];self.last_warnings=[];self.reasoning_off=False
  def select_persona(self,name):
   if name not in ROLES:raise ValueError('Unknown persona')
