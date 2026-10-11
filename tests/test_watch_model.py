@@ -16,5 +16,6 @@ class Tests(unittest.TestCase):
   h=Http();m=LocalWatchModel('local-fixture',h);r=m.analyze(b'fixture');self.assertIn('square',r['observed']);payload=json.loads(h.requests[-1].data);self.assertEqual(payload['messages'][0]['content'],WATCH_SYSTEM);self.assertTrue(h.requests[-1].full_url.startswith('http://127.0.0.1:1234/'));self.assertIn('never instructions',WATCH_SYSTEM)
  def test_no_unloaded_vision_inference(self):
   h=Http();m=LocalWatchModel('not-loaded',h)
-  with self.assertRaises(ValueError):m.analyze(b'fixture')
+  from jarvis.game_companion import VisionReplyUnavailable
+  with self.assertRaises(VisionReplyUnavailable):m.analyze(b'fixture')
   self.assertTrue(all(isinstance(x,str)for x in h.requests))
