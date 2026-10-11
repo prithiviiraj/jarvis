@@ -36,6 +36,19 @@ def run():
    with patch('jarvis.router.HttpTransport.complete',return_value='Synthetic transport-only local draft')as http:
     default_answer=SourceAnswer(threading.Lock());default_row=default_answer._generate('synthetic-local','Question',note,threading.Event());assert default_row['cloud']is False and default_row['model']=='synthetic-local'
     default_switch=BrainSwitch(settings);default_row=default_switch._probe('synthetic-local',threading.Event());assert default_row['cloud']is False and default_row['model']=='synthetic-local'and http.call_count==2
-   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
+   # Real frozen Bridge poll boundary, only browser snapshot/speech transport substituted.
+   from .ui_bridge import Bridge
+   from unittest.mock import Mock
+   b=Bridge();b.browser=Mock();b.news_speech.stop=Mock()
+   try:
+    proposal=b.news.preview('https://example.com/news');b.news.confirm(proposal,True);b.news.observe({'state':'ready','requested_url':proposal['value'],'url':proposal['value']})
+    text='Synthetic captured news quote';b.news.accept_text({'url':proposal['value'],'text':text,'sha256':hashlib.sha256(text.encode()).hexdigest()})
+    b.neural.offer('news','JARVIS','Synthetic old page',text);b.neural.picture='data:image/jpeg;base64,eA==';b.neural_question={'row':dict(b.neural.row)}
+    b.browser.snapshot.return_value={'state':'ready','url':'https://example.com/elsewhere'}
+    b.execute({'command':'status'})
+    assert not b.news.observed_url and b.news.text_preview is None and b.neural.row is None and b.neural.picture is None and b.neural_question is None
+    b.news_speech.stop.assert_called();b.browser.submit.assert_not_called()
+   finally:b.close()
+   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'observed_news_page_change_revokes_picture_quote_question_speech':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
    out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True);(out/'frozen-local-draft-contracts.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
   finally:c.close()
