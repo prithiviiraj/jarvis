@@ -296,7 +296,7 @@ class Bridge:
   return True
  def auto_browser(self):
   if not self.laya_active or not self.browser_pending:return
-  if self.browser_pending.get('command')not in ('open-window','open','search','scroll-down','scroll-up','scroll-down-small','scroll-up-small'):return
+  if self.browser_pending.get('command')not in ('open-window','open','search','scroll-down','scroll-up','scroll-down-small','scroll-up-small','chain'):return
   pending=dict(self.browser_pending)
   self.execute({'command':'browser-run','confirm':True,'reviewed':pending})
  def understand_action(self,text,force=False):
@@ -336,7 +336,8 @@ class Bridge:
   threading.Thread(target=run,daemon=True).start();return True
  def shared_action(self,text):
   from .action_intent import parse
-  try:proposal=parse(text)
+  from .browser_chain import parse as parse_chain
+  try:proposal=parse_chain(text)or parse(text)
   except ValueError as error:self.reo_event('blocked',str(error)+'. Nothing executed.');return True
   if proposal is None:return False
   self.reo_event('received','Shared browser action: '+str(text))
