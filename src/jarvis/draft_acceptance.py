@@ -55,6 +55,14 @@ def run():
     assert not b.news.observed_url and b.news.text_preview is None and b.neural.row is None and b.neural.picture is None and b.neural_question is None
     b.news_speech.stop.assert_called();b.browser.submit.assert_not_called()
    finally:b.close()
-   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'observed_news_page_change_revokes_picture_quote_question_speech':True,'same_url_document_event_revokes_frozen_news':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
+   from .browser_chain import parse as chain_parse,execute as chain_execute
+   from .browser_control import BrowserControl
+   page=Mock();page.url='https://example.com/';page.title.return_value='Synthetic chain';steps=[]
+   def command(self,kind,value='',confirmed=False):
+    steps.append(kind);page.url=value if kind=='open'else'https://example.com/search';return {'url':page.url,'title':'Synthetic chain'}
+   with patch('jarvis.browser_control.BrowserControl.execute',command):
+    chain=chain_execute(page,chain_parse('open browser then search Iron Man')['value'],threading.Event())
+   assert steps==['open-window','search']and len(chain['chain_steps'])==2
+   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'observed_news_page_change_revokes_picture_quote_question_speech':True,'same_url_document_event_revokes_frozen_news':True,'bounded_frozen_browser_chain_dispatch':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
    out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True);(out/'frozen-local-draft-contracts.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
   finally:c.close()
