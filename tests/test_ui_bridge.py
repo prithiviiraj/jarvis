@@ -45,8 +45,8 @@ class UiBridgeTests(unittest.TestCase):
 
  def test_error_survives_idle_poll(self):
   self.b.voice.notify('error','LM Studio timeout');self.b.voice.notify('state','off')
-  self.assertEqual(self.b.execute({'command':'status'})['error'],'Local model did not answer. Check LM Studio connection and the selected model; Mic can listen again. No action was taken.')
-  self.assertEqual(self.b.execute({'command':'status'})['error'],'Local model did not answer. Check LM Studio connection and the selected model; Mic can listen again. No action was taken.')
+  self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
+  self.assertEqual(self.b.execute({'command':'status'})['error'],'LM Studio timeout')
   self.assertEqual(self.b.execute({'command':'pause'})['error'],'')
 
  def test_setup_does_not_enable_audio(self):
