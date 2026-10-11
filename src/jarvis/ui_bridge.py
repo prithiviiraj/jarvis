@@ -1154,8 +1154,9 @@ class Bridge:
    if request['enabled'] and request.get('context_consent') is not True:raise ValueError('Local persona context consent required')
    self.judge.stop();self.judge.gaming=request.get('gaming',False);self.idle.gaming=self.judge.gaming
    if request['enabled']:self.judge.enable(True,request.get('audio',False))
-  elif cmd=='close':self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.neural.close();self.knowledge.close();self.desktop_control.close();self.phone.close();self.voice.close();self.closed=True
-  self.poll()
+  elif cmd=='close':self.close();self.closed=True
+
+  if not self.closed:self.poll()
   if self.camera_master and self.context.camera=='on' and not self.vision.enabled:
    self.camera_master=False
    try:self.vision.enable(True);self.camera_master_status='Camera + local vision ready'
@@ -1232,7 +1233,9 @@ class Bridge:
  def close(self):
   self.export_cancel.set()
   if self.export_worker and self.export_worker is not threading.current_thread():self.export_worker.join(10)
-  self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();self.judge.close();self.game_speech.close();self.news_speech.close();self.neural.close();self.knowledge.close();self.desktop_control.close();self.phone.close();self.voice.close()
+  self.obsidian.close();self.save_history(force=True);self.setup.stop();self.stop();
+  if self.browser:self.browser.wait_closed(timeout=20)
+  self.judge.close();self.game_speech.close();self.news_speech.close();self.neural.close();self.knowledge.close();self.desktop_control.close();self.phone.close();self.voice.close()
 
 def main():
  bridge=Bridge()
