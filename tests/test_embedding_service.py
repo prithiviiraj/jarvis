@@ -44,3 +44,23 @@ class ProcessBoundary(unittest.TestCase):
     with self.assertRaises(ValueError):s.select_note(base,name)
    s.stop()
    with self.assertRaises(ValueError):s.select_note(root,'source.md')
+
+class MeasuredProgress(unittest.TestCase):
+ def test_progress_lines_consumed_before_final_reply(self):
+  import io,json
+  proc=Mock();proc.poll.return_value=None;proc.stdin=io.StringIO();proc.stdout=io.StringIO('\n'.join(json.dumps(x)for x in [{'event':'progress','data':{'phase':'downloading','percent':37.5,'status':'Downloaded37.5%','done_bytes':375,'total_bytes':1000}},{'ok':True,'data':{'status':'Verified ready'}}])+'\n')
+  s=EmbeddingService()
+  with patch('subprocess.Popen',return_value=proc),patch.object(s,'executable',return_value=['fixture']):s.start('setup',{'consent':True}).join(2)
+  self.assertEqual(s.status,'Verified ready');self.assertEqual(s.progress['percent'],100);self.assertFalse(s.busy);self.assertEqual(s.error,'')
+ def test_bad_progress_does_not_become_completion(self):
+  import io,json
+  proc=Mock();proc.poll.return_value=None;proc.stdin=io.StringIO();proc.stdout=io.StringIO(json.dumps({'event':'progress','data':{'percent':120}})+'\n');s=EmbeddingService()
+  with patch('subprocess.Popen',return_value=proc),patch.object(s,'executable',return_value=['fixture']):s.start('check',{'consent':True}).join(2)
+  self.assertIn('Invalid search progress',s.error);self.assertFalse(s.busy)
+ def test_setup_emits_real_byte_progress_and_verify(self):
+  import io,json,hashlib
+  with tempfile.TemporaryDirectory()as folder:
+   body=b'actual fixture bytes';asset={'name':'small.bin','bytes':len(body),'sha256':hashlib.sha256(body).hexdigest(),'url':'https://example.com/fixture'}
+   with patch.object(rt,'CACHE',pathlib.Path(folder)),patch.object(rt,'ASSETS',[asset]),patch('urllib.request.urlopen',return_value=io.BytesIO(body)),patch('sys.stdout',new_callable=io.StringIO)as out:
+    rt.setup();events=[json.loads(x)['data']for x in out.getvalue().splitlines()]
+   self.assertTrue(any(x['phase']=='downloading'and x['done_bytes']==len(body)for x in events));self.assertEqual(events[-1]['percent'],100);self.assertEqual((pathlib.Path(folder)/'small.bin').read_bytes(),body)
