@@ -77,10 +77,13 @@ class BrowserSession:
  def submit(self,command,value='',confirmed=False,expected_url=None):
   if self.cancel.is_set():raise ValueError('Browser stopping; wait until closed before starting another session')
   if confirmed is not True:raise ValueError('Review browser command first')
+  if command=='chain':
+   from .browser_chain import validate
+   validate(value)
   self.jobs.put_nowait((command,value,expected_url))
   with self.lock:
    self.state['state']='working';self.state['error']=''
-   if command in ('open','search','open-window'):self.state.pop('news_text',None);self.state['links']=[]
+   if command in ('open','search','open-window','chain'):self.state.pop('news_text',None);self.state['links']=[]
  def close(self):
   self.cancel.set()
   with self.lock:self.state['state']='stopping'
@@ -122,7 +125,13 @@ class BrowserSession:
        from .browser_links import links
        fresh=links(page)
        if value not in {r['url']for r in fresh['links']}:raise ValueError('Selected link changed; read links again')
-     if command=='news-text':
+     if command=='chain':
+      from .browser_chain import execute
+      with self.lock:self.state['chain_steps']=[]
+      def progress(row):
+       with self.lock:self.state['chain_steps'].append(row)
+      result=execute(page,value,self.cancel,progress)
+     elif command=='news-text':
       from .news_page import capture
       captured=capture(page,expected_url);result={'url':page.url,'title':page.title()[:160],'news_text':captured}
      elif command=='read-links':
@@ -142,7 +151,7 @@ class BrowserSession:
      elif 'timeout' in detail:reason='Browser startup or navigation timed out.'
      elif isinstance(error,ValueError):reason='Reviewed command or current page no longer matches.'
      else:reason='Browser startup or navigation failed ('+category+').'
-     with self.lock:self.state.update(state='error',error=reason+' Nothing completed. Check Settings > Tools. Your ordinary browser is unchanged.')
+     with self.lock:self.state.update(state='error',error=reason+' Earlier completed chain steps, if listed, remain completed; remaining steps did not run. Check Settings > Tools. Your ordinary browser is unchanged.')
   finally:
    if context:
     try:context.close()
