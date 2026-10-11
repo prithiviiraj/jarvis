@@ -70,15 +70,25 @@ class LocalContext:
                 'model_dispatch':'separately opted-in local persona judgment only; no cloud sensing',
                 'limits':'presence is not identity, sleep, attention or screen-content understanding'}
 
+def open_camera(cv2):
+    """Try Windows capture backends in order; release each failed device."""
+    import sys
+    backends=[cv2.CAP_DSHOW,cv2.CAP_MSMF,cv2.CAP_ANY] if sys.platform=='win32' else [cv2.CAP_ANY]
+    for backend in backends:
+        cap=cv2.VideoCapture(0,backend)
+        if cap.isOpened():return cap
+        cap.release()
+    raise RuntimeError('Camera unavailable. Allow desktop apps in Windows Camera privacy, and close apps using the camera.')
+
 class CameraWorker:
     def __init__(self,context,capture_factory=None,detect=None):
         self.context=context;self.capture_factory=capture_factory;self.detect=detect
-        self.stop_event=threading.Event();self.thread=None;self.capture=None;self.frame=None;self.frame_at=0;self.lock=threading.RLock()
+        self.stop_event=threading.Event();self.thread=None;self.capture=None;self.frame=None;self.frame_at=0;self.lock=threading.RLock();self.error=''
     def start(self,consent=False):
         if not consent:raise ValueError('Camera consent required')
         with self.lock:
             if self.thread and self.thread.is_alive():raise RuntimeError('Camera is running or still stopping')
-            self.stop_event.clear();self.context.camera_state('starting')
+            self.stop_event.clear();self.error='';self.context.camera_state('starting')
             self.thread=threading.Thread(target=self._run,daemon=True);self.thread.start()
     def _run(self):
         cap=None;frame=None;state=PresenceState()
@@ -88,7 +98,7 @@ class CameraWorker:
                 import cv2
                 classifier=cv2.CascadeClassifier(cv2.data.haarcascades+'haarcascade_frontalface_default.xml')
                 if classifier.empty():raise RuntimeError('Face detector missing')
-                factory=lambda:cv2.VideoCapture(0,cv2.CAP_DSHOW)
+                factory=lambda:open_camera(cv2)
                 def detect(frame):
                     gray=cv2.cvtColor(cv2.resize(frame,(320,240)),cv2.COLOR_BGR2GRAY)
                     try:return len(classifier.detectMultiScale(gray,1.15,5,minSize=(35,35)))>0
@@ -110,8 +120,8 @@ class CameraWorker:
                     frame=None
                 if changed:self.context.presence_event(changed)
                 if self.stop_event.wait(1.0):break
-        except Exception:
-            if not self.stop_event.is_set():self.context.camera_state('error')
+        except Exception as e:
+            if not self.stop_event.is_set():self.error=safe_text(str(e),180)or'Camera could not start';self.context.camera_state('error')
         finally:
             frame=None
             with self.lock:self.frame=None
