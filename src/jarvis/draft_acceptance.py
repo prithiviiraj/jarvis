@@ -44,11 +44,17 @@ def run():
     proposal=b.news.preview('https://example.com/news');b.news.confirm(proposal,True);b.news.observe({'state':'ready','requested_url':proposal['value'],'url':proposal['value']})
     text='Synthetic captured news quote';b.news.accept_text({'url':proposal['value'],'text':text,'sha256':hashlib.sha256(text.encode()).hexdigest()})
     b.neural.offer('news','JARVIS','Synthetic old page',text);b.neural.picture='data:image/jpeg;base64,eA==';b.neural_question={'row':dict(b.neural.row)}
-    b.browser.snapshot.return_value={'state':'ready','url':'https://example.com/elsewhere'}
+    from .browser_control import BrowserSession
+    from types import SimpleNamespace
+    session=BrowserSession.__new__(BrowserSession);session.lock=threading.RLock();session.state={'state':'ready','url':proposal['value'],'news_text':b.news.text_preview,'links':[{'url':'old'}],'page_revision':1}
+    b.news.observed_revision=1
+    callbacks={};page=SimpleNamespace(url=proposal['value'],main_frame=object(),on=lambda k,f:callbacks.update({k:f}));session.observe_page(page);callbacks['framenavigated'](page.main_frame)
+    assert session.snapshot()['page_revision']==2 and 'news_text'not in session.snapshot() and not session.snapshot()['links']
+    b.browser.snapshot.side_effect=session.snapshot
     b.execute({'command':'status'})
     assert not b.news.observed_url and b.news.text_preview is None and b.neural.row is None and b.neural.picture is None and b.neural_question is None
     b.news_speech.stop.assert_called();b.browser.submit.assert_not_called()
    finally:b.close()
-   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'observed_news_page_change_revokes_picture_quote_question_speech':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
+   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'observed_news_page_change_revokes_picture_quote_question_speech':True,'same_url_document_event_revokes_frozen_news':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
    out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True);(out/'frozen-local-draft-contracts.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
   finally:c.close()
