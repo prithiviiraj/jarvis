@@ -63,6 +63,24 @@ def run():
    with patch('jarvis.browser_control.BrowserControl.execute',command):
     chain=chain_execute(page,chain_parse('open browser then search Iron Man')['value'],threading.Event())
    assert steps==['open-window','search']and len(chain['chain_steps'])==2
-   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'observed_news_page_change_revokes_picture_quote_question_speech':True,'same_url_document_event_revokes_frozen_news':True,'bounded_frozen_browser_chain_dispatch':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
+   from .game_companion import scene_reply,LocalGameModel,VisionReplyUnavailable
+   scene={'observed':'Synthetic visible scene','comment':'Fixture words only','confidence':'high'}
+   raw=lambda text:json.dumps({'choices':[{'message':{'content':text}}]}).encode()
+   assert scene_reply(raw('```json\n'+json.dumps(scene)+'\n```'))==scene
+   import io
+   class Response(io.BytesIO):
+    def __enter__(self):return self
+    def __exit__(self,*a):self.close()
+   transport=Mock();transport.open.side_effect=[Response(raw('')),Response(raw(json.dumps(scene)))];model=LocalGameModel('synthetic',transport);model.verify=Mock();assert model.analyze(b'synthetic jpeg')==scene and transport.open.call_count==2
+   from .live_screen import LiveScreen
+   import time
+   listener=Mock();model.analyze=Mock(side_effect=[VisionReplyUnavailable('Synthetic invalid response'),scene]);live=LiveScreen(listener,source=lambda t:b'synthetic jpeg',interval=.01);live.enable({'id':1,'title':'Synthetic'},{'id':1,'title':'Synthetic'},model,True)
+   limit=time.monotonic()+2
+   while not live.analysis_error and time.monotonic()<limit:time.sleep(.005)
+   assert live.enabled and live.analysis_error and not listener.called
+   live.retry_analysis();limit=time.monotonic()+2
+   while not listener.called and time.monotonic()<limit:time.sleep(.005)
+   assert listener.called and model.analyze.call_count==2;live.stop();assert live.preview is None and not live.analysis_error
+   report={'frozen_executable':bool(getattr(__import__('sys'),'frozen',False)),'synthetic_text_only':True,'editable_SVG_exact_review_write_readback_cancel':True,'SVG_sha256':hashlib.sha256(pathlib.Path(saved['path']).read_bytes()).hexdigest(),'recent_phone_text_exact_review_revoke_clear':True,'synthetic_source_answer_attribution_cloud_reject':True,'synthetic_brain_switch_exact_route_cloud_reject':True,'real_default_source_switch_callback_transport_mock_contract':True,'observed_news_page_change_revokes_picture_quote_question_speech':True,'same_url_document_event_revokes_frozen_news':True,'bounded_frozen_browser_chain_dispatch':True,'frozen_scene_format_retry_pause_recovery_stop':True,'no_network_listener_account_open_send_speech':True,'unrun':['physical phone','real speech and model','native UI phone text continuation','Canva account integration','carrier calling']}
    out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True);(out/'frozen-local-draft-contracts.json').write_text(json.dumps(report,indent=2));print(json.dumps(report,indent=2))
   finally:c.close()
