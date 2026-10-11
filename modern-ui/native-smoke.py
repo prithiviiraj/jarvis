@@ -73,7 +73,7 @@ checks=[];window=None
 def navigation(main,name):
  """Follow the real simplified product controls, not hidden/removed navigation."""
  def invoke(title):
-  control=main.child_window(title=title,control_type='Button');control.wait('exists enabled',timeout=20);activate(control);time.sleep(.15)
+  control=main.child_window(title=title,control_type='Button',visible_only=True);control.wait('exists enabled',timeout=20);activate(control);time.sleep(.15)
  if name=='Settings':
   if main.child_window(title='Explore tools',control_type='Button').exists():invoke('Explore tools')
   elif not main.child_window(title='Tools',control_type='Button').exists():
@@ -81,11 +81,16 @@ def navigation(main,name):
   more=main.child_window(title='More settings',control_type='Button')
   if more.exists()and not main.child_window(title='Advanced',control_type='Button').exists():activate(more);time.sleep(.15)
  elif name=='Team room':
-  if main.child_window(title='Previous view',control_type='Button').exists() and not main.child_window(title='Message draft',control_type='Edit').exists():
+  composer=main.child_window(title='Message draft',control_type='Edit',visible_only=True)
+  for _ in range(2):
+   if composer.exists():break
    invoke('Previous view')
-   if not main.child_window(title='Message draft',control_type='Edit').exists():invoke('Previous view')
+   try:composer.wait('visible',timeout=2);break
+   except Exception:
+    if not main.child_window(title='Explore tools',control_type='Button',visible_only=True).exists():raise
+  composer.wait('visible',timeout=10)
  elif name in ('Expand conversation','Collapse conversation','New chat'):
-  if not main.child_window(title='More options',control_type='Group').exists()and not main.child_window(title='What would you like to do?',control_type='Text').exists():invoke('More')
+  if not main.child_window(title='What would you like to do?',control_type='Text',visible_only=True).exists():invoke('More')
   if name=='New chat':activate(main.child_window(title='Notes and chats',control_type='Button'))
   invoke(name)
  else:invoke(name)
@@ -112,8 +117,7 @@ try:
  area=work_area_bounds();bounds=main.rectangle()
  assert bounds.left>=area.left and bounds.top>=area.top and bounds.right<=area.right and bounds.bottom<=area.bottom,('Workspace outside usable monitor',bounds,area.left,area.top,area.right,area.bottom)
  checks.append('native decorated initial workspace fits actual monitor work area, including taskbar exclusion')
- # The published workspace starts on Knowledge universe; composer is Team-only.
- main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
+ # Return through the visible Previous view before requiring the chat composer.
  navigation(main,'Team room')
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
  navigation(main,'Settings')
@@ -373,7 +377,7 @@ try:
  assert not any('body'in row for row in requests),'Local source was disclosed to inference'
  button('Master, read this source aloud').wait('exists',timeout=10) # Never invoked: source capture must not start speech with or without cached assets.
  window.capture_as_image().save('ui-evidence/native-knowledge-retrieval.png')
- assert window.child_window(title='Living knowledge graph',control_type='Group').exists(),'Real graph region missing';window.capture_as_image().save('ui-evidence/native-approved-3d-graph.png')
+ assert any(x.window_text()=='Living knowledge graph'for x in window.descendants()),'Real graph region missing';window.capture_as_image().save('ui-evidence/native-approved-3d-graph.png')
  click('Close knowledge note');source.unlink()
  checks.append('actual native source retrieval, capture and 3D graph region; no model disclosure or unapproved audio')
 
@@ -435,7 +439,7 @@ try:
  click('Team room')
  click('DEX Coder')
  click('Voice setup')
- button('Download local voice models').wait('exists',timeout=10)
+ button('Check local voice models').wait('exists',timeout=10)
  assert not window.child_window(title='Last voice turn timing',control_type='Text').exists(),'Removed voice timing remains'
  from pywinauto import mouse
  def choose_native_option(name,label,key):
@@ -459,9 +463,14 @@ try:
  assert interrupt.wrapper_object().get_toggle_state()==0,'Interruption must default OFF'
  checks.append('native headphone interruption checkbox visible and defaults OFF; no microphone started')
  button('Mic ON / start local voice').wait('exists',timeout=10)
- click('Download local voice models');button('Confirm voice download').wait('exists',timeout=10)
- button('Confirm voice download').wrapper_object().set_focus();time.sleep(.2)
- window.capture_as_image().save('ui-evidence/native-kokoro-download-review.png');click('Cancel voice download review');window.child_window(title='Confirm voice download',control_type='Button').wait_not('exists',timeout=10)
+ click('Check local voice models')
+ deadline=time.monotonic()+90
+ while time.monotonic()<deadline:
+  if 'ALREADY DOWNLOADED'in ui_text()and not button('Download local voice models').is_enabled():break
+  time.sleep(.3)
+ else:raise RuntimeError('Bundled speech assets were not verified in actual native UI')
+ window.capture_as_image().save('ui-evidence/native-bundled-speech-ready.png')
+ checks.append('actual native bundled speech weights verified; no internet download or microphone started')
  from pywinauto import mouse
  mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.5)
  engine=window.child_window(title='Speech engine',control_type='ComboBox')
@@ -489,7 +498,7 @@ try:
  assert 'Kitten nano int8' not in ui_text()
  assert 'Downloading 'not in ui_text()
  button('Mic ON / start local voice').wait('exists',timeout=10)
- checks.append('native Kokoro-only speech option; exact download review canceled; no download or microphone start')
+ checks.append('native Kokoro-only speech option; bundled model ready without download or microphone start')
  # Actual temporary-vault UI flow, no owner's files. Reviews must fire nothing.
  import tempfile
  with tempfile.TemporaryDirectory()as vault_tmp:
@@ -534,7 +543,16 @@ try:
   except Exception:
    window.capture_as_image().save('ui-evidence/native-advanced-expand-failure.png')
    if attempt==2:raise
- click('Download Laya model');button('Confirm Laya model download').wait('exists',timeout=10);button('Confirm Laya model download').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-managed-laya-download-review.png');click('Cancel Laya model download');window.child_window(title='Confirm Laya model download',control_type='Button').wait_not('exists',timeout=10);assert 'Laya model missing; review Download Laya model'in ui_text();assert not button('Load inbuilt Laya').wrapper_object().is_enabled();click('Stop Laya setup / engine');checks.append('native inbuilt Laya exact pinned download review/cancel and stop; no model download or engine loading')
+ click('Check local Laya model')
+ deadline=time.monotonic()+90
+ while time.monotonic()<deadline:
+  if 'Laya model verified; engine stopped'in ui_text()and button('Load inbuilt Laya').is_enabled():break
+  time.sleep(.3)
+ else:raise RuntimeError('Bundled Laya assets were not verified in actual native UI')
+ assert not button('Download Laya model').is_enabled(),'Bundled verified Laya incorrectly offers another download'
+ window.capture_as_image().save('ui-evidence/native-bundled-laya-ready.png')
+ click('Stop Laya setup / engine')
+ checks.append('actual native bundled Laya weights ready; download disabled; engine remains stopped until separate consent')
  click('Enable shared Laya');button('Confirm Laya permission').wait('exists',timeout=10);button('Confirm Laya permission').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-laya-permission-review.png');click('Cancel Laya permission');window.child_window(title='Confirm Laya permission',control_type='Button').wait_not('exists',timeout=10);click('Enable shared Laya');click('Confirm Laya permission');time.sleep(.3);assert 'inbuilt Laya engine not loaded'in ui_text();click('Stop Laya proposals');assert 'Silent shared action log'in ui_text();click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
  button('Confirm browser permission').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-browser-permission-review.png')
@@ -612,7 +630,7 @@ try:
  checks.append('ordinary actual frozen-core conversation stays in chat without popup or Master question')
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('show this answer visually');click('Add local draft')
  # Only the explicit visual request opens the exact-row popup.
- # Missing local speech assets keep read controls disabled; never start audio.
+ # Bundled speech availability does not authorize audio; never invoke read controls.
  button('Not now').wait('exists',timeout=10)
  button('Read aloud').wait('exists',timeout=10)
  button("Hear Master's question").wait('exists',timeout=10)
@@ -676,7 +694,7 @@ try:
   if 'Packaged local chat round-trip confirmed.'not in ui_text():break
   time.sleep(.1)
  assert 'Packaged local chat round-trip confirmed.' not in ui_text()
- saved=window.child_window(title='packaged-chat-probe',control_type='Button');saved.wait('exists',timeout=10);activate(saved)
+ click('More');activate(window.child_window(title='Notes and chats',control_type='Button',visible_only=True));saved=window.child_window(title='packaged-chat-probe',control_type='Button',visible_only=True);saved.wait('exists',timeout=10);activate(saved)
  deadline=time.monotonic()+5
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.' in ui_text():break
@@ -770,6 +788,7 @@ except Exception:
  if 'faces' in locals():
   try:pathlib.Path('ui-evidence/faces-tree.txt').write_text('\n'.join(f'{x.element_info.control_type}: {x.window_text()}' for x in faces.descendants()),encoding='utf-8')
   except Exception:pass
+ if window is None and 'main'in locals():window=main
  if window is not None:
   try:pathlib.Path('ui-evidence/native-tree.txt').write_text('\n'.join(f'{x.element_info.control_type}: {x.window_text()}' for x in window.descendants()),encoding='utf-8')
   except Exception:pass
