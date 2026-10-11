@@ -387,10 +387,10 @@ try:
  click('Settings');click('Tools');assert button('Proactive').exists(),'Single Proactive control missing';assert not window.child_window(title='Confirm proactive team',control_type='Button').exists();checks.append('single Proactive control present; no automatic speech or model start on mount')
  # Audit new Master entries without invoking sensors or local vision inference.
  button('Camera').wait('exists',timeout=10);button('Live screen').wait('exists',timeout=10)
- assert 'One switch: presence + loaded local vision. No cloud images.' in ui_text()
- assert 'Full primary screen, including private windows. Local vision only, no recording.' in ui_text()
+ assert 'One switch: presence + local vision. Cloud images need the separate reviewed opt-in.' in ui_text()
+ assert 'Full primary screen, including private windows. Local background analysis only; cloud questions need the separate reviewed opt-in. No recording.' in ui_text()
  window.capture_as_image().save('ui-evidence/native-master-controls-inert.png')
- checks.append('camera Master and full-primary-screen Master entries visible; local-only/privacy scope shown; no camera/screen session started')
+ checks.append('camera Master and full-primary-screen Master entries visible; local-first and separately reviewed cloud-image scope shown; no camera/screen session started')
  click('Settings');click('Brain & APIs')
  assert not window.child_window(title='Review local speed test',control_type='Button').exists(),'Removed speed control remains'
  button('Check LM Studio connection').wait('exists',timeout=10);click('Check LM Studio connection')
