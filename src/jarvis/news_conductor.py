@@ -17,6 +17,8 @@ class NewsConductor:
   if confirm is not True or self.pending is None or reviewed!=self.pending:raise ValueError('Review the exact news page first')
   proposal=dict(self.pending);self.pending=None;self.awaiting_open=True;self.status='Opening requested page; waiting for observed browser result';return proposal
  def observe(self,state):
+  if self.observed_url and (state.get('state')in ('error','stopping','off')or state.get('state')=='ready'and state.get('url')!=self.observed_url):
+   self.observed_url='';self.text_preview=None;self.awaiting_open=False;self.status='Observed news page is no longer current. Review the source and capture again.'
   if not self.awaiting_open:return
   if state.get('state')=='error':self.awaiting_open=False;self.status='News page did not open; no reading started';return
   if state.get('state')=='ready'and state.get('requested_url')==self.source:
