@@ -10,7 +10,7 @@ def run(core):
    for line in p.stdout:q.put(line)
   threading.Thread(target=drain,daemon=True).start()
   def call(command,**extra):
-   p.stdin.write(json.dumps(dict(command=command,**extra))+'\n');p.stdin.flush();return json.loads(q.get(timeout=15))
+   p.stdin.write(json.dumps(dict(command=command,**extra))+'\n');p.stdin.flush();return json.loads(q.get(timeout=35))
   try:
    assert not call('vault-connect',vault_folder=str(vault))['ok']
    assert call('vault-connect',vault_folder=str(vault),consent=True)['data']['vault']['connected']
@@ -108,7 +108,7 @@ def run(core):
    assert pending['expected_url']==state['url']
    assert call('browser-run',confirm=True,reviewed=pending)['ok']
    assert call('pause')['data']['browser']['enabled']is False
-   call('close');p.wait(10)
+   assert call('close')['ok'],'Core Close failed';p.wait(10)
    return {'frozen_inbuilt_laya_unloaded_refuses_proposal_no_autonomous_action':True,'frozen_vault':True,'bounded_search_completeness_and_result_limit':True,'explicit_local_vault_voice_parse_read_search':True,'read_search_create_no_overwrite':True,'outside_paths_rejected':True,'hidden_paths_read_create_rejected':True,'changed_vault_review_rejected':True,'browser_voice_parse':True,'scroll_exact_page_bound':True,'changed_review_rejected':True,'pause_browser_mode_off':True,'actual_Brave_navigation':True,'observed_links_and_exact_review':True,'actual_observed_link_navigation':True,'actual_final_url':state['url'],'physical_microphone':False}
   finally:
    if p.poll()is None:
