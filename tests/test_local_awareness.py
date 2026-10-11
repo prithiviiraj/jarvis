@@ -65,3 +65,17 @@ class AwarenessTests(unittest.TestCase):
   except ImportError:self.skipTest("Local Tk unavailable; Windows runs control test")
   from unittest.mock import Mock
   panel=AwarenessPanel(Mock());panel.context.camera_state('on');panel.context.presence_event('present');panel.stop_camera();self.assertEqual(panel.context.presence,'unknown');self.assertFalse(panel.context.events)
+
+class CameraBackendTests(unittest.TestCase):
+ def test_failed_backend_released_before_fallback(self):
+  from unittest.mock import Mock,patch
+  cv=Mock();cv.CAP_DSHOW=700;cv.CAP_MSMF=1400;cv.CAP_ANY=0
+  bad=Mock();bad.isOpened.return_value=False;good=Mock();good.isOpened.return_value=True;cv.VideoCapture.side_effect=[bad,good]
+  with patch('sys.platform','win32'):self.assertIs(open_camera(cv),good)
+  bad.release.assert_called_once();good.release.assert_not_called();self.assertEqual(cv.VideoCapture.call_args_list[1].args,(0,1400))
+ def test_exhausted_devices_release_and_explain(self):
+  from unittest.mock import Mock,patch
+  cv=Mock();bad=Mock();bad.isOpened.return_value=False;cv.VideoCapture.return_value=bad
+  with patch('sys.platform','win32'):
+   with self.assertRaisesRegex(RuntimeError,'Windows Camera privacy'):open_camera(cv)
+  self.assertEqual(bad.release.call_count,3)
