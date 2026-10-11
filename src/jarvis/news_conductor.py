@@ -2,7 +2,7 @@
 import re
 from .browser_control import BrowserControl
 class NewsConductor:
- def __init__(self):self.requested=False;self.source='';self.pending=None;self.status='Choose your news page';self.awaiting_open=False;self.observed_url='';self.text_preview=None
+ def __init__(self):self.requested=False;self.source='';self.pending=None;self.status='Choose your news page';self.awaiting_open=False;self.observed_url='';self.text_preview=None;self.observed_revision=None
  def request(self,text):
   if not isinstance(text,str):return False
   pattern=r"\s*(?:(?:jarvis|lyra|dex)[,.:]?\s+)?(?:news|show (?:me )?(?:the )?news|open (?:the )?news|what(?:'s| is) (?:the )?news(?: today)?)(?: with (?:images|pictures))?(?: from (https://[^\s]+))?[?!.]*\s*"
@@ -17,12 +17,12 @@ class NewsConductor:
   if confirm is not True or self.pending is None or reviewed!=self.pending:raise ValueError('Review the exact news page first')
   proposal=dict(self.pending);self.pending=None;self.awaiting_open=True;self.status='Opening requested page; waiting for observed browser result';return proposal
  def observe(self,state):
-  if self.observed_url and (state.get('state')in ('error','stopping','off')or state.get('state')=='ready'and state.get('url')!=self.observed_url):
+  if self.observed_url and (state.get('state')in ('error','stopping','off')or state.get('state')=='ready'and (state.get('url')!=self.observed_url or self.observed_revision is not None and state.get('page_revision')!=self.observed_revision)):
    self.observed_url='';self.text_preview=None;self.awaiting_open=False;self.status='Observed news page is no longer current. Review the source and capture again.'
   if not self.awaiting_open:return
   if state.get('state')=='error':self.awaiting_open=False;self.status='News page did not open; no reading started';return
   if state.get('state')=='ready'and state.get('requested_url')==self.source:
-   self.awaiting_open=False;self.observed_url=BrowserControl.destination(state.get('url'));self.status='Page opened. Shall I read it for you? Review the visible page text first.'
+   self.awaiting_open=False;self.observed_url=BrowserControl.destination(state.get('url'));self.observed_revision=state.get('page_revision');self.status='Page opened. Shall I read it for you? Review the visible page text first.'
  def accept_text(self,row):
   from .news_page import validate
   validate(row)
