@@ -120,8 +120,12 @@ class Bridge:
   self.brains.refresh_live()
   if self.browser:
    state=self.browser.snapshot()
+   prior_news_url=self.news.observed_url
    try:self.news.observe(state)
    except ValueError:self.news.cancel()
+   if prior_news_url and not self.news.observed_url:
+    self.news_speech.stop()
+    if self.neural.row and self.neural.row.get('kind')=='news':self.neural.clear();self.neural_question=None
    if self.news_speech.busy and (state.get('state')!='ready' or state.get('url')!=self.news.observed_url):self.news_speech.stop()
    captured=state.get('news_text')
    if self.news.requested and state.get('state')=='ready' and state.get('url')==self.news.observed_url and captured and captured.get('url')==self.news.observed_url and captured!=self.news.text_preview:
