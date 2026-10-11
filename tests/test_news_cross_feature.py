@@ -4,6 +4,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from jarvis.ui_bridge import Bridge
 from jarvis.workspace_voice import WorkspaceVoice
 class Browser:
+ def wait_closed(self,timeout=20):self.close();return True
  def __init__(self):self.state={'state':'ready','url':'https://example.com/news'}
  def snapshot(self):return dict(self.state)
  def close(self):self.state['state']='stopping'
