@@ -410,10 +410,19 @@ class Bridge:
    from .obsidian import Vault as ReadVault
    import hashlib
    if hashlib.sha256(ReadVault(root).read(self.neural_source['name']).encode()).hexdigest()!=self.neural_source['sha256']:raise ValueError('Plan note changed; capture and review again')
+ def parallel_action(self,text):
+  from .parallel_request import split
+  request=split(text)
+  if request is None:return None
+  # Submit only a known command. Model answer is independent of page results.
+  self.shared_action(request['command_text'])
+  return {'parallel_question':request['question'],'command_status':'submitted or awaiting review; consult actual browser state, not model output'}
  def voice_action(self,text):
   self.source_answer.stop()
   self.voice.memory.restore([m for m in self.messages if not m.get('transient_screen')])
   self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
+  parallel=self.parallel_action(text)
+  if parallel:return parallel
   if self.brain_switch_action(text):return True
   if self.time_action(text,spoken=True):return True
   if self.data_centre_action(text):return True
@@ -1055,6 +1064,11 @@ class Bridge:
    if self.support_owner_action(text):self.messages.append({'name':'You','text':text});return self.execute({'command':'status'})
    if self.activation_action(text):self.messages.append({'name':'You','text':text});return self.execute({'command':'status'})
    if self.stop_intent(text):self.execute({'command':'browser-stop'});self.idle.stop();self.interrupt_conversation();return self.execute({'command':'status'})
+   parallel=self.parallel_action(text)
+   if parallel:
+    self.voice.memory.restore([m for m in self.messages if not m.get('transient_screen')])
+    self.voice.send_text(parallel['parallel_question'],auto_pick=True)
+    self.reply_wait={'started':time.monotonic(),'chat':self.chat_id};return self.execute({'command':'status'})
    from .action_intent import parse as parse_action,goal as parse_goal
    from .desktop_actions import prepare
    action=bool(prepare(text)or parse_action(text)or parse_goal(text))
