@@ -181,7 +181,7 @@ class VoiceRuntime:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
                 def chunks():
-                    options={'local_only':True}if state_local else{}
+                    options={'local_only':True}if state_local else({'configured_chat':True}if getattr(type(turn_router),'supports_configured_chat',False)is True else{})
                     providers=getattr(self.router,'providers',None)
                     if isinstance(providers,list)and len(providers)==1 and not providers[0].cloud and 'spark-x2.5' in providers[0].model.lower():
                         from .lmstudio_rest import NativeSparkTransport,SparkRecoveryTransport
@@ -211,7 +211,7 @@ class VoiceRuntime:
                 records=getattr(self.router,'last_diagnostics',[])
                 if isinstance(records,list):self.notify('response-diagnostics',records)
             else:
-                answer=turn_router.ask(messages,cloud_consent=cloud,**({'local_only':True}if state_local else{}))
+                answer=turn_router.ask(messages,cloud_consent=cloud,**({'local_only':True}if state_local else({'configured_chat':True}if getattr(type(turn_router),'supports_configured_chat',False)is True else{})))
                 answer['text']=strip_speaker_tag(answer['text'])
                 with self.lock:
                     if not self.valid(generation):return
