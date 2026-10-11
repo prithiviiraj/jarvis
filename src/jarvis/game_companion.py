@@ -68,18 +68,44 @@ class LocalGameModel:
   finally:
    if self.gate is not None:self.gate.release()
  def _analyze(self,frame):
-  self.verify()
+  try:self.verify()
+  except Exception:raise VisionReplyUnavailable('Selected vision model is no longer available or loaded. Check LM Studio server and loaded vision model, then Retry. Analysis paused; no cloud frames.')from None
   from urllib.request import Request
-  data={'model':self.model,'temperature':0.3,'max_tokens':120,'messages':[{'role':'system','content':self.system},{'role':'user','content':[{'type':'text','text':'One recent selected-window frame. Describe cautiously.'},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(frame).decode()}}]}]}
-  req=Request('http://127.0.0.1:1234/v1/chat/completions',data=json.dumps(data).encode(),headers={'Content-Type':'application/json'})
-  with self.http.open(req,timeout=8)as r:raw=r.read(32769)
-  if len(raw)>32768:raise ValueError('Oversize game reply')
-  text=json.loads(raw)['choices'][0]['message']['content'];row=json.loads(text)
-  if not isinstance(row,dict)or set(row)!={'observed','comment','confidence'}or row['confidence']not in ('low','medium','high'):raise ValueError('Invalid cautious game reply')
-  for k,limit in [('observed',300),('comment',240)]:
-   if not isinstance(row[k],str)or len(row[k])>limit or any(ord(c)<32 for c in row[k]):raise ValueError('Invalid game reply text')
-  if row['confidence']=='low':row['comment']=''
-  return row
+  import socket,urllib.error
+  schema={'type':'object','properties':{'observed':{'type':'string'},'comment':{'type':'string'},'confidence':{'type':'string','enum':['low','medium','high']}},'required':['observed','comment','confidence'],'additionalProperties':False}
+  data={'model':self.model,'temperature':0.2,'max_tokens':384,'stream':False,'response_format':{'type':'json_schema','json_schema':{'name':'cautious_scene','strict':True,'schema':schema}},'messages':[{'role':'system','content':self.system},{'role':'user','content':[{'type':'text','text':'One recent selected-window frame. Describe cautiously.'},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(frame).decode()}}]}]}
+  for attempt in range(2):
+   req=Request('http://127.0.0.1:1234/v1/chat/completions',data=json.dumps(data).encode(),headers={'Content-Type':'application/json'})
+   try:
+    with self.http.open(req,timeout=30)as r:raw=r.read(32769)
+   except (socket.timeout,TimeoutError):raise VisionReplyUnavailable('Local vision timed out. Check LM Studio server log and try an image in LM Studio chat; first load can be slow. Analysis paused, no cloud fallback.')from None
+   except urllib.error.HTTPError as e:raise VisionReplyUnavailable('LM Studio rejected the vision request (HTTP'+str(e.code)+'). Check its server log, vision model/template and context settings. Analysis paused.')from None
+   except (urllib.error.URLError,ConnectionError):raise VisionReplyUnavailable('LM Studio server could not be reached at port1234. Start its local server. Analysis paused.')from None
+   if len(raw)>32768:raise VisionReplyUnavailable('Local vision reply exceeded the safety limit. Analysis paused.')
+   try:return scene_reply(raw)
+   except (ValueError,KeyError,TypeError,IndexError):
+    if attempt==0:continue
+    raise VisionReplyUnavailable('LM Studio returned empty or invalid scene JSON twice. Loaded does not mean generation works. Try an image in LM Studio chat and check server log/model template. Analysis paused; Retry after fixing it.')from None
+
+class VisionReplyUnavailable(RuntimeError):pass
+
+def scene_reply(raw):
+ envelope=json.loads(raw)
+ message=envelope['choices'][0]['message'];text=message.get('content')
+ if isinstance(text,list):text=''.join(p.get('text','')for p in text if isinstance(p,dict)and p.get('type')in ('text','output_text'))
+ if not isinstance(text,str)or not text.strip():raise ValueError('Empty scene content')
+ text=text.strip()
+ if text.startswith('```'):
+  import re
+  match=re.fullmatch(r'```(?:json)?\s*([\s\S]*?)\s*```',text,re.I)
+  if not match:raise ValueError('Invalid fenced scene')
+  text=match[1]
+ row=json.loads(text)
+ if not isinstance(row,dict)or set(row)!={'observed','comment','confidence'}or row['confidence']not in ('low','medium','high'):raise ValueError('Invalid cautious scene reply')
+ for k,limit in [('observed',300),('comment',240)]:
+  if not isinstance(row[k],str)or len(row[k])>limit or any(ord(c)<32 for c in row[k]):raise ValueError('Invalid scene reply text')
+ if row['confidence']=='low':row['comment']=''
+ return row
 
 class GameCompanion:
  def __init__(self,notify,source=capture,clock=time.monotonic):
