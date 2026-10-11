@@ -11,7 +11,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Embedding frozen build failed' }
 Copy-Item -Recurse -Force dist/jarvis-embedding embedding-runtime
 & ./.venv/Scripts/python.exe distribution-notices.py
 if ($LASTEXITCODE -ne 0) { throw 'Embedding third-party notices failed' }
-$reply = '{"action":"check","consent":true}' | & ./embedding-runtime/jarvis-embedding.exe
-if ($LASTEXITCODE -ne 0) { throw 'Embedding frozen startup failed' }
-$data = $reply | ConvertFrom-Json
-if ($data.ok -ne $true -or $data.data.model_bytes -ne 1525787092) { throw 'Embedding frozen protocol check failed' }
+& ./.venv/Scripts/python.exe protocol-check.py ./embedding-runtime/jarvis-embedding.exe
+if ($LASTEXITCODE -ne 0) { throw 'Embedding frozen progress/final protocol check failed' }
