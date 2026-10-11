@@ -10,6 +10,20 @@ def downloads():
  if shell.SHGetKnownFolderPath(ctypes.byref(g),0,None,ctypes.byref(out))!=0:raise RuntimeError('Windows Downloads folder unavailable')
  try:return pathlib.Path(out.value).resolve(strict=True)
  finally:ctypes.windll.ole32.CoTaskMemFree(ctypes.cast(out,ctypes.c_void_p))
+def replace_managed(temp,destination,expected,clock=time.monotonic,sleep=time.sleep):
+ """Bound transient Windows sharing locks; never overwrite a concurrent edit."""
+ deadline=clock()+1.5
+ try:
+  while True:
+   actual=hashlib.sha256(destination.read_bytes()).hexdigest()if destination.exists()else None
+   if actual!=expected:raise ValueError('Note changed during sync; edited note preserved')
+   try:temp.replace(destination);return
+   except PermissionError:
+    if clock()>=deadline:raise
+    sleep(.1)
+ finally:
+  if temp.exists():temp.unlink()
+
 class Vault:
  def __init__(self,config,downloads_source=downloads):
   self.auto_sync=False;self.registration='not checked';self.connection_error='';self.config=pathlib.Path(config);self.downloads_source=downloads_source;self.root=None;self.enabled=False;self.status='Not connected';self.error='';self.skipped=[];self.lock=threading.RLock();self.last=0;self.digest=None;self.nodes_connected=False;self.busy=False;self.operation='';self.phase='';self.generation=0;self.worker=None;self.closed=False
@@ -152,7 +166,12 @@ class Vault:
      if existing is not None and existing!=hashes.get(name):skipped.append(name);continue
      temp=self.safe(str(pathlib.PurePosixPath(name).with_suffix('.jarvis-tmp')))
      if temp.exists():raise ValueError('Unexpected temporary note; original files preserved')
-     temp.write_text(text,encoding='utf-8');temp.replace(p);hashes[name]=hashlib.sha256(p.read_bytes()).hexdigest()
+     temp.write_text(text,encoding='utf-8')
+     try:replace_managed(temp,p,existing)
+     except Exception:
+      # Keep records of earlier successful writes if a later note is locked.
+      marker.write_text(json.dumps(data,indent=2),encoding='utf-8');raise
+     hashes[name]=hashlib.sha256(p.read_bytes()).hexdigest()
     marker.write_text(json.dumps(data,indent=2),encoding='utf-8');self.skipped=skipped;self.digest=digest;self.status='Local exports synced'+('; edited notes preserved: '+str(len(skipped))if skipped else'');self.error=''
    except Exception as e:self.error=str(e)[:200];self.status='Sync stopped; existing notes preserved'
 
