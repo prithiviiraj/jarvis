@@ -29,6 +29,18 @@ with sync_playwright() as p:
  assert session.snapshot()['page_revision']>=1 and 'news_text'not in session.snapshot() and not session.snapshot()['links']
  news.observe(session.snapshot());assert not news.observed_url and news.text_preview is None
  page.screenshot(path='ui-evidence/actual-news-page-reloaded.png')
+ # Actual intercepted Chromium chained navigation, no external search traffic.
+ from jarvis.browser_chain import parse as chain_parse,execute as chain_execute
+ page.unroute('**/*')
+ def chain_route(r):
+  requests.append(r.request.url)
+  body=('<a href="https://en.wikipedia.org/wiki/Iron_Man">Iron Man Wikipedia</a>'if 'google.com'in r.request.url else '<h1>Observed Wikipedia fixture</h1><a href="https://example.com/final">First observed fixture link</a>')
+  r.fulfill(status=200,content_type='text/html',body='<html><title>Chain fixture</title><body>'+body+'</body></html>')
+ page.route('**/*',chain_route)
+ chained=chain_execute(page,chain_parse('open browser then search Iron Man then open Wikipedia page then click first link')['value'],threading.Event())
+ assert len(chained['chain_steps'])==4 and page.url=='https://example.com/final'
+ page.screenshot(path='ui-evidence/actual-browser-chain.png')
+ pathlib.Path('ui-evidence/actual-browser-chain.json').write_text(json.dumps({'scope':'Actual Chromium intercepted chain, no external sites or owner hardware','steps':chained['chain_steps']},indent=2))
  page.goto('https://example.com/different')
  assert session.snapshot()['url']==page.url and 'news_text'not in session.snapshot()
  try:capture(page,'https://example.com/news')
