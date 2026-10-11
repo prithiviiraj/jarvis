@@ -76,6 +76,13 @@ try:
   sys.path.insert(0,str(root.parent/'src'))
   from jarvis.security import WindowsCredentials
   WindowsCredentials().delete('groq/slot5')
+ # Actual frozen news URL dialogue remains an inert source review.
+ for phrase in ('Lyra show news with pictures from https://example.com/news',):
+  p.stdin.write(json.dumps({'command':'chat','text':phrase})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok'],reply
+ assert reply['data']['news']['pending']['value']=='https://example.com/news'and not reply['data']['news']['observed_url']and reply['data']['news']['text_preview']is None,reply
+ assert reply['data']['neural']['row']['kind']=='news'and reply['data']['neural']['picture']is None and reply['data']['browser']['status']['state']=='off',reply
+ (root/'ui-evidence/frozen-news-source-dialogue.json').write_text(json.dumps({'scope':'Actual frozen supplied news source draft, no external page/model/speech','news':reply['data']['news']},indent=2),encoding='utf-8')
+ p.stdin.write(json.dumps({'command':'news-cancel'})+'\n');p.stdin.flush();reply=json.loads(lines.get(timeout=30));assert reply['ok']and reply['data']['news']['pending']is None and reply['data']['neural']['row']is None,reply
  # Frozen real local-calendar review/save to isolated managed Downloads fixture.
  import tempfile
  # Redirect only the fixture's Windows known-folder provider in-process is not possible across EXE.
