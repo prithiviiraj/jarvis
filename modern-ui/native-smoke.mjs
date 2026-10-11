@@ -1,3 +1,4 @@
+import*as nav from'./navigation-fixture.mjs';
 // Optional real Tauri/WebView2 CDP acceptance. Does not claim physical sensor acceptance.
 import {chromium} from 'playwright';import fs from 'node:fs';
 let browser;
@@ -10,7 +11,7 @@ const intro=page.getByRole('button',{name:'Skip intro',exact:true});if(await int
 await page.getByRole('button',{name:'DEX Coder',exact:true}).waitFor();
 const connect=page.getByRole('button',{name:'Connect bundled core',exact:true});if(await connect.isVisible())await connect.click();
 await page.getByRole('button',{name:'DEX Coder',exact:true}).click();
-await page.getByRole('button',{name:'Settings',exact:true}).click();
+await nav.settings(page);
 await page.getByRole('button',{name:'Appearance',exact:true}).click();
 await page.getByLabel('Font selector').selectOption('Verdana');
 await page.getByRole('button',{name:'Privacy',exact:true}).click();
