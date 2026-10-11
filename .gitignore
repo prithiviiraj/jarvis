@@ -11,3 +11,10 @@ config.json
 models/
 *.wav
 *.flac
+
+# Generated pinned build assets and local visual evidence
+modern-ui/bundled-models/
+modern-ui/node_modules/
+modern-ui/ui-evidence/
+modern-ui/bridge-state.json
+modern-ui/polish-state.json
