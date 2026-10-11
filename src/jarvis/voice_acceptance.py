@@ -105,6 +105,19 @@ def run():
      runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
     assert bridge.neural.row is None and len(calls)==before
     rows[-1]['popup_scope']='Real automatic question and current-row speech, controlled yes/not-now STT phrases, simulated mic/output; no new model calls'
+    # Actual frozen voice command routing preserves supplied news source.
+    before=len(calls);output_count=len(samples)
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value=name+' show news with pictures from https://example.com/news'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert bridge.news.pending['value']=='https://example.com/news' and 'https://example.com/news'in bridge.neural.row['text'] and 'Which public'not in bridge.neural.row['text']
+    assert bridge.neural.picture is None and bridge.browser is None and len(calls)==before and len(samples)==output_count,'Supplied news source performed work before review'
+    # Cancel before poll, so the source-review popup does not ask a new question.
+    bridge.news.cancel();bridge.neural.clear();bridge.neural_question=None
+    with patch.object(type(runtime.stt),'transcribe_cancellable',return_value=name+' show news'):
+     runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+    assert bridge.news.pending is None and not bridge.news.source and 'Which public'in bridge.neural.row['text'] and len(calls)==before and len(samples)==output_count
+    bridge.news.cancel();bridge.neural.clear();bridge.neural_question=None
+    rows[-1]['news_source_voice_scope']='Actual frozen microphone command route, controlled STT phrases, exact supplied URL retained; missing source asks once; no page/model/speech before review'
     # Actual image-bearing runtime turn to loopback, synthetic pixels only.
     import io
     from PIL import Image
