@@ -54,7 +54,7 @@ class VoiceRuntime:
         threading.Thread(target=self.turn,args=(audio,generation,cloud,history),daemon=True).start()
     def valid(self,generation):return self.enabled and generation==self.generation
     def turn(self,audio,generation,cloud,history):
-        ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription'
+        ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription';parallel_dispatched=False
         with self.lock:self.turn_metrics={'ticket':ticket,'started':started,'generation':generation,'metrics':metrics}
         self.notify('metrics',{})
         try:
@@ -88,7 +88,13 @@ class VoiceRuntime:
                 return
             # Browser mode uses only explicit commands, not model decisions or page text.
             handler=getattr(self,'action_handler',None)
-            if callable(handler) and handler(text):self.notify('action-handled',text);return
+            handled=handler(text)if callable(handler)else None
+            if isinstance(handled,dict)and isinstance(handled.get('parallel_question'),str):
+                parallel_dispatched=True
+                metrics['command_dispatch_s']=time.monotonic()-started
+                self.notify('status','Browser step dispatched independently; answer is not a browser-result claim')
+                text=handled['parallel_question']
+            elif handled:self.notify('action-handled',text);return
             from .persona_text import own_reply
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             from .multi_address import addressed,request as addressed_request
@@ -229,7 +235,7 @@ class VoiceRuntime:
             with self.lock:
                 if self.valid(generation):
                     if isinstance(exc,UnclearSpeech):self.notify('error','Speech was unclear. Please repeat closer to the microphone. Nothing was sent to a model for this turn.')
-                    else:self.notify('error','Voice turn failed at '+stage+': '+detail+'. Microphone can listen again; no action was taken.')
+                    else:self.notify('error','Voice turn failed at '+stage+': '+detail+('. Microphone can listen again; the independent browser step may already be submitted. Check its actual status.'if parallel_dispatched else'. Microphone can listen again; no action was taken.'))
         finally:
             with self.lock:
                 self.busy=False;self.popup_active=False
