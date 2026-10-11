@@ -46,3 +46,15 @@ class LiveScreenTests(unittest.TestCase):
   m.analyze=analyze;c=LiveScreen(lambda *x:notes.append(x),source=lambda t:state[0],interval=.01);c.enable(T,T,m,True);self.assertTrue(entered.wait(1));state[0]=None;self.wait(lambda:c.preview is None);state[0]=b'jpeg';self.wait(lambda:c.preview is not None);c.poll(True);gate.set();self.wait(lambda:not c.busy);c.stop();self.assertEqual(notes,[])
  def test_terminal_runtime_error_stops_not_retries(self):
   m=Mock();m.analyze.side_effect=RuntimeError('local model unavailable');c=LiveScreen(Mock(),source=lambda t:b'jpeg',interval=.01);c.enable(T,T,m,True);self.wait(lambda:not c.enabled);self.assertEqual(m.analyze.call_count,1)
+ def test_known_model_failure_pauses_without_auto_off_and_retry_recovers(self):
+  from jarvis.game_companion import VisionReplyUnavailable
+  notes=[];m=Mock();m.analyze.side_effect=[VisionReplyUnavailable('Invalid scene JSON twice'),{'observed':'Now visible','comment':'Real model words','confidence':'high'}]
+  c=LiveScreen(lambda *x:notes.append(x),source=lambda t:b'jpeg',interval=.01);c.enable(T,T,m,True)
+  self.wait(lambda:bool(c.analysis_error));self.assertTrue(c.enabled);before=c.sequence;time.sleep(.06);self.assertGreater(c.sequence,before);self.assertEqual(m.analyze.call_count,1);self.assertEqual(notes,[]);self.assertIn('Invalid scene',c.status)
+  c.retry_analysis();self.wait(lambda:len(notes)==1);self.assertEqual(m.analyze.call_count,2);self.assertFalse(c.analysis_error);c.stop();self.assertFalse(c.analysis_error);self.assertIsNone(c.preview)
+ def test_stopped_failure_does_not_install_retry_state(self):
+  from jarvis.game_companion import VisionReplyUnavailable
+  entered=threading.Event();release=threading.Event();m=Mock()
+  def analyze(f):entered.set();release.wait(1);raise VisionReplyUnavailable('late failure')
+  m.analyze=analyze;c=LiveScreen(Mock(),source=lambda t:b'jpeg',interval=.01);c.enable(T,T,m,True);self.assertTrue(entered.wait(1));c.stop();release.set();self.wait(lambda:all(not t.is_alive()for t in c.workers));self.assertEqual(c.analysis_error,'')
+  with self.assertRaises(ValueError):c.retry_analysis()
