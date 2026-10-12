@@ -1,0 +1,91 @@
+diff --git a/modern-ui/managed-model-proof.py b/modern-ui/managed-model-proof.py
+index 6d4cccb..856b65a 100644
+--- a/modern-ui/managed-model-proof.py
++++ b/modern-ui/managed-model-proof.py
+@@ -31,6 +31,8 @@ try:
+  report['runtime_state']=runtime.snapshot();probe=ModelProbe(runtime);probe.start(True);probe.worker.join(70);report['probe']=probe.snapshot()
+  if report['probe']['busy']:probe.stop();raise RuntimeError('Synthetic probe exceeded deadline')
+  if any(report['probe'][kind]!='passed'for kind in ('text','image')):raise RuntimeError('Synthetic text/image probe did not pass')
++ from jarvis.model_latency import ModelLatency
++ report['latency']=ModelLatency(runtime).run(True,cancel)
+  report['result']='passed'
+ except Exception as error:
+  report['result']='failed';report['error']=type(error).__name__+': '+str(error);raise
+diff --git a/src/jarvis/model_latency.py b/src/jarvis/model_latency.py
+new file mode 100644
+index 0000000..4b24505
+--- /dev/null
++++ b/src/jarvis/model_latency.py
+@@ -0,0 +1,38 @@
++"""Explicit synthetic owned-model latency measurements, never private screen input."""
++import time,json,io,base64,statistics,threading,urllib.request
++from .router import local_http
++class ModelLatency:
++ def __init__(self,runtime,opener=None,clock=time.monotonic):self.runtime=runtime;self.opener=opener or local_http();self.clock=clock
++ def run(self,consent=False,cancel=None):
++  if consent is not True:raise ValueError('Review synthetic latency test first')
++  cancel=cancel or threading.Event();route=self.runtime.route()
++  from PIL import Image,ImageDraw
++  image=Image.new('RGB',(1024,640),'white');draw=ImageDraw.Draw(image);draw.rectangle((50,100,450,540),fill='red');draw.rectangle((550,100,950,540),fill='blue');buf=io.BytesIO();image.save(buf,format='PNG');uri='data:image/png;base64,'+base64.b64encode(buf.getvalue()).decode()
++  cases=[('text','Explain in two short sentences why saving a draft before editing is useful.'),('image',[{'type':'text','text':'Describe the two colored rectangles and their left/right positions in two short sentences. This is a synthetic test.'},{'type':'image_url','image_url':{'url':uri}}])]
++  rows=[]
++  for kind,content in cases:
++   for trial in range(3):
++    if cancel.is_set():raise InterruptedError('Latency test stopped')
++    if self.runtime.route()!=route:raise ValueError('Owned model changed before latency request')
++    req=urllib.request.Request(route['url']+'/chat/completions',data=json.dumps({'model':route['model'],'messages':[{'role':'user','content':content}],'stream':True,'temperature':0,'max_tokens':96,'stream_options':{'include_usage':True}}).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+route['key']})
++    start=self.clock();first=None;text='';size=0;usage={}
++    with self.opener.open(req,timeout=30)as response:
++     for line in response:
++      if cancel.is_set():raise InterruptedError('Latency test stopped')
++      if self.runtime.route()!=route:raise ValueError('Owned model changed before latency result')
++      size+=len(line)
++      if size>131072 or len(line)>16384:raise ValueError('Oversize latency stream')
++      if not line.startswith(b'data:'):continue
++      raw=line[5:].strip()
++      if raw==b'[DONE]':break
++      event=json.loads(raw);usage=event.get('usage')or usage
++      choices=event.get('choices')or[];delta=choices[0].get('delta',{}).get('content')if choices else None
++      if isinstance(delta,str)and delta:
++       if first is None:first=self.clock()-start
++       text+=delta
++       if len(text)>6000:raise ValueError('Oversize synthetic answer')
++    elapsed=self.clock()-start
++    if self.runtime.route()!=route or cancel.is_set():raise InterruptedError('Latency route stopped')
++    if first is None or not text.strip():raise ValueError('No final text in latency stream')
++    rows.append({'kind':kind,'trial':trial,'first_text_s':round(first,4),'total_s':round(elapsed,4),'output_chars':len(text),'answer':text,'usage':usage})
++  return {'scope':'Six real synthetic text/image streaming requests. Trial0 includes first-use effects; trials1/2 repeat exact input and may use prefix caching. No owner hardware, microphone, video, grounding quality or full-duplex claim.','rows':rows,'median_first_text_s':{kind:statistics.median(r['first_text_s']for r in rows if r['kind']==kind)for kind in ('text','image')}}
+diff --git a/tests/test_model_latency.py b/tests/test_model_latency.py
+new file mode 100644
+index 0000000..3312305
+--- /dev/null
++++ b/tests/test_model_latency.py
+@@ -0,0 +1,28 @@
++import unittest,io,json,threading
++from unittest.mock import Mock
++from jarvis.model_latency import ModelLatency
++class Tests(unittest.TestCase):
++ def setUp(self):
++  self.runtime=Mock();self.runtime.route.return_value={'url':'http://127.0.0.1:43210/v1','key':'fixture-token','model':'fixture'};self.http=Mock()
++  body=b'data: '+json.dumps({'choices':[{'delta':{'content':'Synthetic answer'}}]}).encode()+b'\n\ndata: [DONE]\n'
++  self.http.open.side_effect=lambda *a,**k:io.BytesIO(body);self.test=ModelLatency(self.runtime,self.http)
++ def test_exact_six_requests_local_synthetic_no_private_capture(self):
++  out=self.test.run(True);self.assertEqual(len(out['rows']),6);self.assertEqual(self.http.open.call_count,6)
++  payload=json.loads(self.http.open.call_args.args[0].data);self.assertTrue(payload['stream']);self.assertEqual(payload['max_tokens'],96);self.assertIn('data:image/png;base64,',payload['messages'][0]['content'][1]['image_url']['url'])
++ def test_requires_review(self):
++  with self.assertRaises(ValueError):self.test.run()
++  self.http.open.assert_not_called()
++ def test_cancel_before_send(self):
++  cancel=threading.Event();cancel.set()
++  with self.assertRaises(InterruptedError):self.test.run(True,cancel)
++  self.http.open.assert_not_called()
++ def test_route_revoked_before_send(self):
++  self.runtime.route.side_effect=[self.runtime.route.return_value,ValueError('Stopped')]
++  with self.assertRaises(ValueError):self.test.run(True)
++  self.http.open.assert_not_called()
++ def test_route_changed_before_reply_rejected(self):
++  route=self.runtime.route.return_value;self.runtime.route.side_effect=[route,route,{**route,'key':'changed'}]
++  with self.assertRaises(ValueError):self.test.run(True)
++ def test_empty_stream_is_not_latency_success(self):
++  self.http.open.side_effect=lambda *a,**k:io.BytesIO(b'data: [DONE]\n')
++  with self.assertRaises(ValueError):self.test.run(True)
