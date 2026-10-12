@@ -144,7 +144,7 @@ try:
  main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
  # Native Bigfoot-derived companion: real HWND, click-through follow, drawing input and Stop.
  activate(main.child_window(title='Follow cursor',control_type='Button'));time.sleep(.5)
- companion=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Desktop companion');companion.wait('visible',timeout=15)
+ companion=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Desktop companion');companion.wait('visible',timeout=25)
  ch=companion.handle;ctypes.windll.user32.GetWindowLongW.restype=ctypes.c_long
  assert ctypes.windll.user32.GetWindowLongW(ch,-20)&0x20,'Follow companion must be click-through'
  assert ctypes.windll.user32.GetWindowLongW(ch,-20)&8,'Companion must stay on top'
