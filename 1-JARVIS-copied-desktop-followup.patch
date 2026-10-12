@@ -1,0 +1,408 @@
+diff --git a/modern-ui/bigfoot-desktop-preview.mjs b/modern-ui/bigfoot-desktop-preview.mjs
+new file mode 100644
+index 0000000..6263fc2
+--- /dev/null
++++ b/modern-ui/bigfoot-desktop-preview.mjs
+@@ -0,0 +1,19 @@
++import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';import assert from'node:assert/strict';const b=await chromium.launch();const p=await b.newPage({viewport:{width:1024,height:768}});let errors=[];p.on('pageerror',e=>errors.push(String(e)));await p.route('http://jarvis.fixture/**',r=>{const f=path.join('dist',new URL(r.request().url()).pathname);if(!fs.existsSync(f))return r.fulfill({status:404,body:''});return r.fulfill({body:fs.readFileSync(f),contentType:f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':f.endsWith('.svg')?'image/svg+xml':f.endsWith('.png')?'image/png':f.endsWith('.woff2')?'font/woff2':'text/html'})});await p.addInitScript(()=>{window.calls=[];window.fixtureModels=null;window.fixtureVoice=true;window.desktop={windows:[],task:{state:"off",pending:null,completed_steps:0,result:""},busy:false,status:"Off"};window.__TAURI_INTERNALS__={invoke:async(n,a)=>{window.calls.push({n,a});if(a?.request?.command==='models-inspect')window.fixtureModels={hardware:{gpu:'Fixture RTX 3060',ram_gb:16,vram_gb:6,free_disk_gb:100,error:''},recommendations:{options:[{id:'qwen3-vl-4b',label:'Qwen3-VL 4B',note:'Recommended',bytes:2984351853,recommended:true,available:true},{id:'qwen3-vl-8b',label:'Qwen3-VL 8B',note:'Higher quality, slower',bytes:5813170413,available:true}]},status:'Hardware checked',installed:[]};if(a?.request?.command==='voice-on')window.fixtureVoice=true;if(a?.request?.command==='voice-off')window.fixtureVoice=false;if(a?.request?.command==='desktop-windows')window.desktop.windows=[{hwnd:1,pid:9,title:'Fixture Notepad',width:800,height:600}];
++if(a?.request?.command==='desktop-task-preview'&&window.previewDelay)await new Promise(r=>setTimeout(r,window.previewDelay));
++if(a?.request?.command==='desktop-task-preview')window.desktop.task={state:'review',pending:{payload:{target:a.request.target,steps:a.request.steps,scope:a.request.scope},sha256:'fixture'},completed_steps:0,result:''};
++if(a?.request?.command==='desktop-task-run'){window.desktop.busy=true;window.desktop.task.state='running';window.desktop.task.pending=null;window.desktop.status='Running exact input';}
++if(a?.request?.command==='desktop-task-stop'){window.desktop.busy=false;window.desktop.task.pending=null;window.desktop.task.state='stopped';window.desktop.status='Stopped';}
++if(n==='bridge')return{ok:true,data:{desktop_control:window.desktop,managed_models:window.fixtureModels,messages:[],busy:false,voice_active:window.fixtureVoice,brains:{live:{state:'loaded',models:[{id:'fixture'}]},checks:{}}}}}}});await p.goto('http://jarvis.fixture/bigfoot-ui/jarvis.html?section=home');await p.locator('#desktop-controls summary').click();
++assert(!(await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='desktop-windows'));
++p.once('dialog',d=>d.dismiss());await p.getByRole('button',{name:'Find desktop windows',exact:true}).click();assert(!(await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='desktop-windows'));
++p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Find desktop windows',exact:true}).click();await p.getByRole('combobox',{name:'Desktop input window'}).selectOption('1');
++await p.getByRole('textbox',{name:'Desktop task purpose'}).fill('Edit fixture Notepad only');await p.getByRole('textbox',{name:'Literal desktop text'}).fill('fixture plain text');await p.getByRole('button',{name:'Add literal text step',exact:true}).click();assert.deepEqual(JSON.parse(await p.getByRole('textbox',{name:'Exact desktop steps JSON'}).inputValue()),[{action:'type',text:'fixture plain text'}]);
++await p.getByRole('button',{name:'Review desktop input',exact:true}).click();await p.getByRole('button',{name:'Confirm desktop input',exact:true}).waitFor();
++assert.equal((await p.evaluate(()=>window.calls)).filter(x=>x.a?.request?.command==='desktop-task-run').length,0);
++await p.getByRole('textbox',{name:'Desktop task purpose'}).fill('Changed draft');await p.waitForFunction(()=>window.desktop.task.pending===null);assert(await p.getByRole('button',{name:'Confirm desktop input',exact:true}).isHidden());
++await p.evaluate(()=>window.previewDelay=200);await p.getByRole('button',{name:'Review desktop input',exact:true}).click();await p.getByRole('textbox',{name:'Desktop task purpose'}).fill('Edited during delayed review');await p.waitForFunction(()=>window.calls.filter(x=>x.a?.request?.command==='desktop-task-stop').length>=2);await p.waitForFunction(()=>window.desktop.task.pending===null);assert(await p.getByRole('button',{name:'Confirm desktop input',exact:true}).isHidden());await p.evaluate(()=>window.previewDelay=200);await p.getByRole('button',{name:'Review desktop input',exact:true}).click();await p.getByRole('button',{name:'Stop desktop input',exact:true}).click();await p.waitForFunction(()=>window.calls.filter(x=>x.a?.request?.command==='desktop-task-stop').length>=4);await p.waitForFunction(()=>window.desktop.task.pending===null);assert(await p.getByRole('button',{name:'Confirm desktop input',exact:true}).isHidden());await p.evaluate(()=>window.previewDelay=0);
++await p.getByRole('button',{name:'Review desktop input',exact:true}).click();await p.getByRole('button',{name:'Confirm desktop input',exact:true}).waitFor();
++p.once('dialog',d=>d.dismiss());await p.getByRole('button',{name:'Confirm desktop input',exact:true}).click();assert.equal((await p.evaluate(()=>window.calls)).filter(x=>x.a?.request?.command==='desktop-task-run').length,0);
++p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Confirm desktop input',exact:true}).click();await p.waitForFunction(()=>window.desktop.busy);assert(await p.getByRole('textbox',{name:'Desktop task purpose'}).isDisabled());assert(await p.getByRole('textbox',{name:'Message',exact:true}).isEnabled());assert(await p.evaluate(()=>window.fixtureVoice));
++for(const width of [640,1024]){await p.setViewportSize({width,height:768});await p.screenshot({path:'ui-evidence/bigfoot-desktop-'+width+'-fixture.png'});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert(await p.getByRole('button',{name:'Stop desktop input',exact:true}).isVisible())}
++await p.getByRole('button',{name:'Stop desktop input',exact:true}).click();await p.waitForFunction(()=>!window.desktop.busy);assert(await p.evaluate(()=>window.fixtureVoice));assert.equal((await p.evaluate(()=>window.calls)).filter(x=>['voice-off','pause'].includes(x.a?.request?.command)).length,0);assert.deepEqual(errors,[]);await b.close();console.log('Copied desktop exact review/cancel/change/Stop while live conversation remains active passed with transport fixture, not native task proof.');
+diff --git a/modern-ui/desktop-native-proof.py b/modern-ui/desktop-native-proof.py
+new file mode 100644
+index 0000000..cbfdf35
+--- /dev/null
++++ b/modern-ui/desktop-native-proof.py
+@@ -0,0 +1,57 @@
++"""Actual Windows selected-window literal editing in an owned disposable Tk app.
++No user app, file opening, shell submission, network, microphone or model effects.
++"""
++import os,sys,pathlib,json,subprocess,time
++if os.name!='nt':raise RuntimeError('Requires actual Windows input boundary')
++out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True)
++record=(out/'desktop-owned-app-readback.json').resolve()
++if '--owned-app' in sys.argv:
++ import tkinter as tk
++ root=tk.Tk();root.title('JARVIS owned desktop input diagnostic');root.geometry('720x440')
++ tk.Label(root,text='Disposable diagnostic text only. No file or network effects.').pack()
++ edit=tk.Entry(root,width=70);edit.pack(padx=20,pady=20);edit.focus_set()
++ def readback():record.write_text(json.dumps({'text':edit.get(),'pid':os.getpid()}));root.after(50,readback)
++ root.after(50,readback);root.mainloop();sys.exit(0)
++sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'src'))
++from jarvis.desktop_controller import DesktopController
++from pywinauto import Desktop
++from PIL import ImageGrab
++record.unlink(missing_ok=True)
++child=subprocess.Popen([sys.executable,str(pathlib.Path(__file__).resolve()),'--owned-app'])
++controller=DesktopController();checks=[]
++def wait(test,timeout=10):
++ end=time.monotonic()+timeout
++ while time.monotonic()<end:
++  if test():return
++  time.sleep(.05)
++ raise AssertionError('Owned desktop diagnostic timed out')
++def text():
++ try:return json.loads(record.read_text())['text']
++ except (FileNotFoundError,json.JSONDecodeError):return None
++try:
++ window=Desktop(backend='uia').window(title='JARVIS owned desktop input diagnostic',process=child.pid);window.wait('visible',timeout=15)
++ rows=controller.discover(True);target=next(w for w in rows if w['pid']==child.pid and w['title']=='JARVIS owned desktop input diagnostic')
++ # Owned Tk app sets its entry focus. Activate only its actual top-level window;
++ # no UIA child-role guess is used for Tk's custom edit implementation.
++ window.wrapper_object().set_focus()
++ wait(lambda:text()=='')
++ reviewed=controller.prepare(target,[{'action':'type','text':'Owned ^+%{} literal text'}],'Type this exact fixture text in the owned disposable input only')
++ assert text()=='', 'No input before review'
++ controller.run(reviewed,True,True).join(timeout=15)
++ assert not controller.snapshot()['busy'];wait(lambda:text()=='Owned ^+%{} literal text');checks.append('actual literal Win32 input equals owned app readback')
++ reviewed=controller.prepare(target,[{'action':'type','text':'SHOULD NOT TYPE'}],'Cancelled owned text only');controller.stop()
++ try:controller.run(reviewed,True,True)
++ except ValueError:pass
++ else:raise AssertionError('Cancelled review accepted')
++ assert text()=='Owned ^+%{} literal text';checks.append('cancelled review produced no input')
++ reviewed=controller.prepare(target,[{'action':'type','text':'SHOULD NOT TYPE'}],'Stale geometry rejection only')
++ window.move_window(width=800,height=480)
++ controller.run(reviewed,True,True).join(timeout=15)
++ assert controller.snapshot()['task']['state']=='blocked';assert text()=='Owned ^+%{} literal text';checks.append('changed actual window blocked next input')
++ ImageGrab.grab().save(out/'desktop-owned-app-native.png')
++ (out/'desktop-native-proof.json').write_text(json.dumps({'checks':checks,'scope':'Actual WindowsAdapter/controller with owned disposable Tk app readback. No copied-shell controls, physical voice concurrency, general autonomy or owner-hardware proof.'},indent=2))
++finally:
++ controller.close()
++ subprocess.run(['taskkill','/PID',str(child.pid),'/T','/F'],capture_output=True,timeout=10,check=False)
++ try:child.wait(timeout=5)
++ except subprocess.TimeoutExpired:child.kill();child.wait(timeout=5)
+diff --git a/modern-ui/public/bigfoot-ui/app.css b/modern-ui/public/bigfoot-ui/app.css
+index c573204..2736b90 100644
+--- a/modern-ui/public/bigfoot-ui/app.css
++++ b/modern-ui/public/bigfoot-ui/app.css
+@@ -179,3 +179,16 @@ body.running .send .i-stop { display: block; }
+ .term-host .xterm { height: 100%; }
+ .term-host .xterm-viewport { scrollbar-width: thin; scrollbar-color: #2e3130 transparent; }
+ .term-ended { padding: 6px 12px; font: 11.5px var(--font); color: var(--text-3); border-top: 1px solid var(--hairline); background: var(--surface-1); display: flex; align-items: center; gap: 10px; }
++/* JARVIS reviewed desktop work stays beside the conversation. */
++#desktop-controls { flex:none; margin:8px 16px; }
++#desktop-controls summary { cursor:pointer; padding:10px 12px; font-size:12px; }
++#desktop-controls .desktop-body { max-height:260px; overflow:auto; padding:0 12px 12px; }
++#desktop-controls label { display:block; margin:8px 0; font-size:12px; }
++#desktop-controls .field { display:block; width:100%; margin-top:4px; }
++#desktop-controls pre { white-space:pre-wrap; overflow-wrap:anywhere; font:11px var(--mono); }
++#desktop-controls .btn { margin:4px 8px 4px 0; }
++
++#desktop-controls .desktop-current { padding:0 12px; margin:0 0 8px; }
++
++#desktop-controls > .btn { margin-left:12px; }
++#desktop-controls > p[role=status] { margin:4px 12px 12px; }
+diff --git a/modern-ui/public/bigfoot-ui/jarvis-adapter.js b/modern-ui/public/bigfoot-ui/jarvis-adapter.js
+index 67e6cad..a0230c7 100644
+--- a/modern-ui/public/bigfoot-ui/jarvis-adapter.js
++++ b/modern-ui/public/bigfoot-ui/jarvis-adapter.js
+@@ -2,7 +2,7 @@
+ // JARVIS-specific adapter for faithfully copied Bigfoot geometry/style.
+ // Preview only until native and full regression acceptance. No upstream effect bridge.
+ (()=>{
+- const $=id=>document.getElementById(id),listeners=[];let state=null,inFlight=false,section='home',seen='',modelsStamp='',speechStamp='';
++ const $=id=>document.getElementById(id),listeners=[];let state=null,inFlight=false,section='home',seen='',modelsStamp='',speechStamp='',desktopControls=null;
+  const native=(name,args={})=>window.__TAURI_INTERNALS__?.invoke?window.__TAURI_INTERNALS__.invoke(name,args):Promise.reject(Error('Open the native JARVIS app to connect'));
+  async function call(command,extra={}){const r=await native('bridge',{request:{command,...extra}});if(!r?.ok)throw Error(r?.error||'Core unavailable');state=r.data;render();return state}
+  function show(name){section=name;document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.section===name)));document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==name);$('section-title').textContent=name==='assistant'?'JARVIS':{home:'Home',account:'Models',voice:'Voice',general:'General',terminal:'Terminal'}[name];$('pane').classList.toggle('fill',name==='home'||name==='terminal');$('pane').scrollTop=0}
+@@ -11,7 +11,7 @@
+  function hint(id,text){$(id).textContent=text}
+  function unavailable(id,text){const e=$(id);e.disabled=true;e.title=text;const row=e.closest('.row');if(row){let h=row.querySelector('.hint');if(!h){h=document.createElement('div');h.className='hint';row.querySelector('.label')?.append(h)}if(h)h.textContent=text}}
+  function error(text){window.jarvisSound?.('error');$('status-text').textContent=text;$('status').className='status bad'}
+- function render(){if(!state)return;$('hold-talk').checked=state.shortcuts?.enabled===true;const text=state.busy?'Working':state.voice_active?'Listening':state.brains?.checks?.['local-warmup']?.state==='ready'?'Ready':'Needs a test reply';$('status-text').textContent=text;$('status').className='status '+(state.voice_active?'busy':text==='Ready'?'ok':'');document.body.classList.toggle('running',state.busy===true);$('send').disabled=!state.busy&&!$('prompt').value.trim();$('speak').checked=state.voice_active===true;$('speak').disabled=!!state.voice_setup?.busy||state.microphone_test?.busy===true||state.busy===true&&!state.voice_active;const mic=state.microphone_test;status('mic-status',mic?.status||'Not tested',mic?.frames?'ok':'');hint('mic-hint',mic?.error||`${mic?.scope||'Test not started'} Level: ${Math.round((mic?.level||0)*100)}%.`);$('mic-test').textContent=mic?.busy?'Stop test':'Test Microphone';$('mic-test').disabled=state.voice_active===true;const level=Math.max(0,Math.min(1,Number(mic?.level)||0));$('mic-meter').setAttribute('aria-valuenow',String(Math.round(level*100)));$('mic-meter').querySelectorAll('i').forEach((bar,index)=>bar.classList.toggle('on',mic?.busy===true&&index<Math.ceil(level*12)));
++ function render(){if(!state)return;desktopControls?.render();$('hold-talk').checked=state.shortcuts?.enabled===true;const text=state.busy?'Working':state.voice_active?'Listening':state.brains?.checks?.['local-warmup']?.state==='ready'?'Ready':'Needs a test reply';$('status-text').textContent=text;$('status').className='status '+(state.voice_active?'busy':text==='Ready'?'ok':'');document.body.classList.toggle('running',state.busy===true);$('send').disabled=!state.busy&&!$('prompt').value.trim();$('speak').checked=state.voice_active===true;$('speak').disabled=!!state.voice_setup?.busy||state.microphone_test?.busy===true||state.busy===true&&!state.voice_active;const mic=state.microphone_test;status('mic-status',mic?.status||'Not tested',mic?.frames?'ok':'');hint('mic-hint',mic?.error||`${mic?.scope||'Test not started'} Level: ${Math.round((mic?.level||0)*100)}%.`);$('mic-test').textContent=mic?.busy?'Stop test':'Test Microphone';$('mic-test').disabled=state.voice_active===true;const level=Math.max(0,Math.min(1,Number(mic?.level)||0));$('mic-meter').setAttribute('aria-valuenow',String(Math.round(level*100)));$('mic-meter').querySelectorAll('i').forEach((bar,index)=>bar.classList.toggle('on',mic?.busy===true&&index<Math.ceil(level*12)));
+  const stamp=JSON.stringify(state.messages||[]);if(stamp!==seen){seen=stamp;$('log').querySelectorAll('.turn,.steps').forEach(e=>e.remove());$('empty').hidden=!!state.messages?.length;for(const t of state.messages||[]){const row=document.createElement('div');row.className='turn '+(t.name==='You'?'user':'assistant');const body=document.createElement('div');body.className='msg '+(t.name==='You'?'user':'assistant');body.textContent=(t.name==='You'?'':t.name+': ')+t.text;row.append(body);$('log').append(row)}$('log').scrollTop=$('log').scrollHeight}
+  const vault=state.obsidian;$('obsidian-note').textContent=vault?.enabled?`${vault.status} · ${vault.auto_sync?'Sync on while app runs':'Manual sync'} · ${vault.folder}`:'Not connected. Review the local vault in Computer tools. No note opens automatically.';$('input-language').value=state.input_language||'auto';$('input-language').disabled=state.voice_active===true||state.busy===true;renderModels();renderSpeech();hint('active-model',state.managed_session?.active?state.managed_session.runtime.model:(state.brains?.live?.models?.[0]?.id||'No model loaded'));hint('active-note',state.managed_session?.active?'Owned managed model passed synthetic text/image tests. Real screen control and speed still need acceptance.':'No owned model route active. Existing connections preserved.');status('active-status',state.managed_session?.active?'Text and synthetic image tested':'Needs managed-model setup',state.managed_session?.active?'ok':'');}
+  document.querySelectorAll('[data-pane="assistant"] .row').forEach(row=>{const label=row.querySelector('.label');if(label&&['Say its name','Point at something while talking'].includes(label.textContent.trim())){const h=document.createElement('div');h.className='hint';h.textContent='Not available yet. No automatic microphone or screen capture.';label.append(h)}});$('hold-talk').onchange=e=>{if(e.target.checked){if(!confirm('Enable global Ctrl+Alt hold-to-talk and Shift+Alt interruption for this app session? Speech assets must be installed. Microphone opens only while Ctrl+Alt is held, maximum twenty seconds; release transcribes locally. No audio file or online upload. Keys can conflict with other apps.')){e.target.checked=false;return}call('shortcuts-enable',{consent:true}).catch(x=>{e.target.checked=false;error(String(x))})}else call('shortcuts-stop').catch(x=>error(String(x)))};$('assistant-name').value='JARVIS';unavailable('assistant-name','JARVIS, LYRA and DEX team names are preserved');unavailable('wake','Wake-name listening is not implemented yet');status('wake-status','Unavailable');
+@@ -58,5 +58,6 @@
+  for(const id of ['plugin-add','open-plugins','open-logs','term-add','clear','reveal']){const e=$(id);if(e){e.disabled=true;e.onclick=e=>e.preventDefault();e.title='Not active in this preview'}}$('version').textContent='Bigfoot-derived interface migration preview · not accepted';
+  $('new-chat').onclick=()=>call('history-new').catch(x=>error(String(x)));$('prompt').oninput=()=>{$('send').disabled=!$('prompt').value.trim()&&!state?.busy};$('composer').onsubmit=async e=>{e.preventDefault();try{if(state?.busy){await call('pause');await native('companion_stop');return}const text=$('prompt').value.trim();if(!text)return;$('prompt').value='';await call('chat',{text})}catch(x){error(String(x))}};
+  for(const e of document.querySelectorAll('.traffic button')){e.disabled=true;e.title='Use the native window controls while migration is in preview'}
++ desktopControls=window.jarvisDesktopControls(call,()=>state);
+  const startPane=new URLSearchParams(location.search).get('section');if(!startPane&&!localStorage.getItem('jarvis-first-mic-test-offer')){localStorage.setItem('jarvis-first-mic-test-offer','shown');show('voice')}else show(startPane||'home');$('status-text').textContent='Connecting';call('status').catch(x=>error(String(x)));const timer=setInterval(async()=>{if(inFlight)return;inFlight=true;try{await call('status')}catch{}finally{inFlight=false}},200);addEventListener('beforeunload',()=>clearInterval(timer));
+ })();
+diff --git a/modern-ui/public/bigfoot-ui/jarvis-desktop.js b/modern-ui/public/bigfoot-ui/jarvis-desktop.js
+new file mode 100644
+index 0000000..260ae31
+--- /dev/null
++++ b/modern-ui/public/bigfoot-ui/jarvis-desktop.js
+@@ -0,0 +1,28 @@
++'use strict';
++// Reviewed selected-window controls. No interpretation of conversation as input.
++window.jarvisDesktopControls=(call,readState)=>{
++ const root=document.createElement('details');root.id='desktop-controls';root.className='group';root.setAttribute('aria-label','Reviewed desktop input');
++ const summary=document.createElement('summary');summary.textContent='Computer control - exact review';root.append(summary);
++ const current=document.createElement('p');current.className='hint desktop-current';root.append(current);
++ const body=document.createElement('div');body.className='desktop-body';root.append(body);
++ const note=document.createElement('p');note.className='hint';note.textContent='Choose an observed window and review each input. No shell, Enter, shortcuts, passwords, send, payment or delete workflows. Stop prevents the next input; it cannot undo input already sent. Conversation stays available.';body.append(note);
++ function field(label,tag='input'){const l=document.createElement('label');l.textContent=label;const e=document.createElement(tag);e.className='field';e.setAttribute('aria-label',label);l.append(e);body.append(l);return e}
++ function button(text,fn){const b=document.createElement('button');b.className='btn secondary small';b.textContent=text;b.onclick=()=>Promise.resolve(fn()).catch(e=>{message.textContent=String(e)});body.append(b);return b}
++ const message=document.createElement('p');message.className='hint';message.setAttribute('role','status');
++ const find=button('Find desktop windows',()=>{if(confirm('Read visible local window names for this reviewed computer-control session? No screen capture or input starts.'))return call('desktop-windows',{consent:true})});
++ const windowField=field('Desktop input window','select');const purpose=field('Desktop task purpose');purpose.maxLength=500;
++ const literal=field('Literal desktop text');literal.maxLength=2000;
++ const addLiteral=button('Add literal text step',()=>{const draft=steps.value.trim()?JSON.parse(steps.value):[];if(!Array.isArray(draft)||draft.length>=30||!literal.value.trim())throw Error('Add plain text within thirty steps');steps.value=JSON.stringify([...draft,{action:'type',text:literal.value}],null,2);return changed()});
++ const steps=field('Exact desktop steps JSON','textarea');steps.rows=3;steps.maxLength=16000;steps.placeholder='[{"action":"type","text":"reviewed plain text"}]';
++ const draftNote=document.createElement('p');draftNote.className='hint';draftNote.textContent='1-30 steps: type plain text, move/click client x/y, navigation key, or scroll delta. Coordinates and clicks can have effects. No command is inferred from chat.';body.append(draftNote);
++ const review=button('Review desktop input',async()=>{const target=readState()?.desktop_control?.windows?.find(w=>String(w.hwnd)===windowField.value);const parsed=JSON.parse(steps.value);const draft=signature();const ticket=++reviewGeneration;invalidated=false;await call('desktop-task-preview',{target,steps:parsed,scope:purpose.value});if(ticket!==reviewGeneration||draft!==signature()){invalidated=true;await call('desktop-task-stop')}else reviewedDraft=draft;body.scrollTop=body.scrollHeight;render()});
++ const preview=document.createElement('pre');preview.setAttribute('aria-label','Exact desktop review');body.append(preview);
++ const approve=button('Confirm desktop input',async()=>{const pending=readState()?.desktop_control?.task?.pending;if(!pending||invalidated||reviewedDraft!==signature())throw Error('Review the exact desktop task first');if(confirm('Submit only this exact reviewed window and listed inputs? Clicks may have effects. Task completion is not verified by input alone.'))await call('desktop-task-run',{reviewed:pending,confirm:true,effect_approved:true})});
++ const stop=button('Stop desktop input',()=>{reviewGeneration++;invalidated=true;return call('desktop-task-stop')});root.append(stop,message);
++ let listStamp='';let invalidated=false;let reviewedDraft='';let reviewGeneration=0;function signature(){return JSON.stringify([windowField.value,purpose.value,steps.value])}
++ async function changed(){reviewGeneration++;if(readState()?.desktop_control?.task?.pending&&!invalidated){invalidated=true;await call('desktop-task-stop')}render()}
++ for(const e of [windowField,purpose,steps])e.addEventListener('input',()=>changed().catch(e=>{message.textContent=String(e)}));
++ function render(){const d=readState()?.desktop_control;const stamp=JSON.stringify(d?.windows||[]);if(stamp!==listStamp){listStamp=stamp;const selected=windowField.value;windowField.replaceChildren(new Option('Choose observed window',''));for(const w of d?.windows||[])windowField.append(new Option(w.title+' - PID '+w.pid,String(w.hwnd)));windowField.value=selected}
++ const busy=d?.busy===true;current.textContent='Target: '+(d?.task?.pending?.payload?.target?.title||d?.windows?.find(w=>String(w.hwnd)===windowField.value)?.title||'none selected')+' - '+(busy?'Input running':d?.task?.state||'off');for(const e of [find,windowField,purpose,steps,literal,addLiteral])e.disabled=busy;review.disabled=busy||!windowField.value||!purpose.value.trim()||!steps.value.trim();approve.hidden=!d?.task?.pending;approve.disabled=busy||invalidated||reviewedDraft!==signature();preview.hidden=!d?.task?.pending;preview.textContent=d?.task?.pending?JSON.stringify(d.task.pending.payload,null,2):'';if(!d?.task?.pending)invalidated=false;message.textContent=(d?.error||d?.status||'Computer input off')+' - '+(d?.task?.completed_steps||0)+' steps submitted. '+(d?.task?.result||'');stop.disabled=!d;}
++ document.getElementById('composer').before(root);render();return {render};
++};
+diff --git a/modern-ui/public/bigfoot-ui/jarvis.html b/modern-ui/public/bigfoot-ui/jarvis.html
+index 0587afa..2ad1a96 100644
+--- a/modern-ui/public/bigfoot-ui/jarvis.html
++++ b/modern-ui/public/bigfoot-ui/jarvis.html
+@@ -221,6 +221,7 @@
+     </main>
+   </div>
+   <script src="jarvis-sounds.js"></script>
++<script src="jarvis-desktop.js"></script>
+ <script src="jarvis-adapter.js"></script>
+ </body>
+ </html>
+diff --git a/src/jarvis/desktop_engine.py b/src/jarvis/desktop_engine.py
+index 1e72462..56dfda0 100644
+--- a/src/jarvis/desktop_engine.py
++++ b/src/jarvis/desktop_engine.py
+@@ -47,12 +47,14 @@ class DesktopEngine:
+     if self.adapter.foreground()!=target['hwnd']:raise ValueError('Foreground mismatch; no next input')
+     # Recheck after foreground acquisition: moved/resized/replaced target cannot use stale coordinates.
+     if self.adapter.observe(target['hwnd'])!=target:raise ValueError('Target changed during focus')
++    if self.cancel.is_set():self.state='stopped';break
+     if row['action']=='type':
+      # Each character is a literal input with a fresh foreground/window check.
+      # Stop can cut a long type step, rather than waiting for2000characters.
+      for char in row['text']:
+       if self.cancel.is_set():break
+       if self.adapter.foreground()!=target['hwnd']or self.adapter.observe(target['hwnd'])!=target:raise ValueError('Typing target changed; no next character')
++      if self.cancel.is_set():break
+       self.adapter.perform(target,{'action':'type','text':char})
+      if self.cancel.is_set():self.state='stopped';break
+     else:self.adapter.perform(target,row)
+diff --git a/src/jarvis/providers.py b/src/jarvis/providers.py
+index 73d3b06..a27a3e3 100644
+--- a/src/jarvis/providers.py
++++ b/src/jarvis/providers.py
+@@ -15,7 +15,7 @@ def configured(name,model):
+   route=managed_route()
+   if route is not None:
+    if model not in ('automatic',route['model']):raise ValueError('Requested model is not the owned loaded model')
+-   return Provider(name,route['url'],route['model'],local_key=route['key'])
++   return Provider(name,route['url'],route['model'],local_key=route['key'],owned_route=dict(route))
+  return Provider(name,ENDPOINTS[name],model,name!='local',requires_free_plan=name=='groq')
+ def local_models(timeout=2):
+  """Prefer loaded LLM instances; downloaded embeddings are not chat choices."""
+diff --git a/src/jarvis/router.py b/src/jarvis/router.py
+index c684faf..42ce4c9 100644
+--- a/src/jarvis/router.py
++++ b/src/jarvis/router.py
+@@ -24,6 +24,7 @@ class Provider:
+     requires_free_plan:bool=False
+     allow_20b_fallback:bool=False
+     local_key:str|None=field(default=None,repr=False,compare=False)
++    owned_route:dict|None=field(default=None,repr=False,compare=False)
+     def __post_init__(self):
+         u=urlsplit(self.url)
+         if not self.name or not self.model or u.username or u.password or u.query or u.fragment:
+@@ -34,6 +35,13 @@ class Provider:
+             raise ValueError('Local provider must use 127.0.0.1.')
+         if not 1 <= self.timeout <= 30:raise ValueError('Timeout must be 1-30 seconds.')
+ 
++def check_owned_provider(provider):
++    if provider.owned_route is None:return
++    from .local_endpoint import managed_route
++    try:route=managed_route()
++    except Exception:raise ProviderFailure('owned-session-unavailable',False) from None
++    if route!=provider.owned_route:raise ProviderFailure('owned-session-changed',False)
++
+ class NoRedirect(urllib.request.HTTPRedirectHandler):
+     def redirect_request(self,*args,**kwargs):return None
+ 
+@@ -57,6 +65,7 @@ class HttpTransport:
+         if self.cloud_http is None:self.cloud_http=cloud_http()
+         return self.cloud_http
+     def complete(self,provider,messages,key=None):
++        check_owned_provider(provider)
+         from .response_diagnostics import ResponseDiagnostics
+         diagnostic=ResponseDiagnostics(provider.model,1,'nonstream');self.last_diagnostics=[]
+         headers={'Content-Type':'application/json','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
+@@ -70,6 +79,7 @@ class HttpTransport:
+                 if len(raw)>1048576:raise ProviderFailure('oversize',False)
+                 j=json.loads(raw)
+                 diagnostic.observe(j)
++                check_owned_provider(provider)
+                 answer=answer_text(j['choices'][0]['message'].get('content'))
+                 if not isinstance(answer,str) or not answer.strip():raise ProviderFailure('reasoning-token-limit' if reply_metadata(j)['finish_category']=='length' and diagnostic.snapshot()['response_category']=='reasoning_without_final_text' else 'empty-token-limit' if reply_metadata(j)['finish_category']=='length' else 'empty')
+                 return answer.strip()
+@@ -111,7 +121,9 @@ class BrainRouter:
+                 if not key:errors.append((p.name,'no-key'));continue
+             else:key=p.local_key
+             try:
++                check_owned_provider(p)
+                 text=self.transport.complete(p,messages,key)
++                check_owned_provider(p)
+                 if cancel is not None and cancel.is_set():raise RouterError('Brain request stopped')
+                 return {'text':text,'provider':p.name,'model':p.model,'cloud':p.cloud,'fallbacks':errors}
+             except ProviderFailure as exc:
+@@ -155,7 +167,9 @@ class BrainRouter:
+                 if not key:continue
+             emitted=False
+             try:
++                check_owned_provider(p)
+                 for text in transport.stream(p,messages,key,cancel):
++                    check_owned_provider(p)
+                     if cancel is not None and cancel.is_set():return
+                     if text:
+                         emitted=True
+diff --git a/src/jarvis/streaming.py b/src/jarvis/streaming.py
+index 2992c42..184a708 100644
+--- a/src/jarvis/streaming.py
++++ b/src/jarvis/streaming.py
+@@ -1,7 +1,7 @@
+ """Bounded OpenAI-style SSE parsing. No tools or side effects, text deltas only."""
+ import json,time,urllib.request,urllib.error
+ from .chat_payload import payload,answer_text,reply_metadata
+-from .router import NoRedirect,ProviderFailure,local_http,HttpTransport,cloud_http
++from .router import NoRedirect,ProviderFailure,local_http,HttpTransport,cloud_http,check_owned_provider
+ 
+ def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None,diagnostic=None):
+     from .final_text import FinalTextFilter
+@@ -56,6 +56,7 @@ class StreamTransport:
+         if self.cloud_http is None:self.cloud_http=cloud_http()
+         return self.cloud_http
+     def stream(self,provider,messages,key=None,cancel=None):
++        check_owned_provider(provider)
+         from .response_diagnostics import ResponseDiagnostics
+         diagnostic=ResponseDiagnostics(provider.model,1,'stream');self.last_diagnostics=[]
+         retry=None
+@@ -69,6 +70,7 @@ class StreamTransport:
+                 emitted=False
+                 if 'text/event-stream' in content_type:
+                     for text in text_deltas(response,cancel,deadline=time.monotonic()+30,diagnostic=diagnostic):
++                        check_owned_provider(provider)
+                         emitted=True
+                         yield text
+                 elif not provider.cloud and 'application/json' in content_type:
+@@ -82,6 +84,7 @@ class StreamTransport:
+                         if not text and reply_metadata(data)['finish_category']=='length':raise ProviderFailure('reasoning-token-limit' if diagnostic.snapshot()['response_category']=='reasoning_without_final_text' else 'completion-token-limit',False)
+                     except (ValueError,KeyError,IndexError,TypeError):raise ProviderFailure('malformed',False) from None
+                     if text.strip():
++                        check_owned_provider(provider)
+                         emitted=True
+                         yield text.strip()
+                 else:raise ProviderFailure('not-streaming')
+diff --git a/tests/test_desktop_engine.py b/tests/test_desktop_engine.py
+index 839eb9a..f1afafc 100644
+--- a/tests/test_desktop_engine.py
++++ b/tests/test_desktop_engine.py
+@@ -54,3 +54,20 @@ class Tests(unittest.TestCase):
+   self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
+  def test_new_review_after_stop_has_fresh_cancel_signal(self):
+   self.plan();self.e.stop();r=self.plan();self.e.run(r,True,True);self.assertEqual(self.e.state,'completed')
++
++ def test_stop_during_post_focus_window_check_blocks_click(self):
++  r=self.plan();original=self.a.observe;calls=0
++  def observe(h):
++   nonlocal calls
++   calls+=1
++   if calls==2:self.e.stop()
++   return original(h)
++  self.a.observe=observe;self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
++ def test_stop_during_typing_window_check_blocks_next_character(self):
++  r=self.e.prepare(self.a.target,[{'action':'type','text':'fixture text'}],'Fixture only');original=self.a.observe;calls=0
++  def observe(h):
++   nonlocal calls
++   calls+=1
++   if calls==3:self.e.stop()
++   return original(h)
++  self.a.observe=observe;self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
+diff --git a/tests/test_desktop_native_proof_contract.py b/tests/test_desktop_native_proof_contract.py
+new file mode 100644
+index 0000000..016c1c2
+--- /dev/null
++++ b/tests/test_desktop_native_proof_contract.py
+@@ -0,0 +1,7 @@
++import unittest,pathlib
++class Contract(unittest.TestCase):
++ def test_owned_input_proof_is_explicit_windows_only_no_owner_app(self):
++  s=(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/desktop-native-proof.py').read_text()
++  self.assertIn("if os.name!='nt'",s);self.assertIn('process=child.pid',s)
++  self.assertIn("w['pid']==child.pid",s);self.assertIn('actual literal Win32 input equals owned app readback',s)
++  self.assertIn('controller.stop()',s);self.assertIn('changed actual window blocked next input',s)
+diff --git a/tests/test_local_endpoint.py b/tests/test_local_endpoint.py
+index a803b2b..7beb4c7 100644
+--- a/tests/test_local_endpoint.py
++++ b/tests/test_local_endpoint.py
+@@ -34,7 +34,7 @@ class Endpoints(unittest.TestCase):
+   model=LocalGameModel('qwen3-vl-4b',opener=http);result=model.analyze(b'image');self.assertEqual(result['observed'],'window');req=http.open.call_args.args[0];self.assertEqual(req.full_url,'http://127.0.0.1:43210/v1/chat/completions');self.assertEqual(req.get_header('Authorization'),'Bearer ephemeral')
+ 
+  def test_local_token_not_in_provider_display(self):
+-  self.assertNotIn('ephemeral',repr(configured('local','automatic')))
++  self.assertNotIn('ephemeral',repr(configured('local','automatic')));self.assertNotIn('ephemeral',str(configured('local','automatic')))
+ 
+  def test_large_owned_model_not_labeled_tiny(self):
+   from jarvis.tiny_specialists import Specialists
+@@ -50,3 +50,41 @@ class Endpoints(unittest.TestCase):
+   transport=HttpTransport();transport.http=Mock();transport.http.open.side_effect=lambda req,**kw:Response(json.dumps({'choices':[{'message':{'content':'hello'}}]}).encode())
+   from jarvis.router import BrainRouter
+   answer=BrainRouter([configured('local','automatic')],transport).ask([{'role':'user','content':'hi'}]);self.assertEqual(answer['text'],'hello');req=transport.http.open.call_args.args[0];self.assertEqual(req.get_header('Authorization'),'Bearer ephemeral');self.assertEqual(req.full_url,'http://127.0.0.1:43210/v1/chat/completions')
++
++ def test_owned_provider_stopped_after_configuration_never_sends(self):
++  from jarvis.router import BrainRouter,RouterError
++  p=configured('local','automatic');unbind(self.runtime);transport=Mock()
++  with self.assertRaises(RouterError):BrainRouter([p],transport).ask([{'role':'user','content':'hi'}])
++  transport.complete.assert_not_called()
++ def test_owned_provider_stopped_before_answer_discards_it(self):
++  from jarvis.router import BrainRouter,RouterError
++  p=configured('local','automatic');transport=Mock()
++  def reply(*a):unbind(self.runtime);return 'late text'
++  transport.complete.side_effect=reply
++  with self.assertRaises(RouterError):BrainRouter([p],transport).ask([{'role':'user','content':'hi'}])
++ def test_owned_stream_stopped_before_first_chunk_discards_it(self):
++  from jarvis.router import BrainRouter,RouterError
++  p=configured('local','automatic');transport=Mock()
++  def stream(*a):unbind(self.runtime);yield 'late text'
++  transport.stream.side_effect=stream
++  with self.assertRaises(RouterError):list(BrainRouter([p]).stream([{'role':'user','content':'hi'}],stream_transport=transport))
++ def test_owned_stream_change_after_first_chunk_stops_without_next_text(self):
++  from jarvis.router import BrainRouter,RouterError
++  p=configured('local','automatic');transport=Mock()
++  def stream(*a):
++   yield 'first';self.runtime.route.return_value={**self.runtime.route.return_value,'key':'new session'};yield 'late'
++  transport.stream.side_effect=stream;source=BrainRouter([p]).stream([{'role':'user','content':'hi'}],stream_transport=transport)
++  self.assertEqual(next(source)['text'],'first')
++  with self.assertRaises(RouterError):next(source)
++
++ def test_real_http_boundary_does_not_send_stale_owned_provider(self):
++  from jarvis.router import HttpTransport,ProviderFailure
++  p=configured('local','automatic');transport=HttpTransport();transport.http=Mock();unbind(self.runtime)
++  with self.assertRaises(ProviderFailure):transport.complete(p,[{'role':'user','content':'hi'}])
++  transport.http.open.assert_not_called()
++ def test_real_stream_boundary_does_not_send_stale_owned_provider(self):
++  from jarvis.streaming import StreamTransport
++  from jarvis.router import ProviderFailure
++  p=configured('local','automatic');transport=StreamTransport();transport.http=Mock();unbind(self.runtime)
++  with self.assertRaises(ProviderFailure):list(transport.stream(p,[{'role':'user','content':'hi'}]))
++  transport.http.open.assert_not_called()
