@@ -140,6 +140,8 @@ jobs:
         shell: pwsh
         run: |
           $env:JARVIS_UI_EXE = (Resolve-Path 'native-diagnostic/JARVIS.exe').Path
+          python desktop-native-proof.py
+          if ($LASTEXITCODE -ne 0) { throw 'Owned actual desktop input readback failed' }
           python bigfoot-native-smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Actual copied-shell Windows diagnostic failed' }
       - name: Preserve diagnostic core for fast fixture-only reruns
@@ -216,6 +218,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Copied responsive renderer failed' }
           node bigfoot-speech-setup-preview.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Copied speech-setup renderer failed' }
+          node bigfoot-desktop-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Copied desktop renderer failed' }
           node bigfoot-live-voice-preview.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Copied live voice renderer failed' }
           node companion-smoke.mjs
@@ -602,10 +606,10 @@ jobs:
           test "$GITHUB_REPOSITORY" = prithiviiraj/jarvis
           test "$GITHUB_REF" = refs/heads/jarvis-bigfoot-integration
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          printf '%s  %s\n' 'e5e1166b8b3bf3529e4dc12bf12911a181805c85d4d01e0ef9b7ba0dc3fd2f70' '2-JARVIS-safety-responsive-followup.patch' | sha256sum --check
+          printf '%s  %s\n' 'f65705eedf46554dfb2a2351816ccc15259ebd3d66f4bd3a151c9930cdddfb9b' '1-JARVIS-copied-desktop-followup.patch' | sha256sum --check
           git ls-files --error-unmatch src/jarvis/managed_session.py src/jarvis/model_probe.py modern-ui/managed-model-proof.py
-          git apply --check 2-JARVIS-safety-responsive-followup.patch
-          git apply --index 2-JARVIS-safety-responsive-followup.patch
+          git apply --check 1-JARVIS-copied-desktop-followup.patch
+          git apply --index 1-JARVIS-copied-desktop-followup.patch
           git diff --cached --name-only > /tmp/product-paths.txt
           python - <<'PY'
           import pathlib
