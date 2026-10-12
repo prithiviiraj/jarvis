@@ -7,7 +7,7 @@ from jarvis.managed_runtime import ManagedRuntime
 from jarvis.model_probe import ModelProbe
 root=pathlib.Path('managed-proof-data').resolve();evidence=pathlib.Path('managed-proof-evidence');evidence.mkdir(exist_ok=True)
 report={'scope':'Real Windows pinned llama.cpp/Qwen4B synthetic text/image diagnostic. Not owner GPU/mic/desktop/control/concurrency acceptance.','started':time.time(),'hardware':detect_hardware(root),'runtime':CATALOG['runtime'],'model':CATALOG['models'][0],'result':'not completed'}
-runtime=None;runtime_log=None;runtime_token=None;runtime_token_2=None
+runtime=None;runtime_log=None;runtime_token=None;runtime_token_2=None;latency_probe=None
 try:
  if os.name!='nt':raise RuntimeError('Actual Windows runtime proof requires Windows')
  cancel=threading.Event();model=CATALOG['models'][0];archive=root/'downloads'/CATALOG['runtime']['name'];dest=root/'runtime'/CATALOG['runtime']['tag']
@@ -32,7 +32,7 @@ try:
  if report['probe']['busy']:probe.stop();raise RuntimeError('Synthetic probe exceeded deadline')
  if any(report['probe'][kind]!='passed'for kind in ('text','image')):raise RuntimeError('Synthetic text/image probe did not pass')
  from jarvis.model_latency import ModelLatency
- report['latency']=ModelLatency(runtime).run(True,cancel)
+ latency_probe=ModelLatency(runtime);report['latency']=latency_probe.run(True,cancel)
  report['latency_profiles']={'baseline_8192':report['latency']}
  # Compare a bounded alternate context with identical images/prompts/output limits.
  # This changes only diagnostic process args, not product defaults.
@@ -45,10 +45,11 @@ try:
   if state['state']=='failed':raise RuntimeError(state['error'])
   time.sleep(1)
  else:raise RuntimeError('Comparison profile did not load in five minutes')
- report['latency_profiles']['diagnostic_4096']=ModelLatency(runtime).run(True,cancel)
+ latency_probe=ModelLatency(runtime);report['latency_profiles']['diagnostic_4096']=latency_probe.run(True,cancel)
  report['profile_scope']='Only context size differs. Short synthetic quality has not been graded; do not select a product profile from speed alone. CPU CI is not 6GB owner laptop.'
  report['result']='passed'
 except Exception as error:
+ report['partial_latency']={'rows':latency_probe.rows,'current':latency_probe.current}if latency_probe else None
  report['result']='failed';report['error']=type(error).__name__+': '+str(error);raise
 finally:
  if runtime:runtime.stop();report['stop_state']=runtime.snapshot()

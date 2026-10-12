@@ -26,3 +26,13 @@ class Tests(unittest.TestCase):
  def test_empty_stream_is_not_latency_success(self):
   self.http.open.side_effect=lambda *a,**k:io.BytesIO(b'data: [DONE]\n')
   with self.assertRaises(ValueError):self.test.run(True)
+ def test_completed_rows_retained_on_later_image_timeout(self):
+  body=b'data: '+json.dumps({'choices':[{'delta':{'content':'answer'}}]}).encode()+b'\n\ndata: [DONE]\n'
+  count=[0]
+  def open_request(*args,**kwargs):
+   count[0]+=1
+   if count[0]==4:raise TimeoutError('fixture image timeout')
+   return io.BytesIO(body)
+  self.http.open.side_effect=open_request
+  with self.assertRaises(TimeoutError):self.test.run(True)
+  self.assertEqual(len(self.test.rows),3);self.assertEqual(self.test.current['kind'],'image');self.assertEqual(self.test.current['diagnostic_timeout_s'],120)
