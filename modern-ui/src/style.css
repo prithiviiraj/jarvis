@@ -193,3 +193,10 @@ html.pill-root,html.pill-root body,#root:has(.pill-shell){background:transparent
 .more-drawer details{margin-top:15px}.more-drawer label{display:block;font-size:15px;padding-top:15px}.more-drawer input{display:block;width:100%;padding:12px;margin-top:10px;border:1px solid #46706f;border-radius:8px;background:#0a1c25;color:#d5ecec}.more-drawer{max-height:calc(100vh - 160px);overflow:auto}
 .cloud-vision-card{margin-top:30px;border:1px solid #315961;background:#10262e;border-radius:15px;padding:25px;max-width:780px}.cloud-vision-card h3{font-size:22px}.cloud-vision-card p{font-size:16px;line-height:1.65;color:#a5c1cb}.cloud-vision-card button{padding:12px 20px;font-size:15px;margin:8px;border:1px solid #40766d;background:#194238;color:#c0eadd;border-radius:10px}.cloud-vision-card label{display:flex;flex-direction:column;gap:10px;margin:15px 0}.cloud-vision-card select{padding:12px;background:#10212d;color:#d0e2e5;border:1px solid #3b6570;border-radius:8px;font-size:16px}
 .bundle-progress{margin:15px 25px;padding:20px;border:1px solid #42766f;border-radius:14px;background:#12312d}.bundle-progress strong{font-size:18px}.bundle-progress p{font-size:15px;margin:8px 0}.bundle-progress progress{width:100%;height:12px}.bundle-progress small{font-size:12px}
+/* Keep expanded conversation below the graph title when banners reduce space. */
+.universe-chat{box-sizing:border-box;display:flex;flex-direction:column;max-height:calc(100% - 150px)}
+.universe-chat .conversation{flex:1 1 auto;min-height:0}
+.universe-chat .universe-composer,.universe-chat .main-voice-actions{flex-shrink:0}
+/* Glyph outlines stay readable over light windows without an opaque caption box. */
+.caption-transcript{-webkit-text-stroke:1px #061016;paint-order:stroke fill;text-shadow:0 1px 1px #061016,1px 0 1px #061016,-1px 0 1px #061016;font-weight:600}
+.caption-source{color:#d4e3eb}
