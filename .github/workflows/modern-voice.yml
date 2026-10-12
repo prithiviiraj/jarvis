@@ -2,6 +2,11 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      managed_model_proof:
+        description: Real pinned managed runtime synthetic diagnostic only, not shipping
+        required: false
+        type: boolean
+        default: false
       stage_tested_draft:
         description: Attach verified237ZIP to existing draft only, no product rebuild or publication
         required: false
@@ -50,7 +55,7 @@ jobs:
         run: |
           printf 'Accepted ref: %s\nAccepted SHA: %s\nAccepted inputs: %s\n' "$ACCEPTED_REF" "$ACCEPTED_SHA" "$ACCEPTED_INPUTS" | tee -a "$GITHUB_STEP_SUMMARY"
   native-iteration:
-    if: ${{ inputs.native_only && !inputs.stage_tested_draft }}
+    if: ${{ inputs.native_only && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
     runs-on: windows-latest
     timeout-minutes: 25
     defaults:
@@ -143,7 +148,7 @@ jobs:
           if-no-files-found: warn
   windows:
     needs: embedding-runtime
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof }}
     runs-on: windows-latest
     timeout-minutes: 70
     defaults:
@@ -319,7 +324,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   actual-laya:
-    if: ${{ inputs.run_laya && !inputs.stage_tested_draft }}
+    if: ${{ inputs.run_laya && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -345,7 +350,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   xtts-runtime:
-    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft }}
+    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
     runs-on: windows-latest
     timeout-minutes: 30
     env:
@@ -372,7 +377,7 @@ jobs:
           retention-days: 7
 
   windows-laya:
-    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft }}
+    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -414,7 +419,7 @@ jobs:
           if-no-files-found: error
 
   embedding-runtime:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof }}
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -435,7 +440,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   embedding-model:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -463,7 +468,7 @@ jobs:
           retention-days: 7
 
   stage-draft:
-    if: ${{ inputs.stage_tested_draft }}
+    if: ${{ inputs.stage_tested_draft && !inputs.managed_model_proof }}
     permissions:
       actions: read
       contents: write
@@ -511,3 +516,34 @@ jobs:
           gh release view "$TAG" --json isDraft,isPrerelease,assets,url > staged.json
           jq -e '.isDraft==true and .isPrerelease==true and any(.assets[]; .name=="JARVIS-tested-build-a77b5bc.zip" and .size==1364917105)' staged.json
           cat staged.json
+  managed-model-proof:
+    if: ${{ inputs.managed_model_proof && !inputs.stage_tested_draft }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify and apply exact diagnostic source patch
+        shell: pwsh
+        run: |
+          if ((Get-FileHash '1-JARVIS-managed-foundations.patch' -Algorithm SHA256).Hash.ToLower() -ne '9a17bb160aa019cdfa1da69beed860a0ef75e436a5987d42b899186f6b6f3f3e') { throw 'Unexpected diagnostic source patch' }
+          git apply --check 1-JARVIS-managed-foundations.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic source check failed' }
+          git apply 1-JARVIS-managed-foundations.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic source application failed' }
+      - name: Install diagnostic image dependency
+        run: python -m pip install Pillow==11.3.0
+      - name: Actual pinned Windows runtime and synthetic text/image generation
+        shell: pwsh
+        run: |
+          python modern-ui/managed-model-proof.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual managed model proof failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JARVIS-managed-model-diagnostic-evidence
+          path: managed-proof-evidence
+          retention-days: 7
+          if-no-files-found: error
