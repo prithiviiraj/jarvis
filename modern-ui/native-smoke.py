@@ -70,6 +70,16 @@ archived_bytes=json.dumps({'version':1,'agents':[{'name':'MIRA','personality':'S
 archive_path.write_bytes(archived_bytes)
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
+def drawer_control(main,title):
+ """Scroll the actual More drawer until the requested control is in its viewport."""
+ drawer=main.child_window(title='More options',control_type='Window');drawer.wait('visible',timeout=10)
+ control=drawer.child_window(title=title,control_type='Button');control.wait('exists enabled',timeout=10)
+ for _ in range(15):
+  bounds=drawer.rectangle();rect=control.rectangle()
+  if bounds.top<=rect.top and rect.bottom<=bounds.bottom and bounds.left<=rect.left and rect.right<=bounds.right:
+   return control
+  mouse.scroll(coords=(bounds.right-25,(bounds.top+bounds.bottom)//2),wheel_dist=-2 if rect.bottom>bounds.bottom else 2);time.sleep(.2)
+ raise RuntimeError('More drawer control remains clipped: '+title)
 def navigation(main,name):
  """Follow the real simplified product controls, not hidden/removed navigation."""
  def invoke(title):
@@ -91,8 +101,9 @@ def navigation(main,name):
   composer.wait('visible',timeout=10)
  elif name in ('Expand conversation','Collapse conversation','New chat'):
   if not main.child_window(title='What would you like to do?',control_type='Text',visible_only=True).exists():invoke('More')
-  if name=='New chat':activate(main.child_window(title='Notes and chats',control_type='Button'))
-  invoke(name)
+  if name=='New chat':
+   activate(main.child_window(title='Notes and chats',control_type='Button'));time.sleep(.2);activate(drawer_control(main,name));time.sleep(.2)
+  else:invoke(name)
  else:invoke(name)
 
 try:
@@ -100,9 +111,12 @@ try:
  main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
  # First-launch guide is automatic and explains all four features without enabling any.
  main.child_window(title='Next',control_type='Button').wait('exists',timeout=15)
- for index in range(3):
-  main.capture_as_image().save('ui-evidence/native-welcome-'+str(index+1)+'.png');activate(main.child_window(title='Next',control_type='Button'))
- main.capture_as_image().save('ui-evidence/native-welcome-4.png');activate(main.child_window(title='Skip setup guide',control_type='Button'))
+ welcome_titles=('Give your team a brain','Your notes, connected','Presence, with your permission','Meet Laya')
+ for index,title in enumerate(welcome_titles):
+  main.child_window(title=title,control_type='Text').wait('visible',timeout=10)
+  main.capture_as_image().save('ui-evidence/native-welcome-'+str(index+1)+'.png')
+  if index<3:activate(main.child_window(title='Next',control_type='Button'))
+ activate(main.child_window(title='Skip setup guide',control_type='Button'));main.child_window(title='Skip setup guide',control_type='Button').wait_not('exists',timeout=10)
  navigation(main,'Settings')
  # Real work-area readback, including decorated borders and taskbar exclusion.
  from ctypes import wintypes
@@ -694,7 +708,7 @@ try:
   if 'Packaged local chat round-trip confirmed.'not in ui_text():break
   time.sleep(.1)
  assert 'Packaged local chat round-trip confirmed.' not in ui_text()
- click('More');activate(window.child_window(title='Notes and chats',control_type='Button',visible_only=True));saved=window.child_window(title='packaged-chat-probe',control_type='Button',visible_only=True);saved.wait('exists',timeout=10);activate(saved)
+ click('More');activate(window.child_window(title='Notes and chats',control_type='Button',visible_only=True));time.sleep(.2);saved=drawer_control(window,'packaged-chat-probe');activate(saved)
  deadline=time.monotonic()+5
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.' in ui_text():break
