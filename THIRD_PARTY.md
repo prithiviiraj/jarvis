@@ -35,3 +35,7 @@ The connected source path selects the isolated Phonemis native frontend (pinned 
 ## Optional local camera experimental source
 
 OpenCV headless 4.14.0.94 is an optional source-runner dependency, not a redistributed binary or installer clearance. Verified package source: https://pypi.org/project/opencv-python-headless/4.14.0.94/ . Wrapper MIT, OpenCV Apache-2.0, wheel includes third-party libraries/notices including FFmpeg LGPLv2.1. Haar detector ships with the package. Exact Windows wheel and all transitive notices remain subject to installer redistribution review. Camera UI imports cv2 only after Enable, reports missing/unavailable device as ERROR, and never downloads a detector at camera activation. Optional ENABLE-CAMERA-DEPS.cmd installs the dependency with the owner's deliberate action; no camera starts from installation.
+
+## Bigfoot integration branch
+
+Selected Bigfoot95f7ffdb spring-follow and smoothed-path source, GPL-3.0-or-later. This branch changes the combined application license; permissive-only statements above do not apply to this Bigfoot-derived integration. See third-party/bigfoot/NOTICE.md and LICENSE. No upstream whole-app/autonomous plugin import.
