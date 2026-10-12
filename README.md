@@ -35,3 +35,7 @@ CI204 verified actual Windows Tauri/WebView2 startup, native input against a syn
 Still unrun: owner Google client/login and real connector data, physical microphone/speaker/echo, physical phone/browser capture and playback, trusted TLS/LAN/outside-network transport, carrier/PSTN speech, arbitrary desktop/model goal completion, and long-run resource behavior. The project does not ask the owner to carry our regression testing. Genuine account registration, consent and transport choices remain owner decisions.
 
 Do not treat passing software fixtures, a diagnostic artifact or this source ZIP as the final requested release. Preserve the existing installed package until a complete, tested release is explicitly delivered.
+
+## Bigfoot companion integration (not yet accepted)
+
+GPL-3.0-or-later branch derived from Bigfoot cursor spring and smooth drawing. Settings > Appearance > Desktop companion starts Follow cursor or Draw on screen. Stop and Escape clear temporary drawing; the companion starts off and stays off after restart. Screen containing the workspace only. Follow is click-through; draw takes pointer input until closed. Three controls per companion card/ink bar. No hidden sensors, shell, file opening, cloud upload, or computer input effects. Existing screen analysis still needs its own explicit consent and working local vision model. Upstream feature claims are not proof of JARVIS capabilities.
