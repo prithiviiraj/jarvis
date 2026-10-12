@@ -191,7 +191,14 @@ class ManagedModelBridgeTests(unittest.TestCase):
   b=Bridge(WorkspaceVoice());opened=threading.Event();closed=[]
   class Stream:
    def __init__(self,**kw):self.cb=kw['callback']
-   def start(self):self.cb(np.ones((512,1),dtype='float32')*.1,512,None,None);opened.set()
+   def start(self):
+    def emit():
+     import time
+     while not opened.is_set():
+      self.cb(np.ones((512,1),dtype='float32')*.1,512,None,None)
+      if b.microphone_test.frames:opened.set()
+      else:time.sleep(.001)
+    threading.Thread(target=emit,daemon=True).start()
    def abort(self):pass
    def close(self):closed.append(True)
   b.microphone_test=MicrophoneTest(Stream)
@@ -238,4 +245,42 @@ class FailedHoldSetupCleanup(unittest.TestCase):
   b=Bridge(WorkspaceVoice())
   try:
    b.shortcut_monitor.enabled=True;b.voice.busy=False;b.voice.runtime=None;b.execute({'command':'status'});self.assertFalse(b.shortcut_monitor.enabled)
+  finally:b.close()
+
+class DesktopConversationConcurrencyTests(unittest.TestCase):
+ def test_actual_bridge_desktop_worker_does_not_block_active_conversation_or_stop(self):
+  import threading
+  from jarvis.desktop_controller import DesktopController
+  from test_desktop_engine import Adapter
+  entered=threading.Event();release=threading.Event();a=Adapter();a.windows=lambda:[dict(a.target)]
+  original=a.perform
+  def perform(target,row):original(target,row);entered.set();release.wait(1)
+  a.perform=perform;b=Bridge(WorkspaceVoice());b.desktop_control=DesktopController(a)
+  from jarvis.runtime import VoiceRuntime
+  from jarvis.hold_microphone import HoldMic
+  speaker=Mock();runtime=VoiceRuntime(Mock(),Mock(),Mock(),speaker)
+  runtime.mic=HoldMic(Mock(),runtime.on_utterance,stream_factory=lambda **k:self.fail('No device should open in concurrency fixture'))
+  runtime.enable(consent=True);b.voice.runtime=runtime
+  try:
+   b.execute({'command':'desktop-windows','consent':True})
+   state=b.execute({'command':'desktop-task-preview','target':a.target,'steps':[{'action':'move','x':1,'y':1},{'action':'move','x':2,'y':2}],'scope':'Synthetic fixture only'})
+   b.execute({'command':'desktop-task-run','reviewed':state['desktop_control']['task']['pending'],'confirm':True,'effect_approved':True})
+   self.assertTrue(entered.wait(1));state=b.execute({'command':'status'})
+   self.assertTrue(state['desktop_control']['busy']);self.assertTrue(state['voice_active']);self.assertIs(b.voice.runtime,runtime)
+   b.execute({'command':'desktop-task-stop'});release.set();b.desktop_control.worker.join(1)
+   self.assertEqual(len(a.inputs),1);self.assertIs(b.voice.runtime,runtime);self.assertTrue(runtime.enabled)
+  finally:release.set();b.close()
+
+class InputLanguageBridgeTests(unittest.TestCase):
+ def test_explicit_language_selection_is_session_only_and_never_opens_microphone(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   self.assertEqual(b.execute({'command':'status'})['input_language'],'auto')
+   for language in ('ta','en','auto'):
+    self.assertEqual(b.execute({'command':'voice-input-language','language':language})['input_language'],language)
+    self.assertIsNone(b.voice.runtime)
+   with self.assertRaises(ValueError):b.execute({'command':'voice-input-language','language':'unknown'})
+   b.voice.busy=True
+   with self.assertRaises(ValueError):b.execute({'command':'voice-input-language','language':'ta'})
+   self.assertEqual(b.voice.input_language,'auto')
   finally:b.close()

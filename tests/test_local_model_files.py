@@ -36,3 +36,16 @@ class LocalFiles(unittest.TestCase):
    with patch('jarvis.local_model_files.verified',return_value=True):extract_runtime(z,p,threading.Event())
    self.assertEqual((p/'llama-server.exe').read_bytes(),b'x')
    with self.assertRaises(ValueError):extract_runtime(z,p,threading.Event())
+ def test_pinned_runtime_extensionless_license_is_preserved(self):
+  with tempfile.TemporaryDirectory()as d:
+   z=pathlib.Path(d)/'r.zip';p=pathlib.Path(d)/'runtime'
+   with zipfile.ZipFile(z,'w')as f:f.writestr('llama-server.exe',b'x');f.writestr('LICENSE-LLVM-OpenMP',b'License fixture')
+   with patch('jarvis.local_model_files.verified',return_value=True):extract_runtime(z,p,threading.Event())
+   self.assertEqual((p/'LICENSE-LLVM-OpenMP').read_bytes(),b'License fixture')
+ def test_unknown_extensionless_and_nonruntime_scripts_still_rejected(self):
+  for name in ('unexpected','LICENSE-UNKNOWN','nested/LICENSE-LLVM-OpenMP','setup.ps1'):
+   with self.subTest(name=name),tempfile.TemporaryDirectory()as d:
+    z=pathlib.Path(d)/'r.zip';p=pathlib.Path(d)/'runtime'
+    with zipfile.ZipFile(z,'w')as f:f.writestr('llama-server.exe',b'x');f.writestr(name,b'not allowed')
+    with self.assertRaises(ValueError):extract_runtime(z,p,threading.Event())
+    self.assertFalse(p.exists())

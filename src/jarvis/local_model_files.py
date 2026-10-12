@@ -67,7 +67,7 @@ def extract_runtime(archive,destination,cancel,max_bytes=256*1024*1024):
    name=x.filename.replace('\\','/');p=pathlib.PurePosixPath(name)
    if p.is_absolute()or '..'in p.parts or ':'in name or name in names or (x.external_attr>>16)&0o170000==0o120000:raise ValueError('Unsafe runtime archive path')
    names.add(name)
-   if not x.is_dir()and p.suffix.lower()not in ('.exe','.dll','.txt','.md','.json','.html'):raise ValueError('Unexpected runtime file')
+   if not x.is_dir()and p.suffix.lower()not in ('.exe','.dll','.txt','.md','.json','.html')and name!='LICENSE-LLVM-OpenMP':raise ValueError('Unexpected runtime file')
   if not any(pathlib.PurePosixPath(n).name=='llama-server.exe'for n in names):raise ValueError('Runtime server missing')
   if not verified(archive,CATALOG['runtime'],cancel):raise ValueError('Runtime archive checksum not verified')
   stage.mkdir(parents=True)

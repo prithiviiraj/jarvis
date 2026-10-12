@@ -59,3 +59,22 @@ class Hold(unittest.TestCase):
   with self.mic.lock:
    worker=threading.Thread(target=lambda:(self.calls[0].cb(np.ones((512,1),dtype='float32'),512,None,None),finished.set()));worker.start();self.assertTrue(finished.wait(.5),'Callback must drop frame rather than wait for control close lock')
   worker.join();self.assertEqual(self.mic.frames,[]);self.mic.close()
+
+ def test_bad_frame_shape_count_and_nan_close_immediately(self):
+  import time
+  for data,count in ((np.ones((512,1)),256),(None,512),(np.ones((512,2)),512),(np.full((512,1),np.nan),512)):
+   with self.subTest(count=count,data=str(type(data))):
+    self.mic.start(True);self.mic.hold();stream=self.calls[-1];stream.cb(data,count,None,None)
+    end=time.monotonic()+1
+    while not stream.closed and time.monotonic()<end:time.sleep(.001)
+    self.assertTrue(stream.closed);self.assertFalse(self.mic.release());self.assertEqual(self.audio,[])
+
+ def test_selected_language_reaches_real_runtime_without_capture(self):
+  from unittest.mock import Mock
+  from jarvis.workspace_voice import WorkspaceVoice
+  from jarvis.runtime import VoiceRuntime
+  for language,expected in (('auto',None),('en','en'),('ta','ta')):
+   r=VoiceRuntime(Mock(),Mock(),Mock(),Mock(generation=0));v=WorkspaceVoice(factory=lambda *a:r);v.input_language=language
+   try:
+    v.start(True,hold_to_talk=True).join(1);self.assertEqual(r.stt.language,expected);self.assertIsNone(r.mic.stream);self.assertTrue(r.enabled)
+   finally:v.close()

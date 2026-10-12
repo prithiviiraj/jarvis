@@ -1,0 +1,14 @@
+import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';import assert from'node:assert/strict';const b=await chromium.launch();const p=await b.newPage({viewport:{width:1024,height:768}});let errors=[];p.on('pageerror',e=>errors.push(String(e)));await p.route('http://jarvis.fixture/**',r=>{const f=path.join('dist',new URL(r.request().url()).pathname);if(!fs.existsSync(f))return r.fulfill({status:404,body:''});return r.fulfill({body:fs.readFileSync(f),contentType:f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':f.endsWith('.svg')?'image/svg+xml':f.endsWith('.png')?'image/png':f.endsWith('.woff2')?'font/woff2':'text/html'})});await p.addInitScript(()=>{window.calls=[];window.fixtureModels=null;window.__TAURI_INTERNALS__={invoke:async(n,a)=>{window.calls.push({n,a});if(a?.request?.command==='models-inspect')window.fixtureModels={hardware:{gpu:'Fixture RTX 3060',ram_gb:16,vram_gb:6,free_disk_gb:100,error:''},recommendations:{options:[{id:'qwen3-vl-4b',label:'Qwen3-VL 4B',note:'Recommended',bytes:2984351853,recommended:true,available:true},{id:'qwen3-vl-8b',label:'Qwen3-VL 8B',note:'Higher quality, slower',bytes:5813170413,available:true}]},status:'Hardware checked',installed:[]};if(n==='bridge')return{ok:true,data:{managed_models:window.fixtureModels,messages:[],busy:false,voice_active:false,brains:{live:{state:'loaded',models:[{id:'fixture'}]},checks:{}}}}}}});await p.goto('http://jarvis.fixture/bigfoot-ui/jarvis.html');for(const size of [{width:640,height:600},{width:800,height:600},{width:1366,height:768}]){
+ await p.setViewportSize(size);
+ for(const name of ['account','voice','general','home']){
+  await p.getByRole('button',{name:{account:'Models',voice:'Voice',general:'General',home:'Home'}[name],exact:true}).click();
+  if(name==='account')await p.getByRole('button',{name:'Check',exact:true}).click();
+  await p.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
+  assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Document overflow '+JSON.stringify({size,name}));
+  assert(await p.evaluate(()=>{const pane=document.getElementById('pane');return pane.scrollWidth<=pane.clientWidth+1}),'Pane overflow '+JSON.stringify({size,name}));
+  await p.screenshot({path:'ui-evidence/bigfoot-responsive-'+size.width+'-'+name+'.png'});
+  if(name==='voice'){await p.locator('#mic-test').scrollIntoViewIfNeeded();await p.screenshot({path:'ui-evidence/bigfoot-responsive-'+size.width+'-microphone.png'});assert(await p.locator('#mic-test').isVisible())}
+ }
+}
+assert.deepEqual(errors,[]);
+await b.close();console.log('Copied-shell640/800/1366 panes fit without horizontal overflow; fixture pixels need inspection, not native proof.');

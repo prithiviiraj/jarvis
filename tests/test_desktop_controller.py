@@ -12,3 +12,8 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.c.run(r,True,True)
  def test_long_typing_stop_per_character(self):
   self.c.discover(True);r=self.c.prepare(self.a.target,[{'action':'type','text':'abcdef'}],'fixture');self.a.hook=self.c.stop;self.c.run(r,True,True).join();self.assertEqual(len(self.a.inputs),1);self.assertEqual(self.c.snapshot()['task']['state'],'stopped')
+
+ def test_prepare_cannot_replace_scheduled_worker_plan(self):
+  from unittest.mock import Mock
+  self.c.discover(True);self.c.worker=Mock();self.c.worker.is_alive.return_value=True
+  with self.assertRaises(ValueError):self.c.prepare(self.a.target,[{'action':'move','x':1,'y':1}],'fixture')

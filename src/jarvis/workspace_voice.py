@@ -13,7 +13,7 @@ class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
-        self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
+        self.input_language='auto';self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None;self.dialogue_origin='user'
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
@@ -33,7 +33,7 @@ class WorkspaceVoice:
         if self.name not in VOICES:raise ValueError(self.name+' is a silent text specialist with no voice. Type to this profile in chat, or select a voiced profile for the microphone.')
         with self.lock:
             if self.closed or self.busy:raise RuntimeError('Voice setup is busy or closed.')
-            self.busy=True;self.generation+=1;ticket=self.generation;name=self.name
+            self.busy=True;self.generation+=1;ticket=self.generation;name=self.name;input_language=self.input_language
         self.notify('state','loading voice')
         def run():
             runtime=None
@@ -47,6 +47,7 @@ class WorkspaceVoice:
                 else:runtime=self.factory(name,notify,cloud,model,verified_free)
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
+                    if hasattr(runtime,'stt'):runtime.stt.language=None if input_language=='auto' else input_language
                     from .audio import Endpointer,ENDPOINT_FRAMES
                     detector=None
                     if self.turn_mode=='smart':
@@ -450,7 +451,7 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         speaker=KokoroSpeaker(synth)
         speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
         speaker.select_profile(name)
-        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language='en'),router,speaker,notify)
+        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language=None),router,speaker,notify)
         from .fast_ack import FastAck
         runtime.fast_ack=FastAck(speaker)
         for actor in VOICES:runtime.fast_ack.prepare(actor)

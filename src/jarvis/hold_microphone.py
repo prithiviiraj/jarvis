@@ -20,10 +20,14 @@ class HoldMic:
     if not self.lock.acquire(blocking=False):return
     try:
      if ticket!=self.generation or not self.accepting:return
-     if status or len(self.frames)>=self.max_frames:
-      self.overflow=True;self.accepting=False;threading.Thread(target=self._fail_close,args=(ticket,),daemon=True).start();return
-     if count!=512:self.overflow=True;self.accepting=False;return
-     self.frames.append(data[:,0].copy())
+     import numpy as np
+     try:
+      if status or len(self.frames)>=self.max_frames or count!=512:raise ValueError('Capture buffer failed')
+      frame=np.asarray(data)
+      if frame.shape!=(512,1)or not np.isfinite(frame).all():raise ValueError('Capture samples failed')
+      self.frames.append(frame[:,0].copy())
+     except Exception:
+      self.overflow=True;self.accepting=False;threading.Thread(target=self._fail_close,args=(ticket,),daemon=True).start()
     finally:self.lock.release()
    if self.factory is None:
     import sounddevice as sd

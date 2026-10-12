@@ -46,3 +46,11 @@ class Tests(unittest.TestCase):
   r=self.plan();self.a.focus=lambda h:self.a.target.update(width=900)
   with self.assertRaises(ValueError):self.e.run(r,True,True)
   self.assertFalse(self.a.inputs)
+
+ def test_cancellation_not_reset_between_review_validation_and_input(self):
+  r=self.plan();original=self.e.clock
+  def cancel_after_validation():self.e.cancel.set();return original()
+  self.e.clock=cancel_after_validation
+  self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
+ def test_new_review_after_stop_has_fresh_cancel_signal(self):
+  self.plan();self.e.stop();r=self.plan();self.e.run(r,True,True);self.assertEqual(self.e.state,'completed')

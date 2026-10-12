@@ -18,4 +18,4 @@ def managed_route():
  if runtime is None:return None
  # A bound but unavailable owned runtime must never fall back to unrelated server.
  route=runtime.route()
- return {**route,'vision':True,'scope':'Loaded process/health only; generation readiness requires test'}
+ return {**route,'vision':True,'scope':'Owned session requires successful synthetic text and image generation tests'}

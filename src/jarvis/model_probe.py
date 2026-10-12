@@ -31,6 +31,7 @@ class ModelProbe:
      valid=text.strip().strip('.!').upper()=='READY'if kind=='text'else text.strip().strip('.!').lower()=='red'
      if not valid:raise ValueError(kind.title()+' test answered incorrectly')
      if cancel.is_set()or ticket!=self.generation:return
+     if self.runtime.route()!=route:raise ValueError('Owned model changed before test result was accepted')
      with self.lock:self.state[kind]='passed';self.state[kind+'_request_s']=round(time.monotonic()-started,3)
    except Exception as e:
     if ticket==self.generation and not cancel.is_set():

@@ -10,6 +10,7 @@ class DesktopController:
   if consent is not True:raise ValueError('Allow local window names first')
   engine=self.ensure();self.windows=self.adapter.windows();self.status='Observed local windows; no input';return self.windows
  def prepare(self,target,steps,scope):
+  if self.worker and self.worker.is_alive():raise ValueError('Stop and wait for the current desktop task')
   if target not in self.windows:raise ValueError('Select an observed window from the current list')
   self.error='';row=self.ensure().prepare(target,steps,scope);self.status='Review exact desktop task within120seconds; nothing executing';return row
  def run(self,reviewed,confirm=False,effect_approved=False):

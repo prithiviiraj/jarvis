@@ -25,8 +25,17 @@ class Probe(unittest.TestCase):
  def test_owned_route_change_blocks_test(self):
   runtime=self.runtime();http=Mock();n=[0]
   def opening(*a,**k):n[0]+=1;runtime.route.return_value={'url':'http://127.0.0.1:45679/v1','key':'changed','model':'other'};return io.BytesIO(json.dumps({'choices':[{'message':{'content':'READY'}}]}).encode())
-  http.open.side_effect=opening;p=ModelProbe(runtime,http);p.start(True);p.worker.join(1);self.assertEqual(p.snapshot()['image'],'failed');self.assertIn('changed',p.snapshot()['error']);self.assertEqual(n[0],1)
+  http.open.side_effect=opening;p=ModelProbe(runtime,http);p.start(True);p.worker.join(1);self.assertEqual(p.snapshot()['text'],'failed');self.assertEqual(p.snapshot()['image'],'not tested');self.assertIn('changed',p.snapshot()['error']);self.assertEqual(n[0],1)
 
  def test_diagnostic_removes_owned_runtime_token_before_artifact(self):
   import pathlib
   source=(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/managed-model-proof.py').read_text();self.assertIn("raw.replace(runtime_token,'[owned runtime token removed]')",source)
+
+ def test_final_image_result_from_changed_session_cannot_be_accepted(self):
+  runtime=self.runtime();http=Mock();n=[0]
+  def opening(*a,**k):
+   n[0]+=1
+   if n[0]==2:runtime.route.return_value={'url':'http://127.0.0.1:45679/v1','key':'changed','model':'other'}
+   return io.BytesIO(json.dumps({'choices':[{'message':{'content':'READY'if n[0]==1 else'red'}}]}).encode())
+  http.open.side_effect=opening;p=ModelProbe(runtime,http);p.start(True);p.worker.join(1)
+  self.assertEqual(p.snapshot()['text'],'passed');self.assertEqual(p.snapshot()['image'],'failed');self.assertIn('changed',p.snapshot()['error'])

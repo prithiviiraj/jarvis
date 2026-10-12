@@ -73,27 +73,32 @@ class LocalGameModel:
   finally:
    if self.gate is not None:self.gate.release()
  def _analyze(self,frame):
+  from .local_endpoint import managed_route
+  initial_route=managed_route()
   try:self.verify()
-  except Exception:raise VisionReplyUnavailable('Selected vision model is no longer available or loaded. Check LM Studio server and loaded vision model, then Retry. Analysis paused; no cloud frames.')from None
+  except Exception:raise VisionReplyUnavailable('Selected local vision model is no longer available. Start and test the owned model, or check the selected legacy local server. Analysis paused; no cloud frames.')from None
   from urllib.request import Request
   import socket,urllib.error
   schema={'type':'object','properties':{'observed':{'type':'string'},'comment':{'type':'string'},'confidence':{'type':'string','enum':['low','medium','high']}},'required':['observed','comment','confidence'],'additionalProperties':False}
   data={'model':self.model,'temperature':0.2,'max_tokens':384,'stream':False,'response_format':{'type':'json_schema','json_schema':{'name':'cautious_scene','strict':True,'schema':schema}},'messages':[{'role':'system','content':self.system},{'role':'user','content':[{'type':'text','text':'One recent selected-window frame. Describe cautiously.'},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(frame).decode()}}]}]}
   for attempt in range(2):
    from .local_endpoint import managed_route
-   route=managed_route();headers={'Content-Type':'application/json'}
+   route=managed_route()
+   if route!=initial_route:raise VisionReplyUnavailable('Local model session changed; no frame sent. Review the current model and Retry.')
+   headers={'Content-Type':'application/json'}
    if route is not None:headers['Authorization']='Bearer '+route['key']
    req=Request((route['url']if route else 'http://127.0.0.1:1234/v1')+'/chat/completions',data=json.dumps(data).encode(),headers=headers)
    try:
     with self.http.open(req,timeout=30)as r:raw=r.read(32769)
-   except (socket.timeout,TimeoutError):raise VisionReplyUnavailable('Local vision timed out. Check LM Studio server log and try an image in LM Studio chat; first load can be slow. Analysis paused, no cloud fallback.')from None
-   except urllib.error.HTTPError as e:raise VisionReplyUnavailable('LM Studio rejected the vision request (HTTP'+str(e.code)+'). Check its server log, vision model/template and context settings. Analysis paused.')from None
-   except (urllib.error.URLError,ConnectionError):raise VisionReplyUnavailable('LM Studio server could not be reached at port1234. Start its local server. Analysis paused.')from None
+   except (socket.timeout,TimeoutError):raise VisionReplyUnavailable('Local vision timed out. Check the selected local runtime and synthetic image test. Analysis paused, no cloud fallback.')from None
+   except urllib.error.HTTPError as e:raise VisionReplyUnavailable('Local runtime rejected the vision request (HTTP'+str(e.code)+'). Check the selected runtime log, vision model/template and context settings. Analysis paused.')from None
+   except (urllib.error.URLError,ConnectionError):raise VisionReplyUnavailable('Selected local runtime could not be reached. Start and test that model session. Analysis paused.')from None
+   if managed_route()!=initial_route:raise VisionReplyUnavailable('Local model session changed before scene reply was accepted. Analysis paused.')
    if len(raw)>32768:raise VisionReplyUnavailable('Local vision reply exceeded the safety limit. Analysis paused.')
    try:return scene_reply(raw)
    except (ValueError,KeyError,TypeError,IndexError):
     if attempt==0:continue
-    raise VisionReplyUnavailable('LM Studio returned empty or invalid scene JSON twice. Loaded does not mean generation works. Try an image in LM Studio chat and check server log/model template. Analysis paused; Retry after fixing it.')from None
+    raise VisionReplyUnavailable('Local runtime returned empty or invalid scene JSON twice. Loaded does not mean generation works. Check the synthetic image test, runtime log and model template. Analysis paused; Retry after fixing it.')from None
 
 class VisionReplyUnavailable(RuntimeError):pass
 

@@ -45,3 +45,33 @@ class CaptureRevocation(unittest.TestCase):
   gate=threading.Event();entered=threading.Event();model=Mock()
   def source(target):entered.set();gate.wait(2);return b'jpeg'
   c=GameCompanion(Mock(),source=source,clock=lambda:0);c.enable(TARGET,TARGET,model,True);w=c.poll();entered.wait(1);c.stop();gate.set();w.join();model.analyze.assert_not_called()
+
+class OwnedRouteGuards(unittest.TestCase):
+ def test_stop_between_verify_and_send_never_falls_back_to_legacy_server(self):
+  from unittest.mock import patch
+  from jarvis.game_companion import VisionReplyUnavailable
+  route={'model':'owned','vision':True,'url':'http://127.0.0.1:54321/v1','key':'ephemeral'}
+  op=Mock();m=LocalGameModel('owned',op)
+  with patch('jarvis.local_endpoint.managed_route',side_effect=[route,route,None]):
+   with self.assertRaisesRegex(VisionReplyUnavailable,'session changed'):m.analyze(b'jpeg')
+  op.open.assert_not_called()
+ def test_legacy_route_cannot_switch_silently_to_owned_session(self):
+  from unittest.mock import patch
+  from jarvis.game_companion import VisionReplyUnavailable
+  class R(io.BytesIO):
+   def __enter__(self):return self
+   def __exit__(self,*a):self.close()
+  op=Mock();op.open.return_value=R(json.dumps({'models':[{'capabilities':{'vision':True},'loaded_instances':[{'id':'legacy'}]}]}).encode())
+  m=LocalGameModel('legacy',op)
+  with patch('jarvis.local_endpoint.managed_route',side_effect=[None,None,{'model':'owned','vision':True}]):
+   with self.assertRaisesRegex(VisionReplyUnavailable,'session changed'):m.analyze(b'jpeg')
+  self.assertEqual(op.open.call_count,1)
+
+ def test_scene_response_from_stopped_owned_session_is_discarded(self):
+  from unittest.mock import patch
+  from jarvis.game_companion import VisionReplyUnavailable
+  route={'model':'owned','vision':True,'url':'http://127.0.0.1:54321/v1','key':'ephemeral'}
+  op=Mock();op.open.return_value=io.BytesIO(json.dumps({'choices':[{'message':{'content':json.dumps({'observed':'Scene','comment':'Hello','confidence':'high'})}}]}).encode());m=LocalGameModel('owned',op)
+  with patch('jarvis.local_endpoint.managed_route',side_effect=[route,route,route,None]):
+   with self.assertRaisesRegex(VisionReplyUnavailable,'before scene reply'):m.analyze(b'jpeg')
+  self.assertEqual(op.open.call_count,1)
