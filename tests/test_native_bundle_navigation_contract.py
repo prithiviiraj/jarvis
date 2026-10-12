@@ -7,8 +7,13 @@ class NativeBundleNavigationTests(unittest.TestCase):
  def test_bundled_speech_laya_readiness_asserted_not_missing(self):
   source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');self.assertIn("'ALREADY DOWNLOADED'in ui_text()",source);self.assertIn("'Laya model verified; engine stopped'in ui_text()",source);self.assertNotIn("click('Download local voice models')",source);self.assertNotIn("click('Download Laya model')",source)
  def test_archive_uses_visible_drawer(self):
-  source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');self.assertIn("saved=window.child_window(title='packaged-chat-probe',control_type='Button',visible_only=True)",source)
+  source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');self.assertIn("saved=drawer_control(window,'packaged-chat-probe')",source)
  def test_camera_screen_scope_literals_match_current_ui(self):
   source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');ui=(ROOT/'modern-ui/src/main.tsx').read_text(encoding='utf-8')
   for text in ('One switch: presence + local vision. Cloud images need the separate reviewed opt-in.','Full primary screen, including private windows. Local background analysis only; cloud questions need the separate reviewed opt-in. No recording.'):
    self.assertIn(text,source);self.assertIn(text,ui)
+
+ def test_drawer_scrolls_real_native_viewport(self):
+  source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');self.assertIn("activate(drawer_control(main,name))",source);self.assertIn("mouse.scroll(coords=(bounds.right-25",source);self.assertIn("rect.bottom<=bounds.bottom",source)
+ def test_each_welcome_capture_waits_for_current_title(self):
+  source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');self.assertIn("for index,title in enumerate(welcome_titles)",source);self.assertIn("main.child_window(title=title,control_type='Text').wait('visible',timeout=10)",source)
