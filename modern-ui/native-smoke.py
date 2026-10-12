@@ -142,6 +142,33 @@ try:
  navigation(main,'Settings')
  navigation(main,'Appearance')
  main.child_window(title='Transcript ON',control_type='Button').wait('exists',timeout=30)
+ # Native Bigfoot-derived companion: real HWND, click-through follow, drawing input and Stop.
+ activate(main.child_window(title='Follow cursor',control_type='Button'));time.sleep(.5)
+ companion=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Desktop companion');companion.wait('visible',timeout=15)
+ ch=companion.handle;ctypes.windll.user32.GetWindowLongW.restype=ctypes.c_long
+ assert ctypes.windll.user32.GetWindowLongW(ch,-20)&0x20,'Follow companion must be click-through'
+ assert ctypes.windll.user32.GetWindowLongW(ch,-20)&8,'Companion must stay on top'
+ bounds=companion.rectangle();mouse.move(coords=(bounds.left+300,bounds.top+300));time.sleep(.6)
+ ImageGrab.grab().save('ui-evidence/native-bigfoot-cursor.png')
+ activate(main.child_window(title='Stop',control_type='Button'))
+ assert not ctypes.windll.user32.IsWindowVisible(ch),'Stop must hide companion'
+ activate(main.child_window(title='Draw on screen',control_type='Button'));companion.wait('visible',timeout=10);time.sleep(.5)
+ assert not ctypes.windll.user32.GetWindowLongW(ch,-20)&0x20,'Drawing must accept local pointer input'
+ mouse.press(coords=(bounds.left+220,bounds.top+260))
+ for i in range(12):mouse.move(coords=(bounds.left+220+i*15,bounds.top+260+int(40*__import__('math').sin(i/2))));time.sleep(.02)
+ mouse.release();time.sleep(.3)
+ companion.child_window(title='Undo',control_type='Button').wait('enabled',timeout=10)
+ ImageGrab.grab().save('ui-evidence/native-bigfoot-drawing.png')
+ activate(companion.child_window(title='Undo',control_type='Button'));time.sleep(.2)
+ assert not companion.child_window(title='Undo',control_type='Button').is_enabled(),'Undo must remove the native stroke'
+ activate(companion.child_window(title='Clear',control_type='Button'))
+ from pywinauto import keyboard
+ keyboard.send_keys('{ESC}');time.sleep(.3);assert not ctypes.windll.user32.IsWindowVisible(ch),'Escape must stop drawing'
+ main.set_focus();activate(main.child_window(title='Follow cursor',control_type='Button'));companion.wait('visible',timeout=10)
+ main.close();time.sleep(.3);assert not ctypes.windll.user32.IsWindowVisible(ch),'Workspace close must stop companion'
+ pill_reopen=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Compact voice bar');pill_reopen.wait('visible',timeout=10);activate(pill_reopen.child_window(title='Open JARVIS workspace',control_type='Button'));main.wait('visible',timeout=10);main.set_focus()
+ checks.append('native companion explicit start, transparent click-through follow, temporary draw Undo/Clear/Escape and workspace-close Stop')
+
  navigation(main,'Team room')
  main.child_window(title='Message draft',control_type='Edit').wait('exists',timeout=30)
  assert not Desktop(backend='uia').window(process=p.pid,title='JARVIS / Floating faces').exists(), 'Avatar window was removed'
