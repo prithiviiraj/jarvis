@@ -26,7 +26,7 @@ class WorkspaceVoice:
             except queue.Empty:break
         with self.lock:self.name=name
         self.notify('state','off')
-    def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False,barge_in=False):
+    def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False,barge_in=False,hold_to_talk=False):
         self.dialogue_origin='user'
         if not consent:raise ValueError('Microphone session consent required.')
         if cloud and not verified_free:raise ValueError('Groq needs a confirmed Free-tier account.')
@@ -54,6 +54,9 @@ class WorkspaceVoice:
                         from .paths import data_root
                         detector=SmartTurn(data_root()/'models'/'smart-turn.onnx').complete
                     runtime.mic.endpointer=Endpointer(silence_frames=ENDPOINT_FRAMES[self.endpoint_mode],turn_complete=detector)
+                    if hold_to_talk is True:
+                        from .hold_microphone import HoldMic
+                        runtime.mic=HoldMic(runtime.mic.vad,runtime.on_utterance,notify)
                     runtime.teammate_awareness=getattr(self,'teammate_awareness',None);runtime.agent_nodes=getattr(self,'agent_nodes',None);runtime.vision=self.vision;runtime.barge_in=barge_in is True
                     runtime.interface_context=getattr(self,'interface_context',None);runtime.action_handler=getattr(self,'action_handler',None);runtime.neural_handler=getattr(self,'neural_handler',None);self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
@@ -448,6 +451,10 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
         speaker.select_profile(name)
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language='en'),router,speaker,notify)
+        from .fast_ack import FastAck
+        runtime.fast_ack=FastAck(speaker)
+        for actor in VOICES:runtime.fast_ack.prepare(actor)
+        speaker.select_profile(name)
         runtime.streaming=True;runtime.persona=name
         # No closure over runtime.close: that cycle delays native engine disposal.
         runtime.close_hook=g2p.close if g2p else lambda:None

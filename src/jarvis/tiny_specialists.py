@@ -5,6 +5,8 @@ TASKS={'intent':'Examples: hi => chat; Open Notepad => proposed_action; Stop tal
 class Specialists:
  def __init__(self,gate=None,opener=None,clock=time.monotonic):self.http=opener or local_http();self.gate=gate or threading.Lock();self.clock=clock;self.assignments={};self.results=[];self.status='Off';self.generation=0
  def metadata(self):
+  from .local_endpoint import managed_route
+  if managed_route() is not None:return [] # Catalog has no verified<=1.7Bmanaged specialist yet.
   with self.http.open('http://127.0.0.1:1234/api/v1/models',timeout=3)as r:raw=r.read(262145)
   if len(raw)>262144:raise ValueError('Oversize model metadata')
   rows=[]

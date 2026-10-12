@@ -1,5 +1,5 @@
 """Reasoning-provider router. Cloud is opt-in; no tool calls or key files."""
-from dataclasses import dataclass,replace
+from dataclasses import dataclass,replace,field
 from .chat_payload import payload,reply_metadata,answer_text
 import json
 import time
@@ -23,6 +23,7 @@ class Provider:
     timeout:float=8.0
     requires_free_plan:bool=False
     allow_20b_fallback:bool=False
+    local_key:str|None=field(default=None,repr=False,compare=False)
     def __post_init__(self):
         u=urlsplit(self.url)
         if not self.name or not self.model or u.username or u.password or u.query or u.fragment:
@@ -108,7 +109,7 @@ class BrainRouter:
                 try:key=self.key_store.get(p.name) if self.key_store else None
                 except Exception:errors.append((p.name,'key-store-unavailable'));continue
                 if not key:errors.append((p.name,'no-key'));continue
-            else:key=None
+            else:key=p.local_key
             try:
                 text=self.transport.complete(p,messages,key)
                 if cancel is not None and cancel.is_set():raise RouterError('Brain request stopped')
@@ -147,7 +148,7 @@ class BrainRouter:
             if p.cloud and (not cloud_consent or image_turn(messages)):continue
             with self.lock:
                 if self.disabled_until.get(p.name,0)>self.clock():continue
-            key=None
+            key=p.local_key if not p.cloud else None
             if p.cloud:
                 try:key=self.key_store.get(p.name) if self.key_store else None
                 except Exception:continue

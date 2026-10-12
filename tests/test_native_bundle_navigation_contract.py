@@ -17,3 +17,8 @@ class NativeBundleNavigationTests(unittest.TestCase):
   source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');self.assertIn("activate(drawer_control(main,name))",source);self.assertIn("mouse.scroll(coords=(bounds.right-25",source);self.assertIn("rect.bottom<=bounds.bottom",source)
  def test_each_welcome_capture_waits_for_current_title(self):
   source=(ROOT/'modern-ui/native-smoke.py').read_text(encoding='utf-8');self.assertIn("for index,title in enumerate(welcome_titles)",source);self.assertIn("main.child_window(title=title,control_type='Text').wait('visible',timeout=10)",source)
+
+ def test_missing_weight_mode_is_explicit_and_diagnostic_package_bound(self):
+  source=(ROOT/'modern-ui/native-smoke.py').read_text();self.assertIn("os.environ.get('JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC')=='1'",source);self.assertIn("marker=exe.parent/'DIAGNOSTIC ONLY.txt'",source);self.assertIn('Heavy speech/Laya/embedding runtimes excluded',source);self.assertEqual(source.count('if not weights_diagnostic:'),2);self.assertIn("'Kokoro or shared speech assets missing'in ui_text()",source);self.assertIn("'Laya model missing; review Download Laya model'in ui_text()",source)
+ def test_shipping_job_does_not_enable_missing_weight_mode(self):
+  workflow=(ROOT/'.github/workflows/modern-voice.yml').read_text();self.assertEqual(workflow.count("$env:JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC = '1'"),1);self.assertNotIn('JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC',workflow[workflow.index('  windows:'):])

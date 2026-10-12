@@ -8,7 +8,7 @@ class VoiceRuntime:
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
         self.cancel=threading.Event();self.streaming=False;self.reasoning_off=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
         self.turn_metrics=None;self.shared_context=None;self.record_turn=None;self.close_hook=None
-        self.vision=None;self.barge_in=False
+        self.vision=None;self.barge_in=False;self.fast_ack=None
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
         self.speaker.playback_event=lambda event,text,actor,sr,n:self.notify('speech-caption',{'active':event=='start','name':actor or self.persona,'text':text,'duration_s':n/sr if sr else 0,'at':time.monotonic()})
         self.speaker.output_event=self.output_event
@@ -109,6 +109,7 @@ class VoiceRuntime:
                     select=getattr(self.speaker,'select_profile',None)
                     if callable(select):select(actor)
                     self.persona=actor;self.notify('voice-actor',actor);self.notify('state',actor+' thinking')
+                    if index==0 and getattr(self,'fast_ack',None) is not None and self.fast_ack.acknowledge(actor,ticket,self.cancel):metrics['ack_dispatched_s']=time.monotonic()-started;metrics['output_includes_ack']=True
                     request=addressed_request(actor,text,context)if direct else discussion_messages(actor,text,context,index)
                     if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(text)
                     discussion_router=self.router;discussion_cloud=cloud
@@ -132,7 +133,7 @@ class VoiceRuntime:
                                 yield delta['text']
                         def clause(part):
                             metrics.setdefault('first_clause_s',time.monotonic()-started);self.notify('state',actor+' speaking')
-                        SpeechQueue(self.speaker,self.cancel).play_stream(spoken_chunks(chunks()),ticket,clause)
+                        SpeechQueue(self.speaker,self.cancel,before_output=self.fast_ack.wait if getattr(self,'fast_ack',None) is not None else None).play_stream(spoken_chunks(chunks()),ticket,clause)
                         if not self.valid(generation)or self.cancel.is_set():return
                         answer_text=clean_reply(strip_speaker_tag(''.join(pieces)));own_reply(answer_text,actor,context)
                     else:
@@ -141,6 +142,7 @@ class VoiceRuntime:
                         if len(answer_text)>1500:raise ValueError('Team reply too long')
                         if not self.valid(generation)or self.cancel.is_set():return
                         self.notify('answer',dict(reply,text=answer_text,profile=actor));self.notify('state',actor+' speaking');spoken=spoken_text(answer_text)
+                        if getattr(self,'fast_ack',None) is not None and not self.fast_ack.wait(self.cancel):return
                         if spoken.strip():self.speaker.speak(spoken,generation=ticket)
                     if not self.valid(generation)or self.cancel.is_set():return
                     context.append({'role':'assistant','content':'['+actor+'] '+answer_text});answers.append(answer_text)
@@ -158,6 +160,7 @@ class VoiceRuntime:
                 select=getattr(self.speaker,'select_profile',None)
                 if callable(select):select(actor);self.persona=actor
             self.notify('voice-actor',self.persona)
+            if getattr(self,'fast_ack',None) is not None and self.fast_ack.acknowledge(self.persona,ticket,self.cancel):metrics['ack_dispatched_s']=time.monotonic()-started;metrics['output_includes_ack']=True
             choose=getattr(self.router,'select_persona',None)
             if callable(choose):choose(self.persona)
             if hasattr(self.router,'reasoning_off'):self.router.reasoning_off=self.reasoning_off
@@ -202,7 +205,7 @@ class VoiceRuntime:
                         if self.valid(generation):
                             if 'first_clause_s' not in metrics:metrics['first_clause_s']=time.monotonic()-started
                             self.notify('state','speaking')
-                SpeechQueue(self.speaker,self.cancel).play_stream(spoken_chunks(chunks()),ticket,clause)
+                SpeechQueue(self.speaker,self.cancel,before_output=self.fast_ack.wait if getattr(self,'fast_ack',None) is not None else None).play_stream(spoken_chunks(chunks()),ticket,clause)
                 answer={**(provider[0]if provider else {}),'text':strip_speaker_tag(''.join(pieces))}
                 if not answer['text']:raise RuntimeError('Empty reply')
                 warnings=getattr(self.router,'last_warnings',[])
@@ -219,6 +222,7 @@ class VoiceRuntime:
                     self.notify('answer',answer);self.notify('state','speaking')
                 stage='speech synthesis/playback'
                 spoken=spoken_text(answer['text'])
+                if getattr(self,'fast_ack',None) is not None and not self.fast_ack.wait(self.cancel):return
                 if spoken.strip():self.speaker.speak(spoken,generation=ticket)
             with self.lock:
                 if not self.valid(generation):return
@@ -237,6 +241,7 @@ class VoiceRuntime:
                     if isinstance(exc,UnclearSpeech):self.notify('error','Speech was unclear. Please repeat closer to the microphone. Nothing was sent to a model for this turn.')
                     else:self.notify('error','Voice turn failed at '+stage+': '+detail+('. Microphone can listen again; the independent browser step may already be submitted. Check its actual status.'if parallel_dispatched else'. Microphone can listen again; no action was taken.'))
         finally:
+            if getattr(self,'fast_ack',None) is not None:self.fast_ack.wait(self.cancel)
             with self.lock:
                 self.busy=False;self.popup_active=False
                 if self.valid(generation):
@@ -255,4 +260,5 @@ class VoiceRuntime:
     def close(self):
         self.pause();self.history=[];self.shared_context=None;self.record_turn=None
         hook=self.close_hook;self.close_hook=None
+        if getattr(self,'fast_ack',None) is not None:self.fast_ack.clear()
         if hook:hook()

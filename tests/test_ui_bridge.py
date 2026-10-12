@@ -174,3 +174,68 @@ class GameEngineReset(unittest.TestCase):
    speaker.stop.assert_called();speaker.close.assert_called_once()
    self.assertIsNone(b.game_speech.speaker);self.assertEqual(b.voice.tts_engine,'kokoro')
   finally:b.close()
+
+class ManagedModelBridgeTests(unittest.TestCase):
+ def test_real_bridge_inspect_and_review_no_download(self):
+  from unittest.mock import patch
+  b=Bridge(WorkspaceVoice())
+  with patch.object(b.model_manager,'scan',return_value={'ram_gb':16,'vram_gb':6,'dedicated':True,'free_disk_gb':100}):
+   state=b.execute({'command':'models-inspect'});self.assertEqual(state['managed_models']['recommendations']['pick'],'qwen3-vl-4b')
+   state=b.execute({'command':'models-prepare','model_id':'qwen3-vl-4b'});self.assertEqual(state['managed_models']['pending']['id'],'qwen3-vl-4b')
+   with self.assertRaises(ValueError):b.execute({'command':'models-download','reviewed':state['managed_models']['pending']})
+   self.assertIsNone(b.model_manager.worker);b.execute({'command':'models-stop'});self.assertIsNone(b.model_manager.pending)
+  b.stop()
+ def test_microphone_device_callback_and_pause_cleanup(self):
+  from jarvis.microphone_test import MicrophoneTest
+  import numpy as np,threading
+  b=Bridge(WorkspaceVoice());opened=threading.Event();closed=[]
+  class Stream:
+   def __init__(self,**kw):self.cb=kw['callback']
+   def start(self):self.cb(np.ones((512,1),dtype='float32')*.1,512,None,None);opened.set()
+   def abort(self):pass
+   def close(self):closed.append(True)
+  b.microphone_test=MicrophoneTest(Stream)
+  with self.assertRaises(ValueError):b.execute({'command':'microphone-test-start'})
+  b.execute({'command':'microphone-test-start','consent':True});self.assertTrue(opened.wait(1));self.assertEqual(b.microphone_test.snapshot()['frames'],512)
+  b.execute({'command':'pause'});b.microphone_test.worker.join(1);self.assertTrue(closed);self.assertIsNone(b.microphone_test.stream);self.assertFalse(b.microphone_test.snapshot()['busy'])
+
+class ManagedSessionBridgeTests(unittest.TestCase):
+ def test_actual_review_requires_exact_confirm_and_close_stops_runtime(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   state=b.execute({'command':'model-session-prepare','model_id':'qwen3-vl-4b'});review=state['managed_session']['pending'];self.assertEqual(review['id'],'qwen3-vl-4b');self.assertIsNone(b.managed_session.worker)
+   with self.assertRaises(ValueError):b.execute({'command':'model-session-start','reviewed':review})
+   b.execute({'command':'model-session-stop'});self.assertIsNone(b.managed_session.pending);self.assertFalse(b.managed_session.active)
+  finally:b.close()
+
+class HoldShortcutBridgeTests(unittest.TestCase):
+ def test_opt_in_requires_speech_verification_and_consent(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   with self.assertRaises(ValueError):b.execute({'command':'shortcuts-enable'})
+   with self.assertRaises(ValueError):b.execute({'command':'shortcuts-enable','consent':True})
+   self.assertFalse(b.shortcut_monitor.enabled);self.assertIsNone(b.voice.runtime)
+  finally:b.close()
+ def test_real_bridge_event_callback_captures_only_while_held(self):
+  import numpy as np
+  from jarvis.runtime import VoiceRuntime
+  from jarvis.hold_microphone import HoldMic
+  b=Bridge(WorkspaceVoice());audio=[];devices=[]
+  class Stream:
+   def __init__(self,**kw):self.cb=kw['callback'];devices.append(self);self.closed=False
+   def start(self):pass
+   def abort(self):pass
+   def close(self):self.closed=True
+  runtime=VoiceRuntime(Mock(),Mock(),Mock(),Mock(generation=0));runtime.mic=HoldMic(None,audio.append,stream_factory=Stream);runtime.enable(True);b.voice.runtime=runtime;b.shortcut_monitor.enabled=True
+  try:
+   b.execute({'command':'status'});self.assertEqual(devices,[]);b.shortcut_events.put('talk-start');b.execute({'command':'status'});self.assertEqual(len(devices),1)
+   for _ in range(6):devices[0].cb(np.ones((512,1),dtype='float32'),512,None,None)
+   b.shortcut_events.put('talk-stop');b.execute({'command':'status'});self.assertTrue(devices[0].closed);self.assertEqual(len(audio),1);b.execute({'command':'shortcuts-stop'});self.assertIsNone(b.voice.runtime);self.assertFalse(b.shortcut_monitor.enabled)
+  finally:b.close()
+
+class FailedHoldSetupCleanup(unittest.TestCase):
+ def test_failed_runtime_setup_stops_global_monitor(self):
+  b=Bridge(WorkspaceVoice())
+  try:
+   b.shortcut_monitor.enabled=True;b.voice.busy=False;b.voice.runtime=None;b.execute({'command':'status'});self.assertFalse(b.shortcut_monitor.enabled)
+  finally:b.close()

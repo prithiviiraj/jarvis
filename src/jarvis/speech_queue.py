@@ -2,13 +2,14 @@
 import queue,threading
 from .streaming import sentences
 class SpeechQueue:
-    def __init__(self,speaker,cancel):self.speaker=speaker;self.cancel=cancel;self.queue=queue.Queue(maxsize=3);self.error=None
+    def __init__(self,speaker,cancel,before_output=None):self.before_output=before_output;self.speaker=speaker;self.cancel=cancel;self.queue=queue.Queue(maxsize=3);self.error=None
     def run(self,ticket):
         while not self.cancel.is_set():
             try:part=self.queue.get(timeout=.1)
             except queue.Empty:continue
             if part is None:return
             try:
+                if self.before_output is not None and not self.before_output(self.cancel):return
                 if isinstance(part,tuple)and len(part)==2 and part[0]=='prepared':self.speaker.play_prepared(part[1],generation=ticket)
                 else:self.speaker.speak(part,generation=ticket)
             except Exception:self.error=RuntimeError('Local voice failed.');self.cancel.set();return

@@ -26,6 +26,10 @@ class LocalVision:
         self.lock=threading.RLock();self.generation=0;self.screen_enabled=False;self.screen_source=None;self.enabled=False;self.checked_model=None;self.checked_at=0;self.cloud=None
     def _open(self):return (self.opener or local_http()).open(self.base_url+'/api/v1/models',timeout=8)
     def vision_model(self):
+        if self.opener is None:
+            from .local_endpoint import managed_route
+            route=managed_route()
+            if route is not None:return route['model']if route['vision']else None
         with self._open() as r:
             raw=r.read(262145)
             if len(raw)>262144:raise RuntimeError('Model list too large.')

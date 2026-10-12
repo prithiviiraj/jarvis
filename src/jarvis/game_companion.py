@@ -57,6 +57,11 @@ class LocalGameModel:
   if not isinstance(model,str)or not model.strip()or len(model)>200:raise ValueError('Choose a loaded local vision model')
   self.model=model;self.http=opener or local_http();self.gate=gate;self.system=SYSTEM
  def verify(self):
+  from .local_endpoint import managed_route
+  route=managed_route()
+  if route is not None:
+   if route['model']!=self.model or not route['vision']:raise ValueError('Selected owned model unavailable for vision')
+   return
   with self.http.open('http://127.0.0.1:1234/api/v1/models',timeout=3)as r:raw=r.read(262145)
   if len(raw)>262144:raise ValueError('Oversize model list')
   models=json.loads(raw).get('models',[])
@@ -75,7 +80,10 @@ class LocalGameModel:
   schema={'type':'object','properties':{'observed':{'type':'string'},'comment':{'type':'string'},'confidence':{'type':'string','enum':['low','medium','high']}},'required':['observed','comment','confidence'],'additionalProperties':False}
   data={'model':self.model,'temperature':0.2,'max_tokens':384,'stream':False,'response_format':{'type':'json_schema','json_schema':{'name':'cautious_scene','strict':True,'schema':schema}},'messages':[{'role':'system','content':self.system},{'role':'user','content':[{'type':'text','text':'One recent selected-window frame. Describe cautiously.'},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(frame).decode()}}]}]}
   for attempt in range(2):
-   req=Request('http://127.0.0.1:1234/v1/chat/completions',data=json.dumps(data).encode(),headers={'Content-Type':'application/json'})
+   from .local_endpoint import managed_route
+   route=managed_route();headers={'Content-Type':'application/json'}
+   if route is not None:headers['Authorization']='Bearer '+route['key']
+   req=Request((route['url']if route else 'http://127.0.0.1:1234/v1')+'/chat/completions',data=json.dumps(data).encode(),headers=headers)
    try:
     with self.http.open(req,timeout=30)as r:raw=r.read(32769)
    except (socket.timeout,TimeoutError):raise VisionReplyUnavailable('Local vision timed out. Check LM Studio server log and try an image in LM Studio chat; first load can be slow. Analysis paused, no cloud fallback.')from None

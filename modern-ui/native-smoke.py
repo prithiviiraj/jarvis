@@ -59,6 +59,10 @@ class LocalFixture(http.server.BaseHTTPRequestHandler):
 server=http.server.ThreadingHTTPServer(('127.0.0.1',1234),LocalFixture);threading.Thread(target=server.serve_forever,daemon=True).start()
 exe=pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve()
 core=exe.parent/'backend'/'jarvis-local-core.exe'
+weights_diagnostic=os.environ.get('JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC')=='1'
+if weights_diagnostic:
+ marker=exe.parent/'DIAGNOSTIC ONLY.txt'
+ assert marker.is_file() and 'Heavy speech/Laya/embedding runtimes excluded' in marker.read_text(),'Missing-weight assertions require explicitly excluded diagnostic package'
 assert core.is_file(),'Frozen core required for real desktop input acceptance'
 subprocess.run([str(core),'--desktop-self-test'],check=True,timeout=60)
 subprocess.run([str(core),'--google-self-test'],check=True,timeout=30)
@@ -511,13 +515,22 @@ try:
  checks.append('native headphone interruption checkbox visible and defaults OFF; no microphone started')
  button('Mic ON / start local voice').wait('exists',timeout=10)
  click('Check local voice models')
- deadline=time.monotonic()+90
- while time.monotonic()<deadline:
-  if 'ALREADY DOWNLOADED'in ui_text()and not button('Download local voice models').is_enabled():break
-  time.sleep(.3)
- else:raise RuntimeError('Bundled speech assets were not verified in actual native UI')
- window.capture_as_image().save('ui-evidence/native-bundled-speech-ready.png')
- checks.append('actual native bundled speech weights verified; no internet download or microphone started')
+ if not weights_diagnostic:
+  deadline=time.monotonic()+90
+  while time.monotonic()<deadline:
+   if 'ALREADY DOWNLOADED'in ui_text()and not button('Download local voice models').is_enabled():break
+   time.sleep(.3)
+  else:raise RuntimeError('Bundled speech assets were not verified in actual native UI')
+  window.capture_as_image().save('ui-evidence/native-bundled-speech-ready.png')
+  checks.append('actual native bundled speech weights verified; no internet download or microphone started')
+ else:
+  deadline=time.monotonic()+90
+  while time.monotonic()<deadline:
+   if 'Kokoro or shared speech assets missing'in ui_text()and button('Download local voice models').is_enabled():break
+   time.sleep(.3)
+  else:raise RuntimeError('Excluded diagnostic speech weights did not show actual missing state')
+  window.capture_as_image().save('ui-evidence/native-diagnostic-speech-missing.png')
+  checks.append('diagnostic only: excluded speech weights show missing, Download enabled; no voice readiness proof or download')
  from pywinauto import mouse
  mouse.scroll(coords=(760,300),wheel_dist=12);time.sleep(.5)
  engine=window.child_window(title='Speech engine',control_type='ComboBox')
@@ -545,7 +558,7 @@ try:
  assert 'Kitten nano int8' not in ui_text()
  assert 'Downloading 'not in ui_text()
  button('Mic ON / start local voice').wait('exists',timeout=10)
- checks.append('native Kokoro-only speech option; bundled model ready without download or microphone start')
+ checks.append('native Kokoro-only speech option; no download or microphone start; readiness separately scoped')
  # Actual temporary-vault UI flow, no owner's files. Reviews must fire nothing.
  import tempfile
  with tempfile.TemporaryDirectory()as vault_tmp:
@@ -591,15 +604,25 @@ try:
    window.capture_as_image().save('ui-evidence/native-advanced-expand-failure.png')
    if attempt==2:raise
  click('Check local Laya model')
- deadline=time.monotonic()+90
- while time.monotonic()<deadline:
-  if 'Laya model verified; engine stopped'in ui_text()and button('Load inbuilt Laya').is_enabled():break
-  time.sleep(.3)
- else:raise RuntimeError('Bundled Laya assets were not verified in actual native UI')
- assert not button('Download Laya model').is_enabled(),'Bundled verified Laya incorrectly offers another download'
- window.capture_as_image().save('ui-evidence/native-bundled-laya-ready.png')
- click('Stop Laya setup / engine')
- checks.append('actual native bundled Laya weights ready; download disabled; engine remains stopped until separate consent')
+ if not weights_diagnostic:
+  deadline=time.monotonic()+90
+  while time.monotonic()<deadline:
+   if 'Laya model verified; engine stopped'in ui_text()and button('Load inbuilt Laya').is_enabled():break
+   time.sleep(.3)
+  else:raise RuntimeError('Bundled Laya assets were not verified in actual native UI')
+  assert not button('Download Laya model').is_enabled(),'Bundled verified Laya incorrectly offers another download'
+  window.capture_as_image().save('ui-evidence/native-bundled-laya-ready.png')
+  click('Stop Laya setup / engine')
+  checks.append('actual native bundled Laya weights ready; download disabled; engine remains stopped until separate consent')
+ else:
+  deadline=time.monotonic()+90
+  while time.monotonic()<deadline:
+   if 'Laya model missing; review Download Laya model'in ui_text()and button('Download Laya model').is_enabled():break
+   time.sleep(.3)
+  else:raise RuntimeError('Excluded diagnostic Laya weights did not show actual missing state')
+  window.capture_as_image().save('ui-evidence/native-diagnostic-laya-missing.png')
+  click('Stop Laya setup / engine')
+  checks.append('diagnostic only: excluded Laya weights show missing, Download enabled; no loaded engine or model readiness proof')
  click('Enable shared Laya');button('Confirm Laya permission').wait('exists',timeout=10);button('Confirm Laya permission').wrapper_object().set_focus();time.sleep(.2);window.capture_as_image().save('ui-evidence/native-laya-permission-review.png');click('Cancel Laya permission');window.child_window(title='Confirm Laya permission',control_type='Button').wait_not('exists',timeout=10);click('Enable shared Laya');click('Confirm Laya permission');time.sleep(.3);assert 'inbuilt Laya engine not loaded'in ui_text();click('Stop Laya proposals');assert 'Silent shared action log'in ui_text();click('Enable browser commands');button('Confirm browser permission').wait('exists',timeout=10)
  button('Confirm browser permission').wrapper_object().set_focus();time.sleep(.2)
  window.capture_as_image().save('ui-evidence/native-browser-permission-review.png')

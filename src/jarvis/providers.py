@@ -10,9 +10,18 @@ ENDPOINTS={
 }
 def configured(name,model):
  if name not in ENDPOINTS:raise ValueError('Unknown provider.')
+ if name=='local':
+  from .local_endpoint import managed_route
+  route=managed_route()
+  if route is not None:
+   if model not in ('automatic',route['model']):raise ValueError('Requested model is not the owned loaded model')
+   return Provider(name,route['url'],route['model'],local_key=route['key'])
  return Provider(name,ENDPOINTS[name],model,name!='local',requires_free_plan=name=='groq')
 def local_models(timeout=2):
  """Prefer loaded LLM instances; downloaded embeddings are not chat choices."""
+ from .local_endpoint import managed_route
+ route=managed_route()
+ if route is not None:return [route['model']]
  http=local_http();base=ENDPOINTS['local'].removesuffix('/v1')
  def read(url):
   with http.open(url,timeout=timeout) as response:
@@ -38,6 +47,9 @@ def local_models(timeout=2):
 
 def local_live_models(timeout=2):
  """Read actual loaded instances only. Never equate downloaded assets with loading."""
+ from .local_endpoint import managed_route
+ route=managed_route()
+ if route is not None:return [{'id':route['model'],'key':route['model'],'vision':route['vision']}]
  http=local_http();base=ENDPOINTS['local'].removesuffix('/v1')
  with http.open(base+'/api/v1/models',timeout=timeout)as response:
   raw=response.read(262145)
