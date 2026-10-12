@@ -15,7 +15,7 @@ def configured(name,model):
   route=managed_route()
   if route is not None:
    if model not in ('automatic',route['model']):raise ValueError('Requested model is not the owned loaded model')
-   return Provider(name,route['url'],route['model'],local_key=route['key'])
+   return Provider(name,route['url'],route['model'],local_key=route['key'],owned_route=dict(route))
  return Provider(name,ENDPOINTS[name],model,name!='local',requires_free_plan=name=='groq')
 def local_models(timeout=2):
  """Prefer loaded LLM instances; downloaded embeddings are not chat choices."""

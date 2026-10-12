@@ -179,3 +179,16 @@ body.running .send .i-stop { display: block; }
 .term-host .xterm { height: 100%; }
 .term-host .xterm-viewport { scrollbar-width: thin; scrollbar-color: #2e3130 transparent; }
 .term-ended { padding: 6px 12px; font: 11.5px var(--font); color: var(--text-3); border-top: 1px solid var(--hairline); background: var(--surface-1); display: flex; align-items: center; gap: 10px; }
+/* JARVIS reviewed desktop work stays beside the conversation. */
+#desktop-controls { flex:none; margin:8px 16px; }
+#desktop-controls summary { cursor:pointer; padding:10px 12px; font-size:12px; }
+#desktop-controls .desktop-body { max-height:260px; overflow:auto; padding:0 12px 12px; }
+#desktop-controls label { display:block; margin:8px 0; font-size:12px; }
+#desktop-controls .field { display:block; width:100%; margin-top:4px; }
+#desktop-controls pre { white-space:pre-wrap; overflow-wrap:anywhere; font:11px var(--mono); }
+#desktop-controls .btn { margin:4px 8px 4px 0; }
+
+#desktop-controls .desktop-current { padding:0 12px; margin:0 0 8px; }
+
+#desktop-controls > .btn { margin-left:12px; }
+#desktop-controls > p[role=status] { margin:4px 12px 12px; }

@@ -47,12 +47,14 @@ class DesktopEngine:
     if self.adapter.foreground()!=target['hwnd']:raise ValueError('Foreground mismatch; no next input')
     # Recheck after foreground acquisition: moved/resized/replaced target cannot use stale coordinates.
     if self.adapter.observe(target['hwnd'])!=target:raise ValueError('Target changed during focus')
+    if self.cancel.is_set():self.state='stopped';break
     if row['action']=='type':
      # Each character is a literal input with a fresh foreground/window check.
      # Stop can cut a long type step, rather than waiting for2000characters.
      for char in row['text']:
       if self.cancel.is_set():break
       if self.adapter.foreground()!=target['hwnd']or self.adapter.observe(target['hwnd'])!=target:raise ValueError('Typing target changed; no next character')
+      if self.cancel.is_set():break
       self.adapter.perform(target,{'action':'type','text':char})
      if self.cancel.is_set():self.state='stopped';break
     else:self.adapter.perform(target,row)

@@ -24,6 +24,7 @@ class Provider:
     requires_free_plan:bool=False
     allow_20b_fallback:bool=False
     local_key:str|None=field(default=None,repr=False,compare=False)
+    owned_route:dict|None=field(default=None,repr=False,compare=False)
     def __post_init__(self):
         u=urlsplit(self.url)
         if not self.name or not self.model or u.username or u.password or u.query or u.fragment:
@@ -33,6 +34,13 @@ class Provider:
         elif u.scheme!='http' or u.hostname!='127.0.0.1' or not u.port:
             raise ValueError('Local provider must use 127.0.0.1.')
         if not 1 <= self.timeout <= 30:raise ValueError('Timeout must be 1-30 seconds.')
+
+def check_owned_provider(provider):
+    if provider.owned_route is None:return
+    from .local_endpoint import managed_route
+    try:route=managed_route()
+    except Exception:raise ProviderFailure('owned-session-unavailable',False) from None
+    if route!=provider.owned_route:raise ProviderFailure('owned-session-changed',False)
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
@@ -57,6 +65,7 @@ class HttpTransport:
         if self.cloud_http is None:self.cloud_http=cloud_http()
         return self.cloud_http
     def complete(self,provider,messages,key=None):
+        check_owned_provider(provider)
         from .response_diagnostics import ResponseDiagnostics
         diagnostic=ResponseDiagnostics(provider.model,1,'nonstream');self.last_diagnostics=[]
         headers={'Content-Type':'application/json','User-Agent':'JARVIS-experimental/0.1 (+https://github.com/prithiviiraj/jarvis)'}
@@ -70,6 +79,7 @@ class HttpTransport:
                 if len(raw)>1048576:raise ProviderFailure('oversize',False)
                 j=json.loads(raw)
                 diagnostic.observe(j)
+                check_owned_provider(provider)
                 answer=answer_text(j['choices'][0]['message'].get('content'))
                 if not isinstance(answer,str) or not answer.strip():raise ProviderFailure('reasoning-token-limit' if reply_metadata(j)['finish_category']=='length' and diagnostic.snapshot()['response_category']=='reasoning_without_final_text' else 'empty-token-limit' if reply_metadata(j)['finish_category']=='length' else 'empty')
                 return answer.strip()
@@ -111,7 +121,9 @@ class BrainRouter:
                 if not key:errors.append((p.name,'no-key'));continue
             else:key=p.local_key
             try:
+                check_owned_provider(p)
                 text=self.transport.complete(p,messages,key)
+                check_owned_provider(p)
                 if cancel is not None and cancel.is_set():raise RouterError('Brain request stopped')
                 return {'text':text,'provider':p.name,'model':p.model,'cloud':p.cloud,'fallbacks':errors}
             except ProviderFailure as exc:
@@ -155,7 +167,9 @@ class BrainRouter:
                 if not key:continue
             emitted=False
             try:
+                check_owned_provider(p)
                 for text in transport.stream(p,messages,key,cancel):
+                    check_owned_provider(p)
                     if cancel is not None and cancel.is_set():return
                     if text:
                         emitted=True

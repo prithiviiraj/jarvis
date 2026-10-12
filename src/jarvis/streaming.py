@@ -1,7 +1,7 @@
 """Bounded OpenAI-style SSE parsing. No tools or side effects, text deltas only."""
 import json,time,urllib.request,urllib.error
 from .chat_payload import payload,answer_text,reply_metadata
-from .router import NoRedirect,ProviderFailure,local_http,HttpTransport,cloud_http
+from .router import NoRedirect,ProviderFailure,local_http,HttpTransport,cloud_http,check_owned_provider
 
 def text_deltas(response,cancel=None,max_bytes=1048576,deadline=None,diagnostic=None):
     from .final_text import FinalTextFilter
@@ -56,6 +56,7 @@ class StreamTransport:
         if self.cloud_http is None:self.cloud_http=cloud_http()
         return self.cloud_http
     def stream(self,provider,messages,key=None,cancel=None):
+        check_owned_provider(provider)
         from .response_diagnostics import ResponseDiagnostics
         diagnostic=ResponseDiagnostics(provider.model,1,'stream');self.last_diagnostics=[]
         retry=None
@@ -69,6 +70,7 @@ class StreamTransport:
                 emitted=False
                 if 'text/event-stream' in content_type:
                     for text in text_deltas(response,cancel,deadline=time.monotonic()+30,diagnostic=diagnostic):
+                        check_owned_provider(provider)
                         emitted=True
                         yield text
                 elif not provider.cloud and 'application/json' in content_type:
@@ -82,6 +84,7 @@ class StreamTransport:
                         if not text and reply_metadata(data)['finish_category']=='length':raise ProviderFailure('reasoning-token-limit' if diagnostic.snapshot()['response_category']=='reasoning_without_final_text' else 'completion-token-limit',False)
                     except (ValueError,KeyError,IndexError,TypeError):raise ProviderFailure('malformed',False) from None
                     if text.strip():
+                        check_owned_provider(provider)
                         emitted=True
                         yield text.strip()
                 else:raise ProviderFailure('not-streaming')

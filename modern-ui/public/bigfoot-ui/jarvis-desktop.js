@@ -1,0 +1,28 @@
+'use strict';
+// Reviewed selected-window controls. No interpretation of conversation as input.
+window.jarvisDesktopControls=(call,readState)=>{
+ const root=document.createElement('details');root.id='desktop-controls';root.className='group';root.setAttribute('aria-label','Reviewed desktop input');
+ const summary=document.createElement('summary');summary.textContent='Computer control - exact review';root.append(summary);
+ const current=document.createElement('p');current.className='hint desktop-current';root.append(current);
+ const body=document.createElement('div');body.className='desktop-body';root.append(body);
+ const note=document.createElement('p');note.className='hint';note.textContent='Choose an observed window and review each input. No shell, Enter, shortcuts, passwords, send, payment or delete workflows. Stop prevents the next input; it cannot undo input already sent. Conversation stays available.';body.append(note);
+ function field(label,tag='input'){const l=document.createElement('label');l.textContent=label;const e=document.createElement(tag);e.className='field';e.setAttribute('aria-label',label);l.append(e);body.append(l);return e}
+ function button(text,fn){const b=document.createElement('button');b.className='btn secondary small';b.textContent=text;b.onclick=()=>Promise.resolve(fn()).catch(e=>{message.textContent=String(e)});body.append(b);return b}
+ const message=document.createElement('p');message.className='hint';message.setAttribute('role','status');
+ const find=button('Find desktop windows',()=>{if(confirm('Read visible local window names for this reviewed computer-control session? No screen capture or input starts.'))return call('desktop-windows',{consent:true})});
+ const windowField=field('Desktop input window','select');const purpose=field('Desktop task purpose');purpose.maxLength=500;
+ const literal=field('Literal desktop text');literal.maxLength=2000;
+ const addLiteral=button('Add literal text step',()=>{const draft=steps.value.trim()?JSON.parse(steps.value):[];if(!Array.isArray(draft)||draft.length>=30||!literal.value.trim())throw Error('Add plain text within thirty steps');steps.value=JSON.stringify([...draft,{action:'type',text:literal.value}],null,2);return changed()});
+ const steps=field('Exact desktop steps JSON','textarea');steps.rows=3;steps.maxLength=16000;steps.placeholder='[{"action":"type","text":"reviewed plain text"}]';
+ const draftNote=document.createElement('p');draftNote.className='hint';draftNote.textContent='1-30 steps: type plain text, move/click client x/y, navigation key, or scroll delta. Coordinates and clicks can have effects. No command is inferred from chat.';body.append(draftNote);
+ const review=button('Review desktop input',async()=>{const target=readState()?.desktop_control?.windows?.find(w=>String(w.hwnd)===windowField.value);const parsed=JSON.parse(steps.value);const draft=signature();const ticket=++reviewGeneration;invalidated=false;await call('desktop-task-preview',{target,steps:parsed,scope:purpose.value});if(ticket!==reviewGeneration||draft!==signature()){invalidated=true;await call('desktop-task-stop')}else reviewedDraft=draft;body.scrollTop=body.scrollHeight;render()});
+ const preview=document.createElement('pre');preview.setAttribute('aria-label','Exact desktop review');body.append(preview);
+ const approve=button('Confirm desktop input',async()=>{const pending=readState()?.desktop_control?.task?.pending;if(!pending||invalidated||reviewedDraft!==signature())throw Error('Review the exact desktop task first');if(confirm('Submit only this exact reviewed window and listed inputs? Clicks may have effects. Task completion is not verified by input alone.'))await call('desktop-task-run',{reviewed:pending,confirm:true,effect_approved:true})});
+ const stop=button('Stop desktop input',()=>{reviewGeneration++;invalidated=true;return call('desktop-task-stop')});root.append(stop,message);
+ let listStamp='';let invalidated=false;let reviewedDraft='';let reviewGeneration=0;function signature(){return JSON.stringify([windowField.value,purpose.value,steps.value])}
+ async function changed(){reviewGeneration++;if(readState()?.desktop_control?.task?.pending&&!invalidated){invalidated=true;await call('desktop-task-stop')}render()}
+ for(const e of [windowField,purpose,steps])e.addEventListener('input',()=>changed().catch(e=>{message.textContent=String(e)}));
+ function render(){const d=readState()?.desktop_control;const stamp=JSON.stringify(d?.windows||[]);if(stamp!==listStamp){listStamp=stamp;const selected=windowField.value;windowField.replaceChildren(new Option('Choose observed window',''));for(const w of d?.windows||[])windowField.append(new Option(w.title+' - PID '+w.pid,String(w.hwnd)));windowField.value=selected}
+ const busy=d?.busy===true;current.textContent='Target: '+(d?.task?.pending?.payload?.target?.title||d?.windows?.find(w=>String(w.hwnd)===windowField.value)?.title||'none selected')+' - '+(busy?'Input running':d?.task?.state||'off');for(const e of [find,windowField,purpose,steps,literal,addLiteral])e.disabled=busy;review.disabled=busy||!windowField.value||!purpose.value.trim()||!steps.value.trim();approve.hidden=!d?.task?.pending;approve.disabled=busy||invalidated||reviewedDraft!==signature();preview.hidden=!d?.task?.pending;preview.textContent=d?.task?.pending?JSON.stringify(d.task.pending.payload,null,2):'';if(!d?.task?.pending)invalidated=false;message.textContent=(d?.error||d?.status||'Computer input off')+' - '+(d?.task?.completed_steps||0)+' steps submitted. '+(d?.task?.result||'');stop.disabled=!d;}
+ document.getElementById('composer').before(root);render();return {render};
+};

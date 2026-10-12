@@ -54,3 +54,20 @@ class Tests(unittest.TestCase):
   self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
  def test_new_review_after_stop_has_fresh_cancel_signal(self):
   self.plan();self.e.stop();r=self.plan();self.e.run(r,True,True);self.assertEqual(self.e.state,'completed')
+
+ def test_stop_during_post_focus_window_check_blocks_click(self):
+  r=self.plan();original=self.a.observe;calls=0
+  def observe(h):
+   nonlocal calls
+   calls+=1
+   if calls==2:self.e.stop()
+   return original(h)
+  self.a.observe=observe;self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
+ def test_stop_during_typing_window_check_blocks_next_character(self):
+  r=self.e.prepare(self.a.target,[{'action':'type','text':'fixture text'}],'Fixture only');original=self.a.observe;calls=0
+  def observe(h):
+   nonlocal calls
+   calls+=1
+   if calls==3:self.e.stop()
+   return original(h)
+  self.a.observe=observe;self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
