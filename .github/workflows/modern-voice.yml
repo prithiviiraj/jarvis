@@ -136,6 +136,12 @@ jobs:
           $env:JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC = '1'
           python native-smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Actual Windows native iteration failed' }
+      - name: Actual copied Bigfoot shell navigation and responsive pixels
+        shell: pwsh
+        run: |
+          $env:JARVIS_UI_EXE = (Resolve-Path 'native-diagnostic/JARVIS.exe').Path
+          python bigfoot-native-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual copied-shell Windows diagnostic failed' }
       - name: Preserve diagnostic core for fast fixture-only reruns
         if: always()
         uses: actions/upload-artifact@v4
@@ -204,6 +210,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Managed session review renderer failed' }
           node bigfoot-shortcut-preview.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Reviewed hold shortcut renderer failed' }
+          node bigfoot-microphone-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Copied microphone renderer failed' }
+          node bigfoot-responsive-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Copied responsive renderer failed' }
+          node bigfoot-speech-setup-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Copied speech-setup renderer failed' }
+          node bigfoot-live-voice-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Copied live voice renderer failed' }
           node companion-smoke.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Bigfoot companion renderer failed' }
           $server = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','dist' -PassThru
@@ -539,16 +553,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify and apply exact diagnostic source patch
+      - name: Verify expanded managed model source is tracked
         shell: pwsh
         run: |
-          if ((Get-FileHash '1-JARVIS-managed-foundations.patch' -Algorithm SHA256).Hash.ToLower() -ne '9a17bb160aa019cdfa1da69beed860a0ef75e436a5987d42b899186f6b6f3f3e') { throw 'Unexpected diagnostic source patch' }
-          git apply --check 1-JARVIS-managed-foundations.patch
-          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic source check failed' }
-          git apply 1-JARVIS-managed-foundations.patch
-          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic source application failed' }
+          git ls-files --error-unmatch src/jarvis/managed_runtime.py src/jarvis/managed_session.py src/jarvis/model_probe.py modern-ui/managed-model-proof.py
+          if ($LASTEXITCODE -ne 0) { throw 'Expanded managed source missing; do not apply an older patch' }
+          python -m compileall -q src/jarvis modern-ui/managed-model-proof.py
+          if ($LASTEXITCODE -ne 0) { throw 'Managed diagnostic source compilation failed' }
       - name: Install diagnostic image dependency
         run: python -m pip install Pillow==11.3.0
+      - name: Expanded source backend regression before model downloads
+        shell: pwsh
+        run: |
+          python -m pip install numpy==2.2.6 certifi==2026.7.22 tzdata==2025.2
+          if ($LASTEXITCODE -ne 0) { throw 'Backend diagnostic dependencies failed' }
+          $env:PYTHONPATH = 'src'
+          python -m unittest discover -s tests
+          if ($LASTEXITCODE -ne 0) { throw 'Expanded source backend regression failed' }
       - name: Actual pinned Windows runtime and synthetic text/image generation
         shell: pwsh
         run: |
@@ -581,11 +602,10 @@ jobs:
           test "$GITHUB_REPOSITORY" = prithiviiraj/jarvis
           test "$GITHUB_REF" = refs/heads/jarvis-bigfoot-integration
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          printf '%s  %s\n' '9a17bb160aa019cdfa1da69beed860a0ef75e436a5987d42b899186f6b6f3f3e' '1-JARVIS-managed-foundations.patch' 'c363f5cebc0529a343607c5ac6ab380927ecfabc64ae325dc4dd74b6a0ead209' '1-JARVIS-session-followup-v2.patch' | sha256sum --check
-          git apply --check --exclude='.github/workflows/*' 1-JARVIS-managed-foundations.patch
-          git apply --index --exclude='.github/workflows/*' 1-JARVIS-managed-foundations.patch
-          git apply --check 1-JARVIS-session-followup-v2.patch
-          git apply --index 1-JARVIS-session-followup-v2.patch
+          printf '%s  %s\n' 'e5e1166b8b3bf3529e4dc12bf12911a181805c85d4d01e0ef9b7ba0dc3fd2f70' '2-JARVIS-safety-responsive-followup.patch' | sha256sum --check
+          git ls-files --error-unmatch src/jarvis/managed_session.py src/jarvis/model_probe.py modern-ui/managed-model-proof.py
+          git apply --check 2-JARVIS-safety-responsive-followup.patch
+          git apply --index 2-JARVIS-safety-responsive-followup.patch
           git diff --cached --name-only > /tmp/product-paths.txt
           python - <<'PY'
           import pathlib
@@ -605,5 +625,5 @@ jobs:
           test "$(git ls-remote origin refs/heads/jarvis-bigfoot-integration | cut -f1)" = "$EXPECTED_SHA"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Assemble tested managed-model and reviewed hold-audio product source'
+          git commit -m 'Assemble tested microphone responsive speech and owned-route follow-up'
           git push origin HEAD:refs/heads/jarvis-bigfoot-integration
