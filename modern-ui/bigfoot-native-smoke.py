@@ -24,7 +24,29 @@ try:
  for name in ('Models','JARVIS','General','Voice'):
   helper.activate(button(name));time.sleep(.3);ImageGrab.grab().save(out/('native-bigfoot-'+name.lower()+'.png'));checks.append('actual native '+name+' navigation')
  # Inspect existing local controls only. Never click model/speech downloads or capture.
- visible_text('Speech input');visible_text('Automatic (multilingual)');visible_text('Test Microphone')
+ visible_text('Speech input')
+ # Native select displays its chosen value via UIA Value/Selection patterns,
+ # not necessarily the accessible Name returned by window_text().
+ choices=[]
+ for c in window.descendants(control_type='ComboBox'):
+  values=[c.window_text()]
+  try:values.append(c.iface_value.CurrentValue)
+  except Exception:pass
+  try:values.append(c.selected_text())
+  except Exception:pass
+  choices.append(values)
+ (out/'native-bigfoot-combobox-values.json').write_text(json.dumps(choices,indent=2))
+ assert any('Automatic (multilingual)'in str(values)for values in choices),'Native speech input default value absent'
+ checks.append('actual native speech input Automatic (multilingual) value pattern')
+ # First-open microphone test is below the voice list. Scroll actual pixels,
+ # never activate microphone/download controls for this navigation diagnostic.
+ for _ in range(8):
+  controls=[c for c in window.descendants(control_type='Button')if c.window_text()=='Test Microphone']
+  if controls and controls[0].is_visible()and controls[0].rectangle().top>window.rectangle().top and controls[0].rectangle().bottom<window.rectangle().bottom:break
+  bounds=window.rectangle();mouse.scroll(coords=(bounds.right-80,bounds.bottom-180),wheel_dist=-3);time.sleep(.15)
+ else:raise AssertionError('First-open microphone control did not become visibly reachable')
+ ImageGrab.grab().save(out/'native-bigfoot-microphone-reachable.png');checks.append('actual microphone control visibly reachable without activation')
+
  for size in ((800,600),(1024,768)):
   helper.resize(window,size[0],size[1]);time.sleep(.4);ImageGrab.grab().save(out/('native-bigfoot-'+str(size[0])+'.png'));checks.append('native resized '+str(size))
  # JARVIS itself may be minimized while a different selected target stays foreground.
