@@ -1,0 +1,22 @@
+import React,{useEffect,useRef,useState}from'react';
+import{invoke}from'@tauri-apps/api/core';
+import{followStep,smoothPath,type Point,type Spring}from'./bigfoot/geometry';
+export function DesktopCompanion(){
+ const[mode,setMode]=useState('off'),[error,setError]=useState(''),[pos,setPos]=useState<Point>({x:-100,y:-100}),[strokes,setStrokes]=useState<Point[][]>([]),[current,setCurrent]=useState<Point[]>([]);
+ const cursor=useRef<Point>({x:0,y:0}),spring=useRef<Spring>({pos:{x:-100,y:-100},vel:{x:0,y:0}}),drawing=useRef(false),points=useRef<Point[]>([]);
+ useEffect(()=>{let live=true,inFlight=false;const timer=setInterval(async()=>{if(inFlight)return;inFlight=true;try{const s=await invoke<{mode:string,x:number,y:number}>('companion_cursor');if(live){setMode(old=>{if(old!==s.mode){setStrokes([]);setCurrent([]);drawing.current=false}return s.mode});if(s.mode==='off'){setStrokes([]);setCurrent([])}cursor.current={x:s.x,y:s.y}}}catch(e){if(live)setError(String(e))}finally{inFlight=false}},50);return()=>{live=false;clearInterval(timer)}},[]);
+ useEffect(()=>{let frame=0,last=performance.now();const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;function tick(now:number){spring.current=followStep(spring.current,cursor.current,(now-last)/1000,{x:innerWidth,y:innerHeight},reduced);last=now;setPos(spring.current.pos);frame=requestAnimationFrame(tick)}if(mode==='follow')frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame)},[mode]);
+ async function close(){setStrokes([]);setCurrent([]);drawing.current=false;try{await invoke('companion_stop')}catch(e){setError(String(e))}}
+ useEffect(()=>{function key(e:KeyboardEvent){if(e.key==='Escape')void close();if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();setStrokes(s=>s.slice(0,-1))}}window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[]);
+ if(mode==='follow')return <div className="cursor-companion" style={{left:pos.x,top:pos.y}} aria-label="JARVIS cursor companion"><span>J</span></div>;
+ function point(e:React.PointerEvent):Point{return{x:Math.max(0,Math.min(innerWidth,e.clientX)),y:Math.max(0,Math.min(innerHeight,e.clientY))}}
+ function start(e:React.PointerEvent){if(mode!=='draw'||strokes.length>=120)return;drawing.current=true;points.current=[point(e)];setCurrent([...points.current]);e.currentTarget.setPointerCapture(e.pointerId)}
+ function move(e:React.PointerEvent){if(!drawing.current||points.current.length>=4096)return;const p=point(e),last=points.current.at(-1)!;if(Math.hypot(last.x-p.x,last.y-p.y)<2)return;points.current.push(p);setCurrent([...points.current])}
+ function end(){if(!drawing.current)return;drawing.current=false;const saved=[...points.current];if(saved.length===1)saved.push({x:saved[0].x+.1,y:saved[0].y+.1});setStrokes(s=>[...s,saved]);setCurrent([])}
+ return <div className="desktop-ink" aria-label="Temporary screen drawing"><svg width="100%" height="100%" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>{[...strokes,current].map((s,i)=><path key={i} d={smoothPath(s)} fill="none" stroke="#64e5cc" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>)}</svg><div className="ink-bar"><span>Temporary drawing · {strokes.length}/120 · no capture</span><button onClick={()=>setStrokes(s=>s.slice(0,-1))} disabled={!strokes.length}>Undo</button><button onClick={()=>{drawing.current=false;points.current=[];setStrokes([]);setCurrent([])}}>Clear</button><button onClick={()=>void close()}>Close</button>{error&&<small role="alert">{error}</small>}</div></div>;
+}
+export function CompanionControl(){
+ const[status,setStatus]=useState('Off'),[error,setError]=useState('');
+ async function mode(value:string){try{await invoke('companion_mode',{mode:value});setStatus(value==='follow'?'Following cursor':value==='draw'?'Drawing on this screen':'Off');setError('')}catch(e){setError(String(e))}}
+ return <section className="companion-control"><h3>Desktop companion</h3><p>A small companion follows your cursor. Drawing is temporary. Neither mode captures your screen, listens, sends data, or clicks for you.</p><p role="status">{status}</p><div><button onClick={()=>void mode('follow')}>Follow cursor</button><button onClick={()=>void mode('draw')}>Draw on screen</button><button onClick={()=>void mode('off')}>Stop</button></div><small>On the screen containing the workspace. Stop or Escape clears drawing. Use screen sharing separately if you want JARVIS to read it.</small>{error&&<p role="alert">{error}</p>}</section>;
+}
