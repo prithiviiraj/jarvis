@@ -614,10 +614,10 @@ jobs:
           test "$GITHUB_REPOSITORY" = prithiviiraj/jarvis
           test "$GITHUB_REF" = refs/heads/jarvis-bigfoot-integration
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          printf '%s  %s\n' 'a662bf6cc2425123be6f255dea50a69d2ba54fb40d78cc6d98584c540e774eae' '1-JARVIS-latency-followup.patch' | sha256sum --check
+          printf '%s  %s\n' '435564c6babef598e4cc0774b0f3a870ef464ebf30064e058b4bab2cd7485923' '1-JARVIS-native-latency-followup.patch' | sha256sum --check
           git ls-files --error-unmatch src/jarvis/managed_session.py src/jarvis/model_probe.py modern-ui/managed-model-proof.py
-          git apply --check 1-JARVIS-latency-followup.patch
-          git apply --index 1-JARVIS-latency-followup.patch
+          git apply --check 1-JARVIS-native-latency-followup.patch
+          git apply --index 1-JARVIS-native-latency-followup.patch
           git diff --cached --name-only > /tmp/product-paths.txt
           python - <<'PY'
           import pathlib
