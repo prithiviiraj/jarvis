@@ -31,6 +31,8 @@ try:
  report['runtime_state']=runtime.snapshot();probe=ModelProbe(runtime);probe.start(True);probe.worker.join(70);report['probe']=probe.snapshot()
  if report['probe']['busy']:probe.stop();raise RuntimeError('Synthetic probe exceeded deadline')
  if any(report['probe'][kind]!='passed'for kind in ('text','image')):raise RuntimeError('Synthetic text/image probe did not pass')
+ from jarvis.model_latency import ModelLatency
+ report['latency']=ModelLatency(runtime).run(True,cancel)
  report['result']='passed'
 except Exception as error:
  report['result']='failed';report['error']=type(error).__name__+': '+str(error);raise
