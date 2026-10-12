@@ -118,6 +118,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Pinned MP3 encoder source build failed' }
           python package-native-diagnostic.py --verify-reuse
           if ($LASTEXITCODE -ne 0) { throw 'Cannot reuse changed product sources' }
+      - name: Install required Brave browser for real frozen navigation acceptance
+        shell: pwsh
+        run: |
+          choco install brave --version=1.88.134 --yes --no-progress --limit-output
+          if ($LASTEXITCODE -notin @(0, 3010)) { throw 'Brave installation failed' }
+          $env:PYTHONPATH='../src'
+          python -c "from jarvis.brave_path import find_brave; print('Verified Brave executable:', find_brave())"
+          if ($LASTEXITCODE -ne 0) { throw 'Required Brave executable not found' }
       - name: Match baseline installed Obsidian host prerequisite
         shell: pwsh
         run: |
