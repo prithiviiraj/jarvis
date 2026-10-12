@@ -2,6 +2,11 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      assemble_tested_source:
+        description: Apply hash-pinned tested product patches to integration source only, no builds or release
+        required: false
+        type: boolean
+        default: false
       managed_model_proof:
         description: Real pinned managed runtime synthetic diagnostic only, not shipping
         required: false
@@ -55,7 +60,7 @@ jobs:
         run: |
           printf 'Accepted ref: %s\nAccepted SHA: %s\nAccepted inputs: %s\n' "$ACCEPTED_REF" "$ACCEPTED_SHA" "$ACCEPTED_INPUTS" | tee -a "$GITHUB_STEP_SUMMARY"
   native-iteration:
-    if: ${{ inputs.native_only && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
+    if: ${{ inputs.native_only && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 25
     defaults:
@@ -128,6 +133,7 @@ jobs:
           $env:JARVIS_UI_EXE = (Resolve-Path 'native-diagnostic/JARVIS.exe').Path
           $env:JARVIS_DATA_DIR = Join-Path (Get-Location) 'ui-evidence/native-isolated-data'
           $env:PYTHONPATH = ''
+          $env:JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC = '1'
           python native-smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Actual Windows native iteration failed' }
       - name: Preserve diagnostic core for fast fixture-only reruns
@@ -148,7 +154,7 @@ jobs:
           if-no-files-found: warn
   windows:
     needs: embedding-runtime
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 70
     defaults:
@@ -192,6 +198,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed' }
           npm install --no-save playwright@1.56.0
           npx playwright install chromium
+          node bigfoot-shell-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Faithful Bigfoot shell renderer failed' }
+          node bigfoot-model-session-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Managed session review renderer failed' }
+          node bigfoot-shortcut-preview.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Reviewed hold shortcut renderer failed' }
           node companion-smoke.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Bigfoot companion renderer failed' }
           $server = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1','--directory','dist' -PassThru
@@ -324,7 +336,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   actual-laya:
-    if: ${{ inputs.run_laya && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
+    if: ${{ inputs.run_laya && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -350,7 +362,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   xtts-runtime:
-    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
+    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 30
     env:
@@ -377,7 +389,7 @@ jobs:
           retention-days: 7
 
   windows-laya:
-    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft && !inputs.managed_model_proof }}
+    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -419,7 +431,7 @@ jobs:
           if-no-files-found: error
 
   embedding-runtime:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -440,7 +452,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   embedding-model:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -468,7 +480,7 @@ jobs:
           retention-days: 7
 
   stage-draft:
-    if: ${{ inputs.stage_tested_draft && !inputs.managed_model_proof }}
+    if: ${{ inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
     permissions:
       actions: read
       contents: write
@@ -517,7 +529,7 @@ jobs:
           jq -e '.isDraft==true and .isPrerelease==true and any(.assets[]; .name=="JARVIS-tested-build-a77b5bc.zip" and .size==1364917105)' staged.json
           cat staged.json
   managed-model-proof:
-    if: ${{ inputs.managed_model_proof && !inputs.stage_tested_draft }}
+    if: ${{ inputs.managed_model_proof && !inputs.stage_tested_draft && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -549,3 +561,49 @@ jobs:
           path: managed-proof-evidence
           retention-days: 7
           if-no-files-found: error
+  assemble-tested-source:
+    if: ${{ inputs.assemble_tested_source && !inputs.stage_tested_draft && !inputs.managed_model_proof && github.ref == 'refs/heads/jarvis-bigfoot-integration' }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: jarvis-bigfoot-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify scope and pinned product patches
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          test "$GITHUB_REPOSITORY" = prithiviiraj/jarvis
+          test "$GITHUB_REF" = refs/heads/jarvis-bigfoot-integration
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          printf '%s  %s\n' '9a17bb160aa019cdfa1da69beed860a0ef75e436a5987d42b899186f6b6f3f3e' '1-JARVIS-managed-foundations.patch' 'c363f5cebc0529a343607c5ac6ab380927ecfabc64ae325dc4dd74b6a0ead209' '1-JARVIS-session-followup-v2.patch' | sha256sum --check
+          git apply --check --exclude='.github/workflows/*' 1-JARVIS-managed-foundations.patch
+          git apply --index --exclude='.github/workflows/*' 1-JARVIS-managed-foundations.patch
+          git apply --check 1-JARVIS-session-followup-v2.patch
+          git apply --index 1-JARVIS-session-followup-v2.patch
+          git diff --cached --name-only > /tmp/product-paths.txt
+          python - <<'PY'
+          import pathlib
+          names=pathlib.Path('/tmp/product-paths.txt').read_text().splitlines()
+          allowed=('src/jarvis/','tests/','modern-ui/','third-party/bigfoot/')
+          assert names and all(n.startswith(allowed) for n in names), names
+          assert not any(n.startswith(('.github/','docs/')) or n.endswith(('.exe','.zip','.patch')) for n in names), names
+          PY
+      - name: Actual assembled backend regression
+        run: |
+          python -m pip install numpy==2.2.6 certifi==2026.7.22 tzdata==2025.2 Pillow==11.3.0
+          PYTHONPATH=src python -m unittest discover -s tests
+      - name: Commit only tested integration product source
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          test "$(git ls-remote origin refs/heads/jarvis-bigfoot-integration | cut -f1)" = "$EXPECTED_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Assemble tested managed-model and reviewed hold-audio product source'
+          git push origin HEAD:refs/heads/jarvis-bigfoot-integration
