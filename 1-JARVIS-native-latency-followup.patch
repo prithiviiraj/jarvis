@@ -1,0 +1,185 @@
+diff --git a/modern-ui/bigfoot-native-smoke.py b/modern-ui/bigfoot-native-smoke.py
+index 28c0e31..c0f5e95 100644
+--- a/modern-ui/bigfoot-native-smoke.py
++++ b/modern-ui/bigfoot-native-smoke.py
+@@ -1,12 +1,15 @@
+ """Actual copied-shell Windows UIA diagnostic. No model/download/mic/control starts."""
+-import os,pathlib,subprocess,time,json,importlib.util
++import os,pathlib,subprocess,time,json,importlib.util,sys,io,ctypes
++if "--owned-target" in sys.argv:
++ import tkinter as tk
++ root=tk.Tk();root.title("JARVIS owned foreground capture target");root.geometry("800x450+40+40");root.configure(bg="#144c9d");root.mainloop();sys.exit(0)
+ from pywinauto import Desktop,mouse
+ from PIL import ImageGrab
+ spec=importlib.util.spec_from_file_location('native_input',pathlib.Path(__file__).with_name('native-input.py'));helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
+ if os.name!='nt':raise RuntimeError('Actual copied-shell diagnostic requires Windows')
+ exe=pathlib.Path(os.environ['JARVIS_UI_EXE']).resolve();out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True)
+ env=dict(os.environ,JARVIS_BIGFOOT_DIAGNOSTIC='1',JARVIS_DATA_DIR=str((out/'bigfoot-native-isolated-data').resolve()))
+-child=subprocess.Popen([str(exe)],env=env);checks=[]
++child=subprocess.Popen([str(exe)],env=env);checks=[];target_child=None
+ try:
+  window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview',process=child.pid);window.wait('visible',timeout=30)
+  def button(name):
+@@ -23,9 +26,29 @@ try:
+  # Inspect existing local controls only. Never click model/speech downloads or capture.
+  visible_text('Speech input');visible_text('Automatic (multilingual)');visible_text('Test Microphone')
+  for size in ((800,600),(1024,768)):
+-  window.move_window(width=size[0],height=size[1]);time.sleep(.4);ImageGrab.grab().save(out/('native-bigfoot-'+str(size[0])+'.png'));checks.append('native resized '+str(size))
+- (out/'native-bigfoot-report.json').write_text(json.dumps({'checks':checks,'scope':'Actual Windows WebView/UIA pixels and navigation only. No model, microphone, audio, desktop task or owner-hardware proof.'},indent=2))
++  helper.resize(window,size[0],size[1]);time.sleep(.4);ImageGrab.grab().save(out/('native-bigfoot-'+str(size[0])+'.png'));checks.append('native resized '+str(size))
++ # JARVIS itself may be minimized while a different selected target stays foreground.
++ sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'src'))
++ from jarvis.game_companion import windows,capture
++ from PIL import Image
++ target_child=subprocess.Popen([sys.executable,str(pathlib.Path(__file__).resolve()),'--owned-target'])
++ target_window=Desktop(backend='uia').window(title='JARVIS owned foreground capture target',process=target_child.pid);target_window.wait('visible',timeout=15)
++ helper.minimize(window)
++ target_window.wrapper_object().set_focus()
++ target=next(x for x in windows()if x['title']=='JARVIS owned foreground capture target');raw=None;deadline=time.monotonic()+10
++ while raw is None and time.monotonic()<deadline:
++  target_window.wrapper_object().set_focus();raw=capture(target)
++  if raw is None:time.sleep(.1)
++ assert raw,'Foreground target capture failed with actual JARVIS minimized'
++ frame=Image.open(io.BytesIO(raw));frame.save(out/'native-bigfoot-minimized-target-frame.png');center=frame.convert('RGB').getpixel((frame.width//2,frame.height//2));assert max(abs(x-y)for x,y in zip(center,(20,76,157)))<10,'Wrong target pixels with JARVIS minimized'
++ ImageGrab.grab().save(out/'native-bigfoot-minimized-target-desktop.png');checks.append('actual copied JARVIS minimized while selected foreground owned blue target captured exact pixels')
++ helper.minimize(target_window);assert capture(target)is None,'Minimized TARGET should still be rejected';checks.append('minimized TARGET rejected separately from minimized JARVIS')
++ (out/'native-bigfoot-report.json').write_text(json.dumps({'checks':checks,'scope':'Actual Windows WebView/UIA pixels and navigation only. Includes actual minimized JARVIS plus selected synthetic foreground target pixels. No model, microphone, audio, live video understanding, desktop task or owner-hardware proof.'},indent=2))
+ finally:
++ if target_child:
++  subprocess.run(['taskkill','/PID',str(target_child.pid),'/T','/F'],check=False,capture_output=True,timeout=10)
++  try:target_child.wait(timeout=5)
++  except subprocess.TimeoutExpired:target_child.kill();target_child.wait(timeout=5)
+  subprocess.run(['taskkill','/PID',str(child.pid),'/T','/F'],check=False,capture_output=True,timeout=10)
+  try:child.wait(timeout=10)
+  except subprocess.TimeoutExpired:child.kill();child.wait(timeout=5)
+diff --git a/modern-ui/desktop-native-proof.py b/modern-ui/desktop-native-proof.py
+index cbfdf35..637e003 100644
+--- a/modern-ui/desktop-native-proof.py
++++ b/modern-ui/desktop-native-proof.py
+@@ -1,7 +1,7 @@
+ """Actual Windows selected-window literal editing in an owned disposable Tk app.
+ No user app, file opening, shell submission, network, microphone or model effects.
+ """
+-import os,sys,pathlib,json,subprocess,time
++import os,sys,pathlib,json,subprocess,time,importlib.util
+ if os.name!='nt':raise RuntimeError('Requires actual Windows input boundary')
+ out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True)
+ record=(out/'desktop-owned-app-readback.json').resolve()
+@@ -16,6 +16,7 @@ sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'src'))
+ from jarvis.desktop_controller import DesktopController
+ from pywinauto import Desktop
+ from PIL import ImageGrab
++spec=importlib.util.spec_from_file_location('native_input',pathlib.Path(__file__).with_name('native-input.py'));helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
+ record.unlink(missing_ok=True)
+ child=subprocess.Popen([sys.executable,str(pathlib.Path(__file__).resolve()),'--owned-app'])
+ controller=DesktopController();checks=[]
+@@ -45,7 +46,7 @@ try:
+  else:raise AssertionError('Cancelled review accepted')
+  assert text()=='Owned ^+%{} literal text';checks.append('cancelled review produced no input')
+  reviewed=controller.prepare(target,[{'action':'type','text':'SHOULD NOT TYPE'}],'Stale geometry rejection only')
+- window.move_window(width=800,height=480)
++ helper.resize(window,800,480)
+  controller.run(reviewed,True,True).join(timeout=15)
+  assert controller.snapshot()['task']['state']=='blocked';assert text()=='Owned ^+%{} literal text';checks.append('changed actual window blocked next input')
+  ImageGrab.grab().save(out/'desktop-owned-app-native.png')
+diff --git a/modern-ui/managed-model-proof.py b/modern-ui/managed-model-proof.py
+index 856b65a..865d935 100644
+--- a/modern-ui/managed-model-proof.py
++++ b/modern-ui/managed-model-proof.py
+@@ -7,7 +7,7 @@ from jarvis.managed_runtime import ManagedRuntime
+ from jarvis.model_probe import ModelProbe
+ root=pathlib.Path('managed-proof-data').resolve();evidence=pathlib.Path('managed-proof-evidence');evidence.mkdir(exist_ok=True)
+ report={'scope':'Real Windows pinned llama.cpp/Qwen4B synthetic text/image diagnostic. Not owner GPU/mic/desktop/control/concurrency acceptance.','started':time.time(),'hardware':detect_hardware(root),'runtime':CATALOG['runtime'],'model':CATALOG['models'][0],'result':'not completed'}
+-runtime=None;runtime_log=None;runtime_token=None
++runtime=None;runtime_log=None;runtime_token=None;runtime_token_2=None
+ try:
+  if os.name!='nt':raise RuntimeError('Actual Windows runtime proof requires Windows')
+  cancel=threading.Event();model=CATALOG['models'][0];archive=root/'downloads'/CATALOG['runtime']['name'];dest=root/'runtime'/CATALOG['runtime']['tag']
+@@ -33,11 +33,28 @@ try:
+  if any(report['probe'][kind]!='passed'for kind in ('text','image')):raise RuntimeError('Synthetic text/image probe did not pass')
+  from jarvis.model_latency import ModelLatency
+  report['latency']=ModelLatency(runtime).run(True,cancel)
++ report['latency_profiles']={'baseline_8192':report['latency']}
++ # Compare a bounded alternate context with identical images/prompts/output limits.
++ # This changes only diagnostic process args, not product defaults.
++ runtime.stop();report['baseline_stop_state']=runtime.snapshot()
++ from jarvis.latency_profiles import DiagnosticProfile
++ runtime=ManagedRuntime(root,spawn=DiagnosticProfile(4096),log=runtime_log);runtime.start(model['id'],True);runtime_token_2=runtime.endpoint['key'];deadline=time.monotonic()+300
++ while time.monotonic()<deadline:
++  state=runtime.check()
++  if state['state']=='loaded':break
++  if state['state']=='failed':raise RuntimeError(state['error'])
++  time.sleep(1)
++ else:raise RuntimeError('Comparison profile did not load in five minutes')
++ report['latency_profiles']['diagnostic_4096']=ModelLatency(runtime).run(True,cancel)
++ report['profile_scope']='Only context size differs. Short synthetic quality has not been graded; do not select a product profile from speed alone. CPU CI is not 6GB owner laptop.'
+  report['result']='passed'
+ except Exception as error:
+  report['result']='failed';report['error']=type(error).__name__+': '+str(error);raise
+ finally:
+  if runtime:runtime.stop();report['stop_state']=runtime.snapshot()
+  if runtime_log:
+-  runtime_log.close();log_path=evidence/'owned-runtime.log';raw=log_path.read_text(encoding='utf-8',errors='replace');log_path.write_text(raw.replace(runtime_token,'[owned runtime token removed]')if runtime_token else raw,encoding='utf-8')
++  runtime_log.close();log_path=evidence/'owned-runtime.log';raw=log_path.read_text(encoding='utf-8',errors='replace')
++  if runtime_token:raw=raw.replace(runtime_token,'[owned runtime token removed]')
++  if runtime_token_2:raw=raw.replace(runtime_token_2,'[owned runtime token removed]')
++  log_path.write_text(raw,encoding='utf-8')
+  report['finished']=time.time();(evidence/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+diff --git a/modern-ui/native-input.py b/modern-ui/native-input.py
+index 3bb4968..f1404e2 100644
+--- a/modern-ui/native-input.py
++++ b/modern-ui/native-input.py
+@@ -7,3 +7,17 @@ def activate(control):
+   # Other failures must remain visible instead of silently changing input route.
+   if type(error).__name__!='NoPatternInterfaceError':raise
+   wrapper.click_input()
++
++def resize(control,width,height):
++ import ctypes
++ from ctypes import wintypes
++ u=ctypes.windll.user32;u.SetWindowPos.argtypes=[wintypes.HWND,wintypes.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,wintypes.UINT]
++ hwnd=control.wrapper_object().handle
++ if not u.SetWindowPos(hwnd,None,0,0,width,height,0x0002|0x0004):raise ctypes.WinError()
++
++def minimize(control):
++ import ctypes
++ from ctypes import wintypes
++ u=ctypes.windll.user32;u.ShowWindow.argtypes=[wintypes.HWND,ctypes.c_int];u.IsIconic.argtypes=[wintypes.HWND]
++ hwnd=control.wrapper_object().handle;u.ShowWindow(hwnd,6)
++ if not u.IsIconic(hwnd):raise AssertionError('Actual window did not minimize')
+diff --git a/src/jarvis/latency_profiles.py b/src/jarvis/latency_profiles.py
+new file mode 100644
+index 0000000..a578916
+--- /dev/null
++++ b/src/jarvis/latency_profiles.py
+@@ -0,0 +1,11 @@
++"""Diagnostic-only startup comparisons. Never select a shipping profile here."""
++import subprocess
++class DiagnosticProfile:
++ def __init__(self,context,spawn=None):
++  if context not in (4096,8192):raise ValueError('Only bounded diagnostic context sizes')
++  self.context=context;self.spawn=spawn or subprocess.Popen
++ def __call__(self,args,**kwargs):
++  args=list(args)
++  if args.count('--ctx-size')!=1 or args.count('--api-key')!=1:raise ValueError('Unexpected owned runtime argument contract')
++  args[args.index('--ctx-size')+1]=str(self.context)
++  return self.spawn(args,**kwargs)
+diff --git a/tests/test_latency_profiles.py b/tests/test_latency_profiles.py
+new file mode 100644
+index 0000000..5632edc
+--- /dev/null
++++ b/tests/test_latency_profiles.py
+@@ -0,0 +1,13 @@
++import unittest
++from unittest.mock import Mock
++from jarvis.latency_profiles import DiagnosticProfile
++class Tests(unittest.TestCase):
++ def test_only_context_changes_no_shipping_default(self):
++  original=['llama-server.exe','--ctx-size','8192','--api-key','fixture','--host','127.0.0.1','--mmproj','fixture.gguf'];spawn=Mock();profile=DiagnosticProfile(4096,spawn);profile(original,cwd='fixture');new=spawn.call_args.args[0]
++  self.assertEqual(original[2],'8192');self.assertEqual(new,original[:2]+['4096']+original[3:]);self.assertEqual(spawn.call_args.kwargs,{'cwd':'fixture'})
++ def test_unknown_profile_rejected(self):
++  with self.assertRaises(ValueError):DiagnosticProfile(2048)
++ def test_missing_contract_does_not_spawn(self):
++  spawn=Mock()
++  with self.assertRaises(ValueError):DiagnosticProfile(4096,spawn)(['fixture'])
++  spawn.assert_not_called()
