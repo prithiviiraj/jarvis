@@ -73,12 +73,17 @@ checks=[];window=None
 def drawer_control(main,title):
  """Scroll the actual More drawer until the requested control is in its viewport."""
  drawer=main.child_window(title='More options',control_type='Window');drawer.wait('visible',timeout=10)
- control=drawer.child_window(title=title,control_type='Button');control.wait('exists enabled',timeout=10)
+ control=drawer.child_window(title=title,control_type='Button',visible_only=False)
  for _ in range(15):
-  bounds=drawer.rectangle();rect=control.rectangle()
-  if bounds.top<=rect.top and rect.bottom<=bounds.bottom and bounds.left<=rect.left and rect.right<=bounds.right:
-   return control
-  mouse.scroll(coords=(bounds.right-25,(bounds.top+bounds.bottom)//2),wheel_dist=-2 if rect.bottom>bounds.bottom else 2);time.sleep(.2)
+  bounds=drawer.rectangle()
+  try:
+   rect=control.rectangle()
+   if control.exists() and bounds.top<=rect.top and rect.bottom<=bounds.bottom and bounds.left<=rect.left and rect.right<=bounds.right:
+    control.wait('enabled',timeout=2);return control
+  except Exception:pass
+  # Offscreen WebView children can be present in the full tree yet unavailable
+  # to a target lookup. Scroll the visible drawer first, then resolve again.
+  mouse.scroll(coords=(bounds.right-25,(bounds.top+bounds.bottom)//2),wheel_dist=-2);time.sleep(.25)
  raise RuntimeError('More drawer control remains clipped: '+title)
 def navigation(main,name):
  """Follow the real simplified product controls, not hidden/removed navigation."""
