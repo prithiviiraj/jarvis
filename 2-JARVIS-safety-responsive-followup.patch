@@ -1,0 +1,706 @@
+diff --git a/modern-ui/bigfoot-live-voice-preview.mjs b/modern-ui/bigfoot-live-voice-preview.mjs
+new file mode 100644
+index 0000000..377cb2e
+--- /dev/null
++++ b/modern-ui/bigfoot-live-voice-preview.mjs
+@@ -0,0 +1,10 @@
++import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';import assert from'node:assert/strict';const b=await chromium.launch();const p=await b.newPage({viewport:{width:1024,height:768}});let errors=[];p.on('pageerror',e=>errors.push(String(e)));await p.route('http://jarvis.fixture/**',r=>{const f=path.join('dist',new URL(r.request().url()).pathname);if(!fs.existsSync(f))return r.fulfill({status:404,body:''});return r.fulfill({body:fs.readFileSync(f),contentType:f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':f.endsWith('.svg')?'image/svg+xml':f.endsWith('.png')?'image/png':f.endsWith('.woff2')?'font/woff2':'text/html'})});await p.addInitScript(()=>{window.calls=[];window.fixtureModels=null;window.fixtureVoice=false;window.__TAURI_INTERNALS__={invoke:async(n,a)=>{window.calls.push({n,a});if(a?.request?.command==='models-inspect')window.fixtureModels={hardware:{gpu:'Fixture RTX 3060',ram_gb:16,vram_gb:6,free_disk_gb:100,error:''},recommendations:{options:[{id:'qwen3-vl-4b',label:'Qwen3-VL 4B',note:'Recommended',bytes:2984351853,recommended:true,available:true},{id:'qwen3-vl-8b',label:'Qwen3-VL 8B',note:'Higher quality, slower',bytes:5813170413,available:true}]},status:'Hardware checked',installed:[]};if(a?.request?.command==='voice-on')window.fixtureVoice=true;if(a?.request?.command==='voice-off')window.fixtureVoice=false;if(n==='bridge')return{ok:true,data:{managed_models:window.fixtureModels,messages:[],busy:false,voice_active:window.fixtureVoice,brains:{live:{state:'loaded',models:[{id:'fixture'}]},checks:{}}}}}}});await p.goto('http://jarvis.fixture/bigfoot-ui/jarvis.html');await p.getByRole('button',{name:'Voice',exact:true}).click();
++assert(!(await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='voice-on'));
++p.once('dialog',d=>d.dismiss());await p.locator('#speak').click();
++assert(!(await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='voice-on'));
++p.once('dialog',d=>d.accept());await p.locator('#speak').click();await p.waitForFunction(()=>window.fixtureVoice);
++assert.deepEqual((await p.evaluate(()=>window.calls)).find(x=>x.a?.request?.command==='voice-on').a.request,{command:'voice-on',consent:true});
++assert(await p.getByRole('button',{name:'Test Microphone',exact:true}).isDisabled());assert(await p.getByRole('button',{name:'Review speech download',exact:true}).isDisabled());assert(await p.getByRole('combobox',{name:'Speech input language'}).isDisabled());
++await p.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));await p.screenshot({path:'ui-evidence/bigfoot-live-voice-fixture.png'});
++await p.locator('#speak').click();await p.waitForFunction(()=>!window.fixtureVoice);assert((await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='voice-off'));assert.deepEqual(errors,[]);
++await b.close();console.log('Live microphone review/Cancel/start/Stop fixture passed; not actual microphone or audible concurrency proof.');
+diff --git a/modern-ui/bigfoot-microphone-preview.mjs b/modern-ui/bigfoot-microphone-preview.mjs
+new file mode 100644
+index 0000000..f0b19e1
+--- /dev/null
++++ b/modern-ui/bigfoot-microphone-preview.mjs
+@@ -0,0 +1,15 @@
++import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';import assert from'node:assert/strict';const b=await chromium.launch();const p=await b.newPage({viewport:{width:1024,height:768}});let errors=[];p.on('pageerror',e=>errors.push(String(e)));await p.route('http://jarvis.fixture/**',r=>{const f=path.join('dist',new URL(r.request().url()).pathname);if(!fs.existsSync(f))return r.fulfill({status:404,body:''});return r.fulfill({body:fs.readFileSync(f),contentType:f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':f.endsWith('.svg')?'image/svg+xml':f.endsWith('.png')?'image/png':f.endsWith('.woff2')?'font/woff2':'text/html'})});await p.addInitScript(()=>{window.calls=[];window.fixtureModels=null;window.fixtureMic={busy:false,status:'Not tested'};window.__TAURI_INTERNALS__={invoke:async(n,a)=>{window.calls.push({n,a});if(a?.request?.command==='models-inspect')window.fixtureModels={hardware:{gpu:'Fixture RTX 3060',ram_gb:16,vram_gb:6,free_disk_gb:100,error:''},recommendations:{options:[{id:'qwen3-vl-4b',label:'Qwen3-VL 4B',note:'Recommended',bytes:2984351853,recommended:true,available:true},{id:'qwen3-vl-8b',label:'Qwen3-VL 8B',note:'Higher quality, slower',bytes:5813170413,available:true}]},status:'Hardware checked',installed:[]};if(a?.request?.command==='microphone-test-start')window.fixtureMic={busy:true,level:.5,status:'Testing microphone for five seconds',scope:'Fixture callback only, not actual device proof'};if(a?.request?.command==='microphone-test-stop')window.fixtureMic={busy:false,status:'Stopped',scope:'Five-second local level test. No audio saved, transcription or cloud upload.'};if(n==='bridge')return{ok:true,data:{microphone_test:window.fixtureMic,managed_models:window.fixtureModels,messages:[],busy:false,voice_active:false,brains:{live:{state:'loaded',models:[{id:'fixture'}]},checks:{}}}}}}});await p.goto('http://jarvis.fixture/bigfoot-ui/jarvis.html');await p.locator('[data-pane=voice]').waitFor({state:'visible'});
++assert(!(await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='microphone-test-start'));
++p.once('dialog',d=>d.dismiss());await p.getByRole('button',{name:'Test Microphone',exact:true}).click();
++assert(!(await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='microphone-test-start'));
++p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Test Microphone',exact:true}).click();
++await p.waitForFunction(()=>window.calls.some(x=>x.a?.request?.command==='microphone-test-start'));
++assert.equal(await p.getByRole('meter',{name:'Local microphone level'}).getAttribute('aria-valuenow'),'50');assert.equal(await p.locator('#mic-meter i.on').count(),6);await p.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));await p.screenshot({path:'ui-evidence/bigfoot-microphone-level-fixture.png'});
++await p.getByRole('button',{name:'Stop test',exact:true}).click();
++await p.getByRole('button',{name:'Test Microphone',exact:true}).waitFor();assert.equal(await p.locator('#mic-meter i.on').count(),0);
++await p.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))));
++await p.screenshot({path:'ui-evidence/bigfoot-first-open-microphone-fixture.png'});
++assert.equal((await p.evaluate(()=>window.calls)).filter(x=>x.a?.request?.command==='microphone-test-start').length,1);
++await p.reload();await p.locator('[data-pane=home]').waitFor({state:'visible'});
++assert.equal((await p.evaluate(()=>window.calls)).filter(x=>x.a?.request?.command==='microphone-test-start').length,0);
++assert.deepEqual(errors,[]);await b.close();console.log('First-open mic offer, cancellation, explicit start/Stop and reopening passed with transport fixture. No actual native/device proof.');
+diff --git a/modern-ui/bigfoot-native-smoke.py b/modern-ui/bigfoot-native-smoke.py
+new file mode 100644
+index 0000000..28c0e31
+--- /dev/null
++++ b/modern-ui/bigfoot-native-smoke.py
+@@ -0,0 +1,31 @@
++"""Actual copied-shell Windows UIA diagnostic. No model/download/mic/control starts."""
++import os,pathlib,subprocess,time,json,importlib.util
++from pywinauto import Desktop,mouse
++from PIL import ImageGrab
++spec=importlib.util.spec_from_file_location('native_input',pathlib.Path(__file__).with_name('native-input.py'));helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
++if os.name!='nt':raise RuntimeError('Actual copied-shell diagnostic requires Windows')
++exe=pathlib.Path(os.environ['JARVIS_UI_EXE']).resolve();out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True)
++env=dict(os.environ,JARVIS_BIGFOOT_DIAGNOSTIC='1',JARVIS_DATA_DIR=str((out/'bigfoot-native-isolated-data').resolve()))
++child=subprocess.Popen([str(exe)],env=env);checks=[]
++try:
++ window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview',process=child.pid);window.wait('visible',timeout=30)
++ def button(name):
++  control=window.child_window(title=name,control_type='Button',visible_only=True);control.wait('exists enabled',timeout=15);return control
++ def visible_text(text):
++  deadline=time.monotonic()+15
++  while time.monotonic()<deadline:
++   if any(text in c.window_text()for c in window.descendants()):return
++   time.sleep(.2)
++  raise AssertionError('Copied native text absent: '+text)
++ visible_text('Voice');visible_text('Local speech assets');checks.append('actual first-open Voice offer')
++ for name in ('Models','JARVIS','General','Voice'):
++  helper.activate(button(name));time.sleep(.3);ImageGrab.grab().save(out/('native-bigfoot-'+name.lower()+'.png'));checks.append('actual native '+name+' navigation')
++ # Inspect existing local controls only. Never click model/speech downloads or capture.
++ visible_text('Speech input');visible_text('Automatic (multilingual)');visible_text('Test Microphone')
++ for size in ((800,600),(1024,768)):
++  window.move_window(width=size[0],height=size[1]);time.sleep(.4);ImageGrab.grab().save(out/('native-bigfoot-'+str(size[0])+'.png'));checks.append('native resized '+str(size))
++ (out/'native-bigfoot-report.json').write_text(json.dumps({'checks':checks,'scope':'Actual Windows WebView/UIA pixels and navigation only. No model, microphone, audio, desktop task or owner-hardware proof.'},indent=2))
++finally:
++ subprocess.run(['taskkill','/PID',str(child.pid),'/T','/F'],check=False,capture_output=True,timeout=10)
++ try:child.wait(timeout=10)
++ except subprocess.TimeoutExpired:child.kill();child.wait(timeout=5)
+diff --git a/modern-ui/bigfoot-responsive-preview.mjs b/modern-ui/bigfoot-responsive-preview.mjs
+new file mode 100644
+index 0000000..93d4d9a
+--- /dev/null
++++ b/modern-ui/bigfoot-responsive-preview.mjs
+@@ -0,0 +1,14 @@
++import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';import assert from'node:assert/strict';const b=await chromium.launch();const p=await b.newPage({viewport:{width:1024,height:768}});let errors=[];p.on('pageerror',e=>errors.push(String(e)));await p.route('http://jarvis.fixture/**',r=>{const f=path.join('dist',new URL(r.request().url()).pathname);if(!fs.existsSync(f))return r.fulfill({status:404,body:''});return r.fulfill({body:fs.readFileSync(f),contentType:f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':f.endsWith('.svg')?'image/svg+xml':f.endsWith('.png')?'image/png':f.endsWith('.woff2')?'font/woff2':'text/html'})});await p.addInitScript(()=>{window.calls=[];window.fixtureModels=null;window.__TAURI_INTERNALS__={invoke:async(n,a)=>{window.calls.push({n,a});if(a?.request?.command==='models-inspect')window.fixtureModels={hardware:{gpu:'Fixture RTX 3060',ram_gb:16,vram_gb:6,free_disk_gb:100,error:''},recommendations:{options:[{id:'qwen3-vl-4b',label:'Qwen3-VL 4B',note:'Recommended',bytes:2984351853,recommended:true,available:true},{id:'qwen3-vl-8b',label:'Qwen3-VL 8B',note:'Higher quality, slower',bytes:5813170413,available:true}]},status:'Hardware checked',installed:[]};if(n==='bridge')return{ok:true,data:{managed_models:window.fixtureModels,messages:[],busy:false,voice_active:false,brains:{live:{state:'loaded',models:[{id:'fixture'}]},checks:{}}}}}}});await p.goto('http://jarvis.fixture/bigfoot-ui/jarvis.html');for(const size of [{width:640,height:600},{width:800,height:600},{width:1366,height:768}]){
++ await p.setViewportSize(size);
++ for(const name of ['account','voice','general','home']){
++  await p.getByRole('button',{name:{account:'Models',voice:'Voice',general:'General',home:'Home'}[name],exact:true}).click();
++  if(name==='account')await p.getByRole('button',{name:'Check',exact:true}).click();
++  await p.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
++  assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Document overflow '+JSON.stringify({size,name}));
++  assert(await p.evaluate(()=>{const pane=document.getElementById('pane');return pane.scrollWidth<=pane.clientWidth+1}),'Pane overflow '+JSON.stringify({size,name}));
++  await p.screenshot({path:'ui-evidence/bigfoot-responsive-'+size.width+'-'+name+'.png'});
++  if(name==='voice'){await p.locator('#mic-test').scrollIntoViewIfNeeded();await p.screenshot({path:'ui-evidence/bigfoot-responsive-'+size.width+'-microphone.png'});assert(await p.locator('#mic-test').isVisible())}
++ }
++}
++assert.deepEqual(errors,[]);
++await b.close();console.log('Copied-shell640/800/1366 panes fit without horizontal overflow; fixture pixels need inspection, not native proof.');
+diff --git a/modern-ui/bigfoot-speech-setup-preview.mjs b/modern-ui/bigfoot-speech-setup-preview.mjs
+new file mode 100644
+index 0000000..73e7470
+--- /dev/null
++++ b/modern-ui/bigfoot-speech-setup-preview.mjs
+@@ -0,0 +1,14 @@
++import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';import assert from'node:assert/strict';const b=await chromium.launch();const p=await b.newPage({viewport:{width:1024,height:768}});let errors=[];p.on('pageerror',e=>errors.push(String(e)));await p.route('http://jarvis.fixture/**',r=>{const f=path.join('dist',new URL(r.request().url()).pathname);if(!fs.existsSync(f))return r.fulfill({status:404,body:''});return r.fulfill({body:fs.readFileSync(f),contentType:f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':f.endsWith('.svg')?'image/svg+xml':f.endsWith('.png')?'image/png':f.endsWith('.woff2')?'font/woff2':'text/html'})});await p.addInitScript(()=>{window.calls=[];window.fixtureModels=null;window.fixtureLanguage='auto';window.fixtureSpeech={busy:false,ready:false,status:'Not checked'};window.fixtureMic={busy:false,status:'Not tested'};window.__TAURI_INTERNALS__={invoke:async(n,a)=>{window.calls.push({n,a});if(a?.request?.command==='models-inspect')window.fixtureModels={hardware:{gpu:'Fixture RTX 3060',ram_gb:16,vram_gb:6,free_disk_gb:100,error:''},recommendations:{options:[{id:'qwen3-vl-4b',label:'Qwen3-VL 4B',note:'Recommended',bytes:2984351853,recommended:true,available:true},{id:'qwen3-vl-8b',label:'Qwen3-VL 8B',note:'Higher quality, slower',bytes:5813170413,available:true}]},status:'Hardware checked',installed:[]};if(a?.request?.command==='microphone-test-start')window.fixtureMic={busy:true,level:.5,status:'Testing microphone for five seconds',scope:'Fixture callback only, not actual device proof'};if(a?.request?.command==='microphone-test-stop')window.fixtureMic={busy:false,status:'Stopped',scope:'Five-second local level test. No audio saved, transcription or cloud upload.'};if(a?.request?.command==='voice-check')window.fixtureSpeech={busy:false,ready:false,checked:true,status:'Kokoro or shared speech assets missing'};if(a?.request?.command==='voice-setup')window.fixtureSpeech={busy:true,ready:false,status:'Downloading pinned speech assets'};if(a?.request?.command==='voice-cancel')window.fixtureSpeech={busy:false,ready:false,status:'Setup stopped; existing models preserved'};if(a?.request?.command==='voice-input-language')window.fixtureLanguage=a.request.language;if(n==='bridge')return{ok:true,data:{input_language:window.fixtureLanguage,voice_setup:window.fixtureSpeech,microphone_test:window.fixtureMic,managed_models:window.fixtureModels,messages:[],busy:false,voice_active:false,brains:{live:{state:'loaded',models:[{id:'fixture'}]},checks:{}}}}}}});await p.goto('http://jarvis.fixture/bigfoot-ui/jarvis.html');await p.getByRole('button',{name:'Voice',exact:true}).click();
++assert(!(await p.evaluate(()=>window.calls)).some(x=>['voice-setup','voice-on'].includes(x.a?.request?.command)));
++assert.equal(await p.getByRole('combobox',{name:'Speech input language'}).inputValue(),'auto');await p.getByRole('combobox',{name:'Speech input language'}).selectOption('ta');await p.waitForFunction(()=>window.fixtureLanguage==='ta');assert.equal(await p.getByRole('combobox',{name:'Speech input language'}).inputValue(),'ta');
++await p.getByRole('button',{name:'Check speech',exact:true}).click();await p.getByText('Kokoro or shared speech assets missing',{exact:false}).waitFor();
++p.once('dialog',d=>d.dismiss());await p.getByRole('button',{name:'Review speech download',exact:true}).click();
++assert(!(await p.evaluate(()=>window.calls)).some(x=>x.a?.request?.command==='voice-setup'));
++p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Review speech download',exact:true}).click();
++await p.getByRole('button',{name:'Stop speech setup',exact:true}).waitFor();
++assert.deepEqual((await p.evaluate(()=>window.calls)).find(x=>x.a?.request?.command==='voice-setup').a.request,{command:'voice-setup',consent:true,reviewed_engine:'kokoro'});
++await p.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
++await p.screenshot({path:'ui-evidence/bigfoot-speech-setup-fixture.png'});
++await p.getByRole('button',{name:'Stop speech setup',exact:true}).click();await p.getByRole('button',{name:'Check speech',exact:true}).waitFor();
++assert(!(await p.evaluate(()=>window.calls)).some(x=>['voice-on','microphone-test-start','shortcuts-enable'].includes(x.a?.request?.command)));
++assert.deepEqual(errors,[]);await b.close();console.log('Explicit speech Check/Cancel/download review/Stop fixture passed with no hidden capture or voice start; not actual asset/device proof.');
+diff --git a/modern-ui/public/bigfoot-ui/jarvis-adapter.js b/modern-ui/public/bigfoot-ui/jarvis-adapter.js
+index 51e164c..67e6cad 100644
+--- a/modern-ui/public/bigfoot-ui/jarvis-adapter.js
++++ b/modern-ui/public/bigfoot-ui/jarvis-adapter.js
+@@ -2,21 +2,23 @@
+ // JARVIS-specific adapter for faithfully copied Bigfoot geometry/style.
+ // Preview only until native and full regression acceptance. No upstream effect bridge.
+ (()=>{
+- const $=id=>document.getElementById(id),listeners=[];let state=null,inFlight=false,section='home',seen='',modelsStamp='';
++ const $=id=>document.getElementById(id),listeners=[];let state=null,inFlight=false,section='home',seen='',modelsStamp='',speechStamp='';
+  const native=(name,args={})=>window.__TAURI_INTERNALS__?.invoke?window.__TAURI_INTERNALS__.invoke(name,args):Promise.reject(Error('Open the native JARVIS app to connect'));
+  async function call(command,extra={}){const r=await native('bridge',{request:{command,...extra}});if(!r?.ok)throw Error(r?.error||'Core unavailable');state=r.data;render();return state}
+  function show(name){section=name;document.querySelectorAll('#nav button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.section===name)));document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==name);$('section-title').textContent=name==='assistant'?'JARVIS':{home:'Home',account:'Models',voice:'Voice',general:'General',terminal:'Terminal'}[name];$('pane').classList.toggle('fill',name==='home'||name==='terminal');$('pane').scrollTop=0}
+- document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.section));
++ document.querySelectorAll('#nav button').forEach(b=>{const name=b.textContent.trim();b.setAttribute('aria-label',name);b.title=name;b.onclick=()=>show(b.dataset.section)});
+  function status(id,text,kind=''){const e=$(id);e.className='status '+kind;e.querySelector('.text').textContent=text}
+  function hint(id,text){$(id).textContent=text}
+  function unavailable(id,text){const e=$(id);e.disabled=true;e.title=text;const row=e.closest('.row');if(row){let h=row.querySelector('.hint');if(!h){h=document.createElement('div');h.className='hint';row.querySelector('.label')?.append(h)}if(h)h.textContent=text}}
+  function error(text){window.jarvisSound?.('error');$('status-text').textContent=text;$('status').className='status bad'}
+- function render(){if(!state)return;$('hold-talk').checked=state.shortcuts?.enabled===true;const text=state.busy?'Working':state.voice_active?'Listening':state.brains?.checks?.['local-warmup']?.state==='ready'?'Ready':'Needs a test reply';$('status-text').textContent=text;$('status').className='status '+(state.voice_active?'busy':text==='Ready'?'ok':'');document.body.classList.toggle('running',state.busy===true);$('send').disabled=!state.busy&&!$('prompt').value.trim();$('speak').checked=state.voice_active===true;const mic=state.microphone_test;status('mic-status',mic?.status||'Not tested',mic?.frames?'ok':'');hint('mic-hint',mic?.error||`${mic?.scope||'Test not started'} Level: ${Math.round((mic?.level||0)*100)}%.`);$('mic-test').textContent=mic?.busy?'Stop test':'Test Microphone';$('mic-test').disabled=state.voice_active===true;
++ function render(){if(!state)return;$('hold-talk').checked=state.shortcuts?.enabled===true;const text=state.busy?'Working':state.voice_active?'Listening':state.brains?.checks?.['local-warmup']?.state==='ready'?'Ready':'Needs a test reply';$('status-text').textContent=text;$('status').className='status '+(state.voice_active?'busy':text==='Ready'?'ok':'');document.body.classList.toggle('running',state.busy===true);$('send').disabled=!state.busy&&!$('prompt').value.trim();$('speak').checked=state.voice_active===true;$('speak').disabled=!!state.voice_setup?.busy||state.microphone_test?.busy===true||state.busy===true&&!state.voice_active;const mic=state.microphone_test;status('mic-status',mic?.status||'Not tested',mic?.frames?'ok':'');hint('mic-hint',mic?.error||`${mic?.scope||'Test not started'} Level: ${Math.round((mic?.level||0)*100)}%.`);$('mic-test').textContent=mic?.busy?'Stop test':'Test Microphone';$('mic-test').disabled=state.voice_active===true;const level=Math.max(0,Math.min(1,Number(mic?.level)||0));$('mic-meter').setAttribute('aria-valuenow',String(Math.round(level*100)));$('mic-meter').querySelectorAll('i').forEach((bar,index)=>bar.classList.toggle('on',mic?.busy===true&&index<Math.ceil(level*12)));
+  const stamp=JSON.stringify(state.messages||[]);if(stamp!==seen){seen=stamp;$('log').querySelectorAll('.turn,.steps').forEach(e=>e.remove());$('empty').hidden=!!state.messages?.length;for(const t of state.messages||[]){const row=document.createElement('div');row.className='turn '+(t.name==='You'?'user':'assistant');const body=document.createElement('div');body.className='msg '+(t.name==='You'?'user':'assistant');body.textContent=(t.name==='You'?'':t.name+': ')+t.text;row.append(body);$('log').append(row)}$('log').scrollTop=$('log').scrollHeight}
+- const vault=state.obsidian;$('obsidian-note').textContent=vault?.enabled?`${vault.status} · ${vault.auto_sync?'Sync on while app runs':'Manual sync'} · ${vault.folder}`:'Not connected. Review the local vault in Computer tools. No note opens automatically.';renderModels();hint('active-model',state.managed_session?.active?state.managed_session.runtime.model:(state.brains?.live?.models?.[0]?.id||'No model loaded'));hint('active-note',state.managed_session?.active?'Owned managed model passed synthetic text/image tests. Real screen control and speed still need acceptance.':'No owned model route active. Existing connections preserved.');status('active-status',state.managed_session?.active?'Text and synthetic image tested':'Needs managed-model setup',state.managed_session?.active?'ok':'');}
++ const vault=state.obsidian;$('obsidian-note').textContent=vault?.enabled?`${vault.status} · ${vault.auto_sync?'Sync on while app runs':'Manual sync'} · ${vault.folder}`:'Not connected. Review the local vault in Computer tools. No note opens automatically.';$('input-language').value=state.input_language||'auto';$('input-language').disabled=state.voice_active===true||state.busy===true;renderModels();renderSpeech();hint('active-model',state.managed_session?.active?state.managed_session.runtime.model:(state.brains?.live?.models?.[0]?.id||'No model loaded'));hint('active-note',state.managed_session?.active?'Owned managed model passed synthetic text/image tests. Real screen control and speed still need acceptance.':'No owned model route active. Existing connections preserved.');status('active-status',state.managed_session?.active?'Text and synthetic image tested':'Needs managed-model setup',state.managed_session?.active?'ok':'');}
+  document.querySelectorAll('[data-pane="assistant"] .row').forEach(row=>{const label=row.querySelector('.label');if(label&&['Say its name','Point at something while talking'].includes(label.textContent.trim())){const h=document.createElement('div');h.className='hint';h.textContent='Not available yet. No automatic microphone or screen capture.';label.append(h)}});$('hold-talk').onchange=e=>{if(e.target.checked){if(!confirm('Enable global Ctrl+Alt hold-to-talk and Shift+Alt interruption for this app session? Speech assets must be installed. Microphone opens only while Ctrl+Alt is held, maximum twenty seconds; release transcribes locally. No audio file or online upload. Keys can conflict with other apps.')){e.target.checked=false;return}call('shortcuts-enable',{consent:true}).catch(x=>{e.target.checked=false;error(String(x))})}else call('shortcuts-stop').catch(x=>error(String(x)))};$('assistant-name').value='JARVIS';unavailable('assistant-name','JARVIS, LYRA and DEX team names are preserved');unavailable('wake','Wake-name listening is not implemented yet');status('wake-status','Unavailable');
+  $('show-buddy').onchange=async e=>{try{await native('companion_mode',{mode:e.target.checked?'follow':'off'})}catch(x){e.target.checked=false;error(String(x))}};
+- for(const id of ['keep-loaded','login','tool-tray','rate','speak'])unavailable(id,'Not active in this preview; existing reviewed controls remain in Computer tools');
++ for(const id of ['keep-loaded','login','tool-tray','rate'])unavailable(id,'Not active in this preview; existing reviewed controls remain in Computer tools');
++ $('speak').onchange=e=>{if(e.target.checked){if(!confirm('Start local live conversation with this microphone? It stays on while listening, pauses while JARVIS replies, and stays on until you turn this off or Stop. Use headphones; speaker echo cancellation is not implemented. Recognition and replies stay on the configured local routes. No audio file is saved. This is separate from Ctrl+Alt hold-to-talk.')){e.target.checked=false;return}call('voice-on',{consent:true}).catch(x=>{e.target.checked=false;error(String(x))})}else call('voice-off').catch(x=>error(String(x)))};
++ const liveLabel=$('speak').closest('.row').querySelector('.label');liveLabel.childNodes[0].textContent='Live microphone conversation';const liveHint=document.createElement('div');liveHint.className='hint';liveHint.textContent='Explicit local listening session. Headphones, one voice at a time. Turn off to close the microphone.';liveLabel.append(liveHint);
+  $('sounds').checked=localStorage.getItem('jarvis-ui-sounds')==='on';$('sounds').onchange=e=>{localStorage.setItem('jarvis-ui-sounds',e.target.checked?'on':'off');if(e.target.checked)window.jarvisEnableSound?.()};
+  $('rerun-setup').onclick=()=>show('account');$('provider').dataset.options='';$('provider').textContent='Managed local model is being built';for(const id of ['effort-row','detail-row'])$(id).hidden=true;document.querySelectorAll('.cloud-only').forEach(e=>e.hidden=true);$('provider-hint').textContent='Existing API account routes are preserved';
+  function renderModels(){
+@@ -33,8 +35,23 @@
+  if(session){row(session.status,session.error||session.scope);if(session.busy||session.active||session.pending||session.error){const r=row('Stop local model','Stop the owned model process and local replies. No unrelated process is closed.','Stop',()=>call('model-session-stop'));r.querySelector('button').disabled=false}}
+ 
+  }
++ function renderSpeech(){
++  const setup=state?.voice_setup;const stamp=JSON.stringify({setup,voice:state?.voice_active,busy:state?.busy});if(stamp===speechStamp)return;speechStamp=stamp;
++  const root=$('speech-assets');root.replaceChildren();
++  const row=document.createElement('div');row.className='row';const label=document.createElement('div');label.className='label';label.textContent=setup?.ready?'Local speech assets verified':setup?.busy?'Preparing local speech assets':'Local speech assets';const note=document.createElement('div');note.className='hint';note.textContent=[setup?.status||'Not checked. No audio or download starts.',setup?.error||''].join(' ');label.append(note);row.append(label);root.append(row);
++  const controls=document.createElement('div');controls.className='row';
++  function button(text,action,disabled=false){const b=document.createElement('button');b.className='btn secondary small';b.textContent=text;b.disabled=disabled;b.onclick=()=>Promise.resolve(action()).catch(x=>error(String(x)));controls.append(b)}
++  button('Check speech',()=>call('voice-check'),!!setup?.busy||state?.voice_active===true);
++  button('Review speech download',()=>{if(confirm('Download roughly 500 MB of Kokoro voices, Whisper base recognition and Silero detection from pinned Hugging Face/GitHub sources into the local JARVIS cache? Files are checksum checked; installed files reused. No microphone starts and no audio is saved or uploaded.'))return call('voice-setup',{consent:true,reviewed_engine:'kokoro'})},!!setup?.busy||!!setup?.ready||state?.voice_active===true);
++  if(setup?.busy)button('Stop speech setup',()=>call('voice-cancel'));
++  root.append(controls);
++ }
++ const speechRoot=document.createElement('div');speechRoot.id='speech-assets';speechRoot.className='group';speechRoot.setAttribute('aria-label','Local speech model setup');document.querySelector('[data-pane="voice"] .section-label').before(speechRoot);
++ const languageRow=document.createElement('div');languageRow.className='row';const languageLabel=document.createElement('div');languageLabel.className='label';languageLabel.textContent='Speech input';const languageHint=document.createElement('div');languageHint.className='hint';languageHint.textContent='Session only. Automatic detects language; Tamil/English mixing and laptop accuracy are untested. Stop voice to change. Kokoro output remains English.';languageLabel.append(languageHint);const language=document.createElement('select');language.id='input-language';language.className='field';language.setAttribute('aria-label','Speech input language');for(const[value,label]of[['auto','Automatic (multilingual)'],['en','English'],['ta','Tamil']]){const option=document.createElement('option');option.value=value;option.textContent=label;language.append(option)}language.onchange=()=>call('voice-input-language',{language:language.value}).catch(x=>error(String(x)));const languageControl=document.createElement('div');languageControl.className='control';languageControl.append(language);languageRow.append(languageLabel,languageControl);const languageGroup=document.createElement('div');languageGroup.className='group';languageGroup.append(languageRow);speechRoot.after(languageGroup);
++ renderSpeech();
+  renderModels();
+  for(const [name,note,id]of [['Heart','Female · warm and mature','af_heart'],['Michael','Male · clear and friendly','am_michael'],['Fenrir','Male · deep and steady','am_fenrir']]){const card=document.createElement('div');card.className='voice-card';const img=document.createElement('img');img.className='voice-avatar';img.src='assets/voices/'+id+'.svg';const text=document.createElement('span');text.className='voice-text';const n=document.createElement('span');n.className='voice-name';n.textContent=name;const detail=document.createElement('span');detail.className='voice-note';detail.textContent=note;const button=document.createElement('button');button.className='voice-play';button.textContent='▶';button.disabled=true;button.title='Preview callback pending integration';text.append(n,detail);card.append(img,text,button);$('voices').append(card)}$('voices').className='voice-picker';$('preview-msg').textContent='Existing JARVIS/Michael, LYRA/Heart and DEX/Fenrir voices. Preview and speed controls are not enabled in this migration preview.';
++ const meter=$('mic-meter');meter.setAttribute('role','meter');meter.setAttribute('aria-label','Local microphone level');meter.setAttribute('aria-valuemin','0');meter.setAttribute('aria-valuemax','100');for(let i=0;i<12;i++)meter.append(document.createElement('i'));
+  $('mic-test').onclick=()=>{if(state?.microphone_test?.busy)return call('microphone-test-stop').catch(x=>error(String(x)));if(confirm('Test this microphone locally for five seconds? Audio is not saved, transcribed or sent online.'))call('microphone-test-start',{consent:true}).catch(x=>error(String(x)))};$('mic-settings').disabled=true;status('mic-status','Not tested');$('mic-hint').textContent='Five-second local level test. No saving, transcription or upload.';
+  const tools=[['Obsidian memory','Not connected. Review local vault and sync settings. No automatic file opening.','Connect',()=>{location.href='../index.html'}],['Draw on the screen','Temporary drawing, no screen capture','Draw',()=>native('companion_mode',{mode:'draw'})],['JARVIS team and approved tools','Existing review screens, API accounts and self-evolution plans','Open',()=>{location.href='../index.html'}],['Proactive team','Conversation only, off until you explicitly enable it in existing tools','Review',()=>{location.href='../index.html'}],['Run commands','No shell or arbitrary terminal imported',null,null]];
+  for(const[title,detail,label,action]of tools){const row=document.createElement('div');row.className='row';const text=document.createElement('div');text.className='label';const head=document.createElement('span');head.className='headline';head.textContent=title;const hint=document.createElement('div');hint.className='hint';hint.textContent=detail;if(title==='Obsidian memory')hint.id='obsidian-note';text.append(head,hint);row.append(text);if(action){const button=document.createElement('button');button.className='btn secondary small';button.textContent=label;button.onclick=()=>Promise.resolve(action()).catch(x=>error(String(x)));row.append(button)}$('plugin-list').append(row)}
+diff --git a/modern-ui/src-tauri/src/main.rs b/modern-ui/src-tauri/src/main.rs
+index 717d8a3..2accf48 100644
+--- a/modern-ui/src-tauri/src/main.rs
++++ b/modern-ui/src-tauri/src/main.rs
+@@ -27,7 +27,7 @@ async fn bridge(request:Value,state:State<'_,Shared>)->Result<Value,String>{
+ }
+ fn exchange(request:Value,state:Arc<Mutex<Option<Backend>>>)->Result<Value,String>{
+  let command=request.get("command").and_then(Value::as_str).ok_or("Invalid command")?;
+- if !["models-check-installed", "shortcuts-enable", "shortcuts-stop", "model-session-prepare", "model-session-start", "model-session-stop", "microphone-test-start", "microphone-test-stop", "models-inspect", "models-prepare", "models-download", "models-stop", "cloud-vision","neural-edit","screen-master","camera-master","neural-read","neural-dismiss","neural-stop","neural-prompt","calendar-telegram-prepare","calendar-telegram-stop","drive-text-prepare","drive-text-submit","drive-text-stop","notion-text-prepare","notion-text-submit","notion-text-stop","sheets-write-prepare","sheets-write-submit","sheets-write-stop","github-issue-prepare","github-issue-submit","github-issue-stop","source-answer-prepare","source-answer-start","source-answer-stop","design-prepare", "design-save", "design-stop", "phone-handoff-prepare", "phone-handoff-apply", "phone-handoff-stop", "phone-transport-prepare","phone-transport-start","phone-pair-open","brain-switch-prepare","brain-switch-apply","brain-switch-stop","watch-windows","watch-start","watch-stop","reflex-mode","reflex-preview","reflex-stop","invoice-open","invoice-prepare","invoice-save","invoice-stop","telegram-voice-prepare","telegram-output-prepare","telegram-output-submit","telegram-output-stop","telegram-resume","telegram-configure","telegram-pair","telegram-approve","telegram-stop","gcal-prepare","gcal-submit","gcal-stop","gcal-reconcile","gmail-prepare","gmail-submit","gmail-stop","gmail-reconcile","focus-prepare","focus-start","focus-pause","focus-resume","focus-finish","focus-stop","projects-connect", "projects-read", "projects-stop", "projects-disconnect", "google-read","google-read-stop","google-configure","google-connect","google-stop","google-disconnect","phone-stop","phone-pair-approve","agent-create","agent-nodes","apps","awareness-mode","brain-check","brain-models","brain-save","brain-warmup","browser-enable","browser-links","browser-mode","browser-preview","browser-run","browser-select","browser-stop","calendar-cancel","calendar-open","calendar-open-preview","calendar-preview","calendar-save","camera-off","camera-on","camera-vision","canvas-open","canvas-open-preview","chat","close","conversation-interrupt","desktop-cancel","desktop-mode","desktop-preview","desktop-run","desktop-task-preview","desktop-task-run","desktop-task-stop","desktop-windows","embedding-check","embedding-setup","embedding-stop","embedding2-select","embedding2-check","embedding2-links","embedding2-search","embedding2-setup","embedding2-stop","evolution-cancel","evolution-export","evolution-generate","game-enable","game-stop","game-retry","game-windows","history-clear","history-delete","history-list","history-new","history-open","idle-activity","idle-mode","judgment","key-delete","key-save","knowledge-read","knowledge-search","knowledge-speak","knowledge-stop","laya-cancel","laya-check","laya-load","laya-mode","laya-propose","laya-session","laya-setup","laya-stop","local-speed","local-speed-stop","news-cancel","news-open","news-preview","news-speak","news-stop","news-text","obsidian-create","obsidian-disable","obsidian-open","obsidian-sync","pause","plan-cancel","plan-open","plan-preview","presence-mode","proactive-session","select","specialist-configure","specialist-models","specialist-run","specialist-stop","status","team-dialogue","team-round","teammate-awareness","turn-cancel","turn-check","turn-mode","turn-setup","vault-connect","vault-create","vault-disconnect","vault-preview","vault-read","vault-search","vault-semantic","vault-semantic-stop","voice-cancel","voice-check","voice-endpoint","voice-engine","voice-off","voice-on","voice-setup"].contains(&command){return Err("Unknown command".into())}
++ if !["voice-input-language", "models-check-installed", "shortcuts-enable", "shortcuts-stop", "model-session-prepare", "model-session-start", "model-session-stop", "microphone-test-start", "microphone-test-stop", "models-inspect", "models-prepare", "models-download", "models-stop", "cloud-vision","neural-edit","screen-master","camera-master","neural-read","neural-dismiss","neural-stop","neural-prompt","calendar-telegram-prepare","calendar-telegram-stop","drive-text-prepare","drive-text-submit","drive-text-stop","notion-text-prepare","notion-text-submit","notion-text-stop","sheets-write-prepare","sheets-write-submit","sheets-write-stop","github-issue-prepare","github-issue-submit","github-issue-stop","source-answer-prepare","source-answer-start","source-answer-stop","design-prepare", "design-save", "design-stop", "phone-handoff-prepare", "phone-handoff-apply", "phone-handoff-stop", "phone-transport-prepare","phone-transport-start","phone-pair-open","brain-switch-prepare","brain-switch-apply","brain-switch-stop","watch-windows","watch-start","watch-stop","reflex-mode","reflex-preview","reflex-stop","invoice-open","invoice-prepare","invoice-save","invoice-stop","telegram-voice-prepare","telegram-output-prepare","telegram-output-submit","telegram-output-stop","telegram-resume","telegram-configure","telegram-pair","telegram-approve","telegram-stop","gcal-prepare","gcal-submit","gcal-stop","gcal-reconcile","gmail-prepare","gmail-submit","gmail-stop","gmail-reconcile","focus-prepare","focus-start","focus-pause","focus-resume","focus-finish","focus-stop","projects-connect", "projects-read", "projects-stop", "projects-disconnect", "google-read","google-read-stop","google-configure","google-connect","google-stop","google-disconnect","phone-stop","phone-pair-approve","agent-create","agent-nodes","apps","awareness-mode","brain-check","brain-models","brain-save","brain-warmup","browser-enable","browser-links","browser-mode","browser-preview","browser-run","browser-select","browser-stop","calendar-cancel","calendar-open","calendar-open-preview","calendar-preview","calendar-save","camera-off","camera-on","camera-vision","canvas-open","canvas-open-preview","chat","close","conversation-interrupt","desktop-cancel","desktop-mode","desktop-preview","desktop-run","desktop-task-preview","desktop-task-run","desktop-task-stop","desktop-windows","embedding-check","embedding-setup","embedding-stop","embedding2-select","embedding2-check","embedding2-links","embedding2-search","embedding2-setup","embedding2-stop","evolution-cancel","evolution-export","evolution-generate","game-enable","game-stop","game-retry","game-windows","history-clear","history-delete","history-list","history-new","history-open","idle-activity","idle-mode","judgment","key-delete","key-save","knowledge-read","knowledge-search","knowledge-speak","knowledge-stop","laya-cancel","laya-check","laya-load","laya-mode","laya-propose","laya-session","laya-setup","laya-stop","local-speed","local-speed-stop","news-cancel","news-open","news-preview","news-speak","news-stop","news-text","obsidian-create","obsidian-disable","obsidian-open","obsidian-sync","pause","plan-cancel","plan-open","plan-preview","presence-mode","proactive-session","select","specialist-configure","specialist-models","specialist-run","specialist-stop","status","team-dialogue","team-round","teammate-awareness","turn-cancel","turn-check","turn-mode","turn-setup","vault-connect","vault-create","vault-disconnect","vault-preview","vault-read","vault-search","vault-semantic","vault-semantic-stop","voice-cancel","voice-check","voice-endpoint","voice-engine","voice-off","voice-on","voice-setup"].contains(&command){return Err("Unknown command".into())}
+  let line=serde_json::to_string(&request).map_err(|_|"Invalid request")?;if line.len()>30000{return Err("Request too large".into())}
+  let mut guard=state.lock().map_err(|_|"Backend busy")?;if guard.is_none(){*guard=Some(backend()?)}
+  let b=guard.as_mut().ok_or("Backend unavailable")?;writeln!(b.input,"{}",line).map_err(|_|"Backend stopped")?;b.input.flush().map_err(|_|"Backend stopped")?;
+@@ -54,7 +54,8 @@ fn create_workspace(app:&tauri::AppHandle)->Result<(),String>{
+  let monitor=app.primary_monitor().map_err(|e|e.to_string())?.ok_or("Display unavailable")?;
+  let area=monitor.work_area();let scale=monitor.scale_factor();
+  let width=(area.size.width as f64/scale-40.).min(1220.).max(1.);let height=(area.size.height as f64/scale-80.).min(780.).max(1.);
+- WebviewWindowBuilder::new(app,"main",WebviewUrl::App("index.html".into())).title("JARVIS / Modern workspace preview").inner_size(width,height).min_inner_size(780_f64.min(width),600_f64.min(height)).position(area.position.x as f64/scale+20.,area.position.y as f64/scale+20.).visible(false).build().map_err(|e|e.to_string())?;
++ let entry=if std::env::var("JARVIS_BIGFOOT_DIAGNOSTIC").as_deref()==Ok("1"){"bigfoot-ui/jarvis.html"}else{"index.html"};
++ WebviewWindowBuilder::new(app,"main",WebviewUrl::App(entry.into())).title("JARVIS / Modern workspace preview").inner_size(width,height).min_inner_size(780_f64.min(width),600_f64.min(height)).position(area.position.x as f64/scale+20.,area.position.y as f64/scale+20.).visible(false).build().map_err(|e|e.to_string())?;
+  fit_workspace(app)?;app.get_webview_window("main").ok_or("Workspace missing")?.show().map_err(|e|e.to_string())?;Ok(())
+ }
+ // Fit the decorated workspace to this monitor's usable area, not full resolution.
+diff --git a/src/jarvis/desktop_controller.py b/src/jarvis/desktop_controller.py
+index b5f3c0a..3e247f3 100644
+--- a/src/jarvis/desktop_controller.py
++++ b/src/jarvis/desktop_controller.py
+@@ -10,6 +10,7 @@ class DesktopController:
+   if consent is not True:raise ValueError('Allow local window names first')
+   engine=self.ensure();self.windows=self.adapter.windows();self.status='Observed local windows; no input';return self.windows
+  def prepare(self,target,steps,scope):
++  if self.worker and self.worker.is_alive():raise ValueError('Stop and wait for the current desktop task')
+   if target not in self.windows:raise ValueError('Select an observed window from the current list')
+   self.error='';row=self.ensure().prepare(target,steps,scope);self.status='Review exact desktop task within120seconds; nothing executing';return row
+  def run(self,reviewed,confirm=False,effect_approved=False):
+diff --git a/src/jarvis/desktop_engine.py b/src/jarvis/desktop_engine.py
+index aacc85f..1e72462 100644
+--- a/src/jarvis/desktop_engine.py
++++ b/src/jarvis/desktop_engine.py
+@@ -29,7 +29,7 @@ class DesktopEngine:
+   for row in steps:
+    if row['action']in ('move','click')and not(0<=row['x']<target['width']and 0<=row['y']<target['height']):raise ValueError('Coordinate outside reviewed window')
+   if self.adapter.observe(target['hwnd'])!=target:raise ValueError('Window changed before review')
+-  payload={'target':dict(target),'steps':steps,'scope':scope,'limits':'No secrets, credential fields, send/publish/pay/delete workflows. Mouse clicks can have effects; review exact targets.'};self.pending={'payload':payload,'sha256':hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()};self.state='review';self.review_deadline=self.clock()+120;return json.loads(json.dumps(self.pending))
++  payload={'target':dict(target),'steps':steps,'scope':scope,'limits':'No secrets, credential fields, send/publish/pay/delete workflows. Mouse clicks can have effects; review exact targets.'};self.pending={'payload':payload,'sha256':hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()};self.cancel=threading.Event();self.state='review';self.review_deadline=self.clock()+120;return json.loads(json.dumps(self.pending))
+  def stop(self):
+   self.cancel.set()
+   if self.state=='review':self.pending=None;self.state='cancelled'
+@@ -37,7 +37,7 @@ class DesktopEngine:
+  def run(self,reviewed,confirm=False,effect_approved=False):
+   if confirm is not True or effect_approved is not True or self.state!='review'or not self.pending or reviewed!=self.pending:raise ValueError('Review exact window, task and steps before input')
+   if self.clock()>=self.review_deadline:self.pending=None;self.state='expired';raise ValueError('Desktop review expired; observe and review window again')
+-  plan=json.loads(json.dumps(self.pending));target=plan['payload']['target'];self.cancel=threading.Event();self.completed=0;self.state='running'
++  plan=json.loads(json.dumps(self.pending));target=plan['payload']['target'];self.completed=0;self.state='running'
+   try:
+    for row in plan['payload']['steps']:
+     if self.cancel.is_set():self.state='stopped';break
+diff --git a/src/jarvis/game_companion.py b/src/jarvis/game_companion.py
+index 84088b2..a0fbf8f 100644
+--- a/src/jarvis/game_companion.py
++++ b/src/jarvis/game_companion.py
+@@ -73,27 +73,32 @@ class LocalGameModel:
+   finally:
+    if self.gate is not None:self.gate.release()
+  def _analyze(self,frame):
++  from .local_endpoint import managed_route
++  initial_route=managed_route()
+   try:self.verify()
+-  except Exception:raise VisionReplyUnavailable('Selected vision model is no longer available or loaded. Check LM Studio server and loaded vision model, then Retry. Analysis paused; no cloud frames.')from None
++  except Exception:raise VisionReplyUnavailable('Selected local vision model is no longer available. Start and test the owned model, or check the selected legacy local server. Analysis paused; no cloud frames.')from None
+   from urllib.request import Request
+   import socket,urllib.error
+   schema={'type':'object','properties':{'observed':{'type':'string'},'comment':{'type':'string'},'confidence':{'type':'string','enum':['low','medium','high']}},'required':['observed','comment','confidence'],'additionalProperties':False}
+   data={'model':self.model,'temperature':0.2,'max_tokens':384,'stream':False,'response_format':{'type':'json_schema','json_schema':{'name':'cautious_scene','strict':True,'schema':schema}},'messages':[{'role':'system','content':self.system},{'role':'user','content':[{'type':'text','text':'One recent selected-window frame. Describe cautiously.'},{'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(frame).decode()}}]}]}
+   for attempt in range(2):
+    from .local_endpoint import managed_route
+-   route=managed_route();headers={'Content-Type':'application/json'}
++   route=managed_route()
++   if route!=initial_route:raise VisionReplyUnavailable('Local model session changed; no frame sent. Review the current model and Retry.')
++   headers={'Content-Type':'application/json'}
+    if route is not None:headers['Authorization']='Bearer '+route['key']
+    req=Request((route['url']if route else 'http://127.0.0.1:1234/v1')+'/chat/completions',data=json.dumps(data).encode(),headers=headers)
+    try:
+     with self.http.open(req,timeout=30)as r:raw=r.read(32769)
+-   except (socket.timeout,TimeoutError):raise VisionReplyUnavailable('Local vision timed out. Check LM Studio server log and try an image in LM Studio chat; first load can be slow. Analysis paused, no cloud fallback.')from None
+-   except urllib.error.HTTPError as e:raise VisionReplyUnavailable('LM Studio rejected the vision request (HTTP'+str(e.code)+'). Check its server log, vision model/template and context settings. Analysis paused.')from None
+-   except (urllib.error.URLError,ConnectionError):raise VisionReplyUnavailable('LM Studio server could not be reached at port1234. Start its local server. Analysis paused.')from None
++   except (socket.timeout,TimeoutError):raise VisionReplyUnavailable('Local vision timed out. Check the selected local runtime and synthetic image test. Analysis paused, no cloud fallback.')from None
++   except urllib.error.HTTPError as e:raise VisionReplyUnavailable('Local runtime rejected the vision request (HTTP'+str(e.code)+'). Check the selected runtime log, vision model/template and context settings. Analysis paused.')from None
++   except (urllib.error.URLError,ConnectionError):raise VisionReplyUnavailable('Selected local runtime could not be reached. Start and test that model session. Analysis paused.')from None
++   if managed_route()!=initial_route:raise VisionReplyUnavailable('Local model session changed before scene reply was accepted. Analysis paused.')
+    if len(raw)>32768:raise VisionReplyUnavailable('Local vision reply exceeded the safety limit. Analysis paused.')
+    try:return scene_reply(raw)
+    except (ValueError,KeyError,TypeError,IndexError):
+     if attempt==0:continue
+-    raise VisionReplyUnavailable('LM Studio returned empty or invalid scene JSON twice. Loaded does not mean generation works. Try an image in LM Studio chat and check server log/model template. Analysis paused; Retry after fixing it.')from None
++    raise VisionReplyUnavailable('Local runtime returned empty or invalid scene JSON twice. Loaded does not mean generation works. Check the synthetic image test, runtime log and model template. Analysis paused; Retry after fixing it.')from None
+ 
+ class VisionReplyUnavailable(RuntimeError):pass
+ 
+diff --git a/src/jarvis/hold_microphone.py b/src/jarvis/hold_microphone.py
+index 3716703..ebbc65a 100644
+--- a/src/jarvis/hold_microphone.py
++++ b/src/jarvis/hold_microphone.py
+@@ -20,10 +20,14 @@ class HoldMic:
+     if not self.lock.acquire(blocking=False):return
+     try:
+      if ticket!=self.generation or not self.accepting:return
+-     if status or len(self.frames)>=self.max_frames:
+-      self.overflow=True;self.accepting=False;threading.Thread(target=self._fail_close,args=(ticket,),daemon=True).start();return
+-     if count!=512:self.overflow=True;self.accepting=False;return
+-     self.frames.append(data[:,0].copy())
++     import numpy as np
++     try:
++      if status or len(self.frames)>=self.max_frames or count!=512:raise ValueError('Capture buffer failed')
++      frame=np.asarray(data)
++      if frame.shape!=(512,1)or not np.isfinite(frame).all():raise ValueError('Capture samples failed')
++      self.frames.append(frame[:,0].copy())
++     except Exception:
++      self.overflow=True;self.accepting=False;threading.Thread(target=self._fail_close,args=(ticket,),daemon=True).start()
+     finally:self.lock.release()
+    if self.factory is None:
+     import sounddevice as sd
+diff --git a/src/jarvis/local_endpoint.py b/src/jarvis/local_endpoint.py
+index 76a365f..2eb3b3a 100644
+--- a/src/jarvis/local_endpoint.py
++++ b/src/jarvis/local_endpoint.py
+@@ -18,4 +18,4 @@ def managed_route():
+  if runtime is None:return None
+  # A bound but unavailable owned runtime must never fall back to unrelated server.
+  route=runtime.route()
+- return {**route,'vision':True,'scope':'Loaded process/health only; generation readiness requires test'}
++ return {**route,'vision':True,'scope':'Owned session requires successful synthetic text and image generation tests'}
+diff --git a/src/jarvis/local_model_files.py b/src/jarvis/local_model_files.py
+index c08b1d4..cbe16ad 100644
+--- a/src/jarvis/local_model_files.py
++++ b/src/jarvis/local_model_files.py
+@@ -67,7 +67,7 @@ def extract_runtime(archive,destination,cancel,max_bytes=256*1024*1024):
+    name=x.filename.replace('\\','/');p=pathlib.PurePosixPath(name)
+    if p.is_absolute()or '..'in p.parts or ':'in name or name in names or (x.external_attr>>16)&0o170000==0o120000:raise ValueError('Unsafe runtime archive path')
+    names.add(name)
+-   if not x.is_dir()and p.suffix.lower()not in ('.exe','.dll','.txt','.md','.json','.html'):raise ValueError('Unexpected runtime file')
++   if not x.is_dir()and p.suffix.lower()not in ('.exe','.dll','.txt','.md','.json','.html')and name!='LICENSE-LLVM-OpenMP':raise ValueError('Unexpected runtime file')
+   if not any(pathlib.PurePosixPath(n).name=='llama-server.exe'for n in names):raise ValueError('Runtime server missing')
+   if not verified(archive,CATALOG['runtime'],cancel):raise ValueError('Runtime archive checksum not verified')
+   stage.mkdir(parents=True)
+diff --git a/src/jarvis/microphone_test.py b/src/jarvis/microphone_test.py
+index c09c6ed..592b546 100644
+--- a/src/jarvis/microphone_test.py
++++ b/src/jarvis/microphone_test.py
+@@ -9,8 +9,8 @@ class MicrophoneTest:
+   if consent is not True:raise ValueError('Start the reviewed five-second microphone test explicitly')
+   with self.lock:
+    if self.worker and self.worker.is_alive():raise ValueError('Microphone test already running')
+-   self.cancel=threading.Event();self.status='Testing microphone for five seconds';self.error='';self.level=0.;self.peak=0.;self.frames=0;self.worker=threading.Thread(target=self._run,args=(self.cancel,),daemon=True);self.worker.start()
+-  return self.snapshot()
++   self.cancel=threading.Event();self.status='Testing microphone for five seconds';self.error='';self.level=0.;self.peak=0.;self.frames=0;self.worker=threading.Thread(target=self._run,args=(self.cancel,),daemon=True);state=self.snapshot();state['busy']=True;self.worker.start()
++  return state
+  def _run(self,cancel):
+   stream=None
+   try:
+@@ -19,18 +19,20 @@ class MicrophoneTest:
+     import sounddevice
+     factory=sounddevice.InputStream
+    def callback(data,count,when,status):
+-    if cancel.is_set():return
+-    if status:
+-     with self.lock:self.error='Microphone buffer failed';self.status='Test failed'
+-     cancel.set();return
+-    values=data[:,0];rms=math.sqrt(float((values*values).mean()))
+-    if not math.isfinite(rms):
+-     with self.lock:self.error='Invalid microphone samples';self.status='Test failed'
+-     cancel.set();return
+-    with self.lock:self.level=min(1.,rms);self.peak=max(self.peak,self.level);self.frames+=count
++    # Audio callbacks cannot wait on UI/stop locks while a device is closing.
++    if cancel.is_set()or not self.lock.acquire(blocking=False):return
++    try:
++     if cancel.is_set():return
++     if status:raise ValueError('Microphone buffer failed')
++     values=data[:,0];rms=math.sqrt(float((values*values).mean()))
++     if not math.isfinite(rms):raise ValueError('Invalid microphone samples')
++     self.level=min(1.,rms);self.peak=max(self.peak,self.level);self.frames+=count
++    except Exception:
++     self.error='Microphone buffer or samples failed';self.status='Test failed';cancel.set()
++    finally:self.lock.release()
+    stream=factory(samplerate=16000,channels=1,dtype='float32',blocksize=512,callback=callback)
+    with self.lock:self.stream=stream
+-   stream.start();self.wait(cancel)
++   if not cancel.is_set():stream.start();self.wait(cancel)
+    with self.lock:
+     if not self.error:self.status='Stopped'if cancel.is_set()else'Working capture; speak louder or check input'if self.frames and self.peak<.005 else'Working capture and sound detected'if self.frames else'No samples received; check device and permission'
+   except Exception as e:
+diff --git a/src/jarvis/model_probe.py b/src/jarvis/model_probe.py
+index 113ac97..b7db454 100644
+--- a/src/jarvis/model_probe.py
++++ b/src/jarvis/model_probe.py
+@@ -31,6 +31,7 @@ class ModelProbe:
+      valid=text.strip().strip('.!').upper()=='READY'if kind=='text'else text.strip().strip('.!').lower()=='red'
+      if not valid:raise ValueError(kind.title()+' test answered incorrectly')
+      if cancel.is_set()or ticket!=self.generation:return
++     if self.runtime.route()!=route:raise ValueError('Owned model changed before test result was accepted')
+      with self.lock:self.state[kind]='passed';self.state[kind+'_request_s']=round(time.monotonic()-started,3)
+    except Exception as e:
+     if ticket==self.generation and not cancel.is_set():
+diff --git a/src/jarvis/ui_bridge.py b/src/jarvis/ui_bridge.py
+index 261662b..06650e7 100644
+--- a/src/jarvis/ui_bridge.py
++++ b/src/jarvis/ui_bridge.py
+@@ -609,7 +609,7 @@ class Bridge:
+   if cmd in ('pause','close','browser-stop','laya-stop','laya-cancel','conversation-interrupt'):self.laya_active=False
+   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open','pause','conversation-interrupt','close','browser-stop','desktop-cancel'):
+    self.intent_cancel.set();self.intent_generation+=1;self.intent_busy=False
+-  allowed={'models-check-installed','shortcuts-enable','shortcuts-stop','model-session-prepare','model-session-start','model-session-stop','microphone-test-start','microphone-test-stop','models-inspect','models-prepare','models-download','models-stop','cloud-vision','neural-edit','screen-master','camera-master','neural-read','neural-dismiss','neural-stop','neural-prompt','design-prepare','design-save','design-stop','phone-handoff-prepare','phone-handoff-apply','phone-handoff-stop','calendar-telegram-prepare','calendar-telegram-stop','drive-text-prepare','drive-text-submit','drive-text-stop','notion-text-prepare','notion-text-submit','notion-text-stop','sheets-write-prepare','sheets-write-submit','sheets-write-stop','github-issue-prepare','github-issue-submit','github-issue-stop','source-answer-prepare','source-answer-start','source-answer-stop','phone-transport-prepare','phone-transport-start','phone-pair-open','brain-switch-prepare','brain-switch-apply','brain-switch-stop','watch-windows','watch-start','watch-stop','reflex-mode','reflex-preview','reflex-stop','focus-prepare','focus-start','focus-pause','focus-resume','focus-finish','focus-stop','projects-connect','projects-read','projects-stop','projects-disconnect','invoice-open','invoice-prepare','invoice-save','invoice-stop','telegram-voice-prepare','telegram-output-prepare','telegram-output-submit','telegram-output-stop','telegram-resume','telegram-configure','telegram-pair','telegram-approve','telegram-stop','gcal-prepare','gcal-submit','gcal-stop','gcal-reconcile','gmail-prepare','gmail-submit','gmail-stop','gmail-reconcile','google-read','google-read-stop','google-configure','google-connect','google-stop','google-disconnect','phone-stop','phone-pair-approve','desktop-windows','desktop-task-preview','desktop-task-run','desktop-task-stop','knowledge-search','knowledge-read','knowledge-speak','knowledge-stop','embedding2-select','embedding2-check','embedding2-setup','embedding2-search','embedding2-links','embedding2-stop','awareness-mode','presence-mode','news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','laya-session','proactive-session','game-windows','game-enable','game-stop','game-retry','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
++  allowed={'voice-input-language','models-check-installed','shortcuts-enable','shortcuts-stop','model-session-prepare','model-session-start','model-session-stop','microphone-test-start','microphone-test-stop','models-inspect','models-prepare','models-download','models-stop','cloud-vision','neural-edit','screen-master','camera-master','neural-read','neural-dismiss','neural-stop','neural-prompt','design-prepare','design-save','design-stop','phone-handoff-prepare','phone-handoff-apply','phone-handoff-stop','calendar-telegram-prepare','calendar-telegram-stop','drive-text-prepare','drive-text-submit','drive-text-stop','notion-text-prepare','notion-text-submit','notion-text-stop','sheets-write-prepare','sheets-write-submit','sheets-write-stop','github-issue-prepare','github-issue-submit','github-issue-stop','source-answer-prepare','source-answer-start','source-answer-stop','phone-transport-prepare','phone-transport-start','phone-pair-open','brain-switch-prepare','brain-switch-apply','brain-switch-stop','watch-windows','watch-start','watch-stop','reflex-mode','reflex-preview','reflex-stop','focus-prepare','focus-start','focus-pause','focus-resume','focus-finish','focus-stop','projects-connect','projects-read','projects-stop','projects-disconnect','invoice-open','invoice-prepare','invoice-save','invoice-stop','telegram-voice-prepare','telegram-output-prepare','telegram-output-submit','telegram-output-stop','telegram-resume','telegram-configure','telegram-pair','telegram-approve','telegram-stop','gcal-prepare','gcal-submit','gcal-stop','gcal-reconcile','gmail-prepare','gmail-submit','gmail-stop','gmail-reconcile','google-read','google-read-stop','google-configure','google-connect','google-stop','google-disconnect','phone-stop','phone-pair-approve','desktop-windows','desktop-task-preview','desktop-task-run','desktop-task-stop','knowledge-search','knowledge-read','knowledge-speak','knowledge-stop','embedding2-select','embedding2-check','embedding2-setup','embedding2-search','embedding2-links','embedding2-stop','awareness-mode','presence-mode','news-speak','news-stop','news-text','news-preview','news-open','news-cancel','canvas-open-preview','canvas-open','calendar-preview','calendar-save','calendar-cancel','calendar-open-preview','calendar-open','plan-preview','plan-open','plan-cancel','agent-nodes','teammate-awareness','evolution-generate','evolution-cancel','evolution-export','specialist-models','specialist-configure','specialist-run','specialist-stop','laya-session','proactive-session','game-windows','game-enable','game-stop','game-retry','obsidian-open','obsidian-create','obsidian-sync','obsidian-disable','desktop-mode','desktop-preview','desktop-run','desktop-cancel','status','conversation-interrupt','chat','select','pause','close','camera-on','camera-off','apps','judgment','voice-on','voice-off','voice-setup','voice-check','voice-cancel','brain-save','key-save','key-delete','brain-check','brain-models','brain-warmup','local-speed','local-speed-stop','team-round','team-dialogue','agent-create','turn-check','turn-setup','turn-cancel','turn-mode','idle-mode','idle-activity','history-list','history-open','history-new','history-delete','history-clear','embedding-check','embedding-setup','embedding-stop','vault-semantic','vault-semantic-stop','vault-connect','vault-disconnect','vault-search','vault-read','vault-create','vault-preview','browser-enable','browser-mode','browser-preview','browser-run','browser-stop','voice-engine','voice-endpoint','browser-links','browser-select','laya-setup','laya-check','laya-load','laya-cancel','laya-mode','laya-propose','laya-stop','camera-vision'}
+   if cmd not in allowed:raise ValueError('Unknown command')
+   if cmd in ('chat','voice-on','team-dialogue','team-round','history-new','history-open'):
+    self.phone_endpoints.stop_local();self.warning=''
+@@ -1139,6 +1139,10 @@ class Bridge:
+    if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop voice before changing listening pause')
+    if request.get('mode')not in ENDPOINT_FRAMES:raise ValueError('Choose a listening pause preset')
+    self.voice.endpoint_mode=request['mode']
++  elif cmd=='voice-input-language':
++   if request.get('language')not in ('auto','en','ta'):raise ValueError('Choose automatic, English or Tamil input')
++   if self.voice.busy or self.voice.runtime is not None:raise ValueError('Stop current voice before changing input language')
++   self.voice.input_language=request['language']
+   elif cmd=='voice-engine':
+    if self.voice.busy or self.voice.runtime is not None or self.setup.busy:raise ValueError('Stop voice and wait for model setup before changing speech engine')
+    if request.get('engine')!='kokoro':raise ValueError('Unknown speech engine')
+@@ -1274,7 +1278,7 @@ class Bridge:
+     if runtime.busy:self.warning='Current reply is still stopping; wait before holding Ctrl+Alt';continue
+     runtime.mic.hold()
+    elif event=='talk-stop':runtime.mic.release()
+-  state={'shortcuts':self.shortcut_monitor.snapshot(),'managed_session':self.managed_session.check(),'microphone_test':self.microphone_test.snapshot(),'managed_models':self.model_manager.snapshot(),'bundle_setup':self.bundle_setup.snapshot(),'neural':self.neural.snapshot(),'design':self.design.snapshot(),'reflex':self.reflex.snapshot(),'calendar_telegram':self.calendar_telegram.snapshot(),'focus_session':self.focus_session.snapshot(),'github_issue':self.github_issue.snapshot(),'notion_text':self.notion_text.snapshot(),'projects':self.projects.snapshot(),'invoice':self.invoice.snapshot(),'telegram':{**self.telegram.snapshot(),'output':self.telegram_output.snapshot()},'google':{**self.google.snapshot(),'sheets_write':self.sheets_write.snapshot(),'drive_text':self.drive_text.snapshot(),'read':self.google_queries.snapshot(),'mail':self.google_mail.snapshot(),'calendar':self.google_calendar.snapshot()},'phone':{**self.phone.snapshot(),'tls':self.phone_transport.snapshot(),'pair_code':self.phone_pair_code if self.phone.session.pair_hash and time.monotonic()<self.phone.session.pair_deadline else None},'desktop_control':self.desktop_control.snapshot(),'knowledge':self.knowledge.snapshot(),'laya_route':self.laya_route,'embedding2':self.embedding_service.snapshot(),'cloud_vision':self.cloud_vision.snapshot(),'knowledge_graph':self.knowledge_graph.snapshot(self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None),'failure_detail':getattr(self,'failure_detail',None),'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'mode':self.screen_mode if self.game.enabled else'off','speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','source_answer':self.source_answer.snapshot(),'brain_switch':self.brain_switch.snapshot(),'brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'camera_master_status':self.camera_master_status,'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
++  state={'input_language':self.voice.input_language if getattr(self.voice,'input_language',None)in ('auto','en','ta')else'auto','shortcuts':self.shortcut_monitor.snapshot(),'managed_session':self.managed_session.check(),'microphone_test':self.microphone_test.snapshot(),'managed_models':self.model_manager.snapshot(),'bundle_setup':self.bundle_setup.snapshot(),'neural':self.neural.snapshot(),'design':self.design.snapshot(),'reflex':self.reflex.snapshot(),'calendar_telegram':self.calendar_telegram.snapshot(),'focus_session':self.focus_session.snapshot(),'github_issue':self.github_issue.snapshot(),'notion_text':self.notion_text.snapshot(),'projects':self.projects.snapshot(),'invoice':self.invoice.snapshot(),'telegram':{**self.telegram.snapshot(),'output':self.telegram_output.snapshot()},'google':{**self.google.snapshot(),'sheets_write':self.sheets_write.snapshot(),'drive_text':self.drive_text.snapshot(),'read':self.google_queries.snapshot(),'mail':self.google_mail.snapshot(),'calendar':self.google_calendar.snapshot()},'phone':{**self.phone.snapshot(),'tls':self.phone_transport.snapshot(),'pair_code':self.phone_pair_code if self.phone.session.pair_hash and time.monotonic()<self.phone.session.pair_deadline else None},'desktop_control':self.desktop_control.snapshot(),'knowledge':self.knowledge.snapshot(),'laya_route':self.laya_route,'embedding2':self.embedding_service.snapshot(),'cloud_vision':self.cloud_vision.snapshot(),'knowledge_graph':self.knowledge_graph.snapshot(self.vault.root if self.vault else self.obsidian.root if self.obsidian.enabled else None),'failure_detail':getattr(self,'failure_detail',None),'intent':{'busy':self.intent_busy,'status':self.intent_status},'news':{**self.news.snapshot(),'speech':self.news_speech.snapshot()},'calendar':{**self.calendar.snapshot(),'open_pending':self.calendar_open_pending,'draft':self.calendar_draft},'planning':{'pending':self.plan_pending},'teammate_awareness':{'enabled':self.teammate_awareness.enabled,'state':self.teammate_state()},'evolution':{**self.evolution.snapshot(),'busy':self.evolution_busy,'error':self.evolution_error,'result':self.evolution_result},'specialists':{'models':list(self.specialist_models),'assignments':dict(self.specialists.assignments),'status':self.specialists.status,'result':self.specialist_result},'game':{**self.game.snapshot(),'mode':self.screen_mode if self.game.enabled else'off','speech_status':self.game_speech.status,'windows':list(self.game_windows)},'local_export':{'busy':self.export_busy,'status':self.export_status},'obsidian':self.obsidian.snapshot(),'desktop':{'enabled':self.desktop_enabled,'pending':self.desktop_pending,'result':self.desktop_result},'embedding_setup':self.search_setup.snapshot(),'semantic_search':self.semantic_search.snapshot(),'turn_mode':self.voice.turn_mode if getattr(self.voice,'turn_mode',None)in ('vad','smart')else'vad','turn_setup':self.turn_setup.snapshot(),'idle':self.idle.snapshot(),'agents':self.agents.snapshot(),'local_speed':self.local_speed.snapshot(),'reo_log':list(self.reo_log),'laya':dict(self.laya_state,support=self.laya_support,active=self.laya_active,enabled=self.laya_enabled,control_busy=self.control_busy,setup=self.laya_setup.snapshot(),engine=self.laya_engine.snapshot()),'browser':{'enabled':self.browser_enabled,'pending':self.browser_pending,'status':self.browser.snapshot()if self.browser else {'state':'off'}},'vault':{'connected':self.vault is not None,'folder':str(self.vault.root)if self.vault else'','results':self.vault_results,'search':self.vault_search,'note':self.vault_note},'history':self.history.list()if self.history else[],'chat_id':self.chat_id,'history_error':self.history_error,'history_limits':'Local plain-text storage, up to 50 chats and 200 messages per chat; oldest chats removed at the limit. Only selected chat recent context goes to APIs when you allow it. Delete does not remove external backups.','source_answer':self.source_answer.snapshot(),'brain_switch':self.brain_switch.snapshot(),'brains':self.brains.snapshot(),'caption':self.caption,'voice_metrics':self.voice_metrics,'dialogue_metrics':self.dialogue_metrics,'response_diagnostics':self.response_diagnostics,'expression':{'persona':actor,'state':state,'source':'live-runtime','viseme':None},'endpoint_mode':self.voice.endpoint_mode if isinstance(getattr(self.voice,'endpoint_mode',None),str)else'balanced','tts_engine':getattr(self.voice,'tts_engine','kokoro'),'selected':self.voice.name,'status':self.status,'error':self.error,'warning':self.warning,'busy':self.voice.busy,'voice_active':self.voice.runtime is not None and self.voice.runtime.enabled,'barge_in':self.barge_in,'voice_setup':self.setup.snapshot(),'voice_loading':self.voice.busy and self.status=='loading voice','messages':list(self.messages),'awareness':{**self.context.snapshot(),'camera_master_status':self.camera_master_status,'vision':'on' if self.vision.enabled else 'off'},'judgment':{'enabled':self.judge.enabled,'audio':self.judge.audio,'gaming':self.judge.gaming,'waiting_reason':self.judge.waiting_reason(self.voice.busy or self.voice.runtime is not None)}}
+   from .repair_state import repair_state
+   state['repair']=repair_state(state)
+   return state
+diff --git a/src/jarvis/workspace_voice.py b/src/jarvis/workspace_voice.py
+index 98225d8..3b44003 100644
+--- a/src/jarvis/workspace_voice.py
++++ b/src/jarvis/workspace_voice.py
+@@ -13,7 +13,7 @@ class WorkspaceVoice:
+     def __init__(self, factory=None, text_factory=None):
+         self.events=queue.Queue();self.factory=factory or build_runtime
+         self.text_factory=text_factory or build_text_router
+-        self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
++        self.input_language='auto';self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
+         self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None;self.dialogue_origin='user'
+         from .team_memory import TeamMemory
+         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
+@@ -33,7 +33,7 @@ class WorkspaceVoice:
+         if self.name not in VOICES:raise ValueError(self.name+' is a silent text specialist with no voice. Type to this profile in chat, or select a voiced profile for the microphone.')
+         with self.lock:
+             if self.closed or self.busy:raise RuntimeError('Voice setup is busy or closed.')
+-            self.busy=True;self.generation+=1;ticket=self.generation;name=self.name
++            self.busy=True;self.generation+=1;ticket=self.generation;name=self.name;input_language=self.input_language
+         self.notify('state','loading voice')
+         def run():
+             runtime=None
+@@ -47,6 +47,7 @@ class WorkspaceVoice:
+                 else:runtime=self.factory(name,notify,cloud,model,verified_free)
+                 with self.lock:
+                     if self.closed or ticket!=self.generation:runtime.close();return
++                    if hasattr(runtime,'stt'):runtime.stt.language=None if input_language=='auto' else input_language
+                     from .audio import Endpointer,ENDPOINT_FRAMES
+                     detector=None
+                     if self.turn_mode=='smart':
+@@ -450,7 +451,7 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
+         speaker=KokoroSpeaker(synth)
+         speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
+         speaker.select_profile(name)
+-        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language='en'),router,speaker,notify)
++        runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language=None),router,speaker,notify)
+         from .fast_ack import FastAck
+         runtime.fast_ack=FastAck(speaker)
+         for actor in VOICES:runtime.fast_ack.prepare(actor)
+diff --git a/tests/test_bigfoot_native_diagnostic_contract.py b/tests/test_bigfoot_native_diagnostic_contract.py
+new file mode 100644
+index 0000000..864ec7d
+--- /dev/null
++++ b/tests/test_bigfoot_native_diagnostic_contract.py
+@@ -0,0 +1,6 @@
++import unittest,pathlib
++class NativeRoute(unittest.TestCase):
++ def test_copied_ui_is_explicit_diagnostic_only_legacy_shipping_default_preserved(self):
++  s=(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text()
++  self.assertIn('std::env::var("JARVIS_BIGFOOT_DIAGNOSTIC").as_deref()==Ok("1")',s)
++  self.assertIn('{"bigfoot-ui/jarvis.html"}else{"index.html"}',s)
+diff --git a/tests/test_desktop_controller.py b/tests/test_desktop_controller.py
+index 6024c5f..053ae74 100644
+--- a/tests/test_desktop_controller.py
++++ b/tests/test_desktop_controller.py
+@@ -12,3 +12,8 @@ class Tests(unittest.TestCase):
+   with self.assertRaises(ValueError):self.c.run(r,True,True)
+  def test_long_typing_stop_per_character(self):
+   self.c.discover(True);r=self.c.prepare(self.a.target,[{'action':'type','text':'abcdef'}],'fixture');self.a.hook=self.c.stop;self.c.run(r,True,True).join();self.assertEqual(len(self.a.inputs),1);self.assertEqual(self.c.snapshot()['task']['state'],'stopped')
++
++ def test_prepare_cannot_replace_scheduled_worker_plan(self):
++  from unittest.mock import Mock
++  self.c.discover(True);self.c.worker=Mock();self.c.worker.is_alive.return_value=True
++  with self.assertRaises(ValueError):self.c.prepare(self.a.target,[{'action':'move','x':1,'y':1}],'fixture')
+diff --git a/tests/test_desktop_engine.py b/tests/test_desktop_engine.py
+index 0a1da83..839eb9a 100644
+--- a/tests/test_desktop_engine.py
++++ b/tests/test_desktop_engine.py
+@@ -46,3 +46,11 @@ class Tests(unittest.TestCase):
+   r=self.plan();self.a.focus=lambda h:self.a.target.update(width=900)
+   with self.assertRaises(ValueError):self.e.run(r,True,True)
+   self.assertFalse(self.a.inputs)
++
++ def test_cancellation_not_reset_between_review_validation_and_input(self):
++  r=self.plan();original=self.e.clock
++  def cancel_after_validation():self.e.cancel.set();return original()
++  self.e.clock=cancel_after_validation
++  self.e.run(r,True,True);self.assertFalse(self.a.inputs);self.assertEqual(self.e.state,'stopped')
++ def test_new_review_after_stop_has_fresh_cancel_signal(self):
++  self.plan();self.e.stop();r=self.plan();self.e.run(r,True,True);self.assertEqual(self.e.state,'completed')
+diff --git a/tests/test_game_companion.py b/tests/test_game_companion.py
+index 2478913..9e392c7 100644
+--- a/tests/test_game_companion.py
++++ b/tests/test_game_companion.py
+@@ -45,3 +45,33 @@ class CaptureRevocation(unittest.TestCase):
+   gate=threading.Event();entered=threading.Event();model=Mock()
+   def source(target):entered.set();gate.wait(2);return b'jpeg'
+   c=GameCompanion(Mock(),source=source,clock=lambda:0);c.enable(TARGET,TARGET,model,True);w=c.poll();entered.wait(1);c.stop();gate.set();w.join();model.analyze.assert_not_called()
++
++class OwnedRouteGuards(unittest.TestCase):
++ def test_stop_between_verify_and_send_never_falls_back_to_legacy_server(self):
++  from unittest.mock import patch
++  from jarvis.game_companion import VisionReplyUnavailable
++  route={'model':'owned','vision':True,'url':'http://127.0.0.1:54321/v1','key':'ephemeral'}
++  op=Mock();m=LocalGameModel('owned',op)
++  with patch('jarvis.local_endpoint.managed_route',side_effect=[route,route,None]):
++   with self.assertRaisesRegex(VisionReplyUnavailable,'session changed'):m.analyze(b'jpeg')
++  op.open.assert_not_called()
++ def test_legacy_route_cannot_switch_silently_to_owned_session(self):
++  from unittest.mock import patch
++  from jarvis.game_companion import VisionReplyUnavailable
++  class R(io.BytesIO):
++   def __enter__(self):return self
++   def __exit__(self,*a):self.close()
++  op=Mock();op.open.return_value=R(json.dumps({'models':[{'capabilities':{'vision':True},'loaded_instances':[{'id':'legacy'}]}]}).encode())
++  m=LocalGameModel('legacy',op)
++  with patch('jarvis.local_endpoint.managed_route',side_effect=[None,None,{'model':'owned','vision':True}]):
++   with self.assertRaisesRegex(VisionReplyUnavailable,'session changed'):m.analyze(b'jpeg')
++  self.assertEqual(op.open.call_count,1)
++
++ def test_scene_response_from_stopped_owned_session_is_discarded(self):
++  from unittest.mock import patch
++  from jarvis.game_companion import VisionReplyUnavailable
++  route={'model':'owned','vision':True,'url':'http://127.0.0.1:54321/v1','key':'ephemeral'}
++  op=Mock();op.open.return_value=io.BytesIO(json.dumps({'choices':[{'message':{'content':json.dumps({'observed':'Scene','comment':'Hello','confidence':'high'})}}]}).encode());m=LocalGameModel('owned',op)
++  with patch('jarvis.local_endpoint.managed_route',side_effect=[route,route,route,None]):
++   with self.assertRaisesRegex(VisionReplyUnavailable,'before scene reply'):m.analyze(b'jpeg')
++  self.assertEqual(op.open.call_count,1)
+diff --git a/tests/test_hold_microphone.py b/tests/test_hold_microphone.py
+index 4562f5a..4db73f2 100644
+--- a/tests/test_hold_microphone.py
++++ b/tests/test_hold_microphone.py
+@@ -59,3 +59,22 @@ class Hold(unittest.TestCase):
+   with self.mic.lock:
+    worker=threading.Thread(target=lambda:(self.calls[0].cb(np.ones((512,1),dtype='float32'),512,None,None),finished.set()));worker.start();self.assertTrue(finished.wait(.5),'Callback must drop frame rather than wait for control close lock')
+   worker.join();self.assertEqual(self.mic.frames,[]);self.mic.close()
++
++ def test_bad_frame_shape_count_and_nan_close_immediately(self):
++  import time
++  for data,count in ((np.ones((512,1)),256),(None,512),(np.ones((512,2)),512),(np.full((512,1),np.nan),512)):
++   with self.subTest(count=count,data=str(type(data))):
++    self.mic.start(True);self.mic.hold();stream=self.calls[-1];stream.cb(data,count,None,None)
++    end=time.monotonic()+1
++    while not stream.closed and time.monotonic()<end:time.sleep(.001)
++    self.assertTrue(stream.closed);self.assertFalse(self.mic.release());self.assertEqual(self.audio,[])
++
++ def test_selected_language_reaches_real_runtime_without_capture(self):
++  from unittest.mock import Mock
++  from jarvis.workspace_voice import WorkspaceVoice
++  from jarvis.runtime import VoiceRuntime
++  for language,expected in (('auto',None),('en','en'),('ta','ta')):
++   r=VoiceRuntime(Mock(),Mock(),Mock(),Mock(generation=0));v=WorkspaceVoice(factory=lambda *a:r);v.input_language=language
++   try:
++    v.start(True,hold_to_talk=True).join(1);self.assertEqual(r.stt.language,expected);self.assertIsNone(r.mic.stream);self.assertTrue(r.enabled)
++   finally:v.close()
+diff --git a/tests/test_local_model_files.py b/tests/test_local_model_files.py
+index c31e713..a8f1cd6 100644
+--- a/tests/test_local_model_files.py
++++ b/tests/test_local_model_files.py
+@@ -36,3 +36,16 @@ class LocalFiles(unittest.TestCase):
+    with patch('jarvis.local_model_files.verified',return_value=True):extract_runtime(z,p,threading.Event())
+    self.assertEqual((p/'llama-server.exe').read_bytes(),b'x')
+    with self.assertRaises(ValueError):extract_runtime(z,p,threading.Event())
++ def test_pinned_runtime_extensionless_license_is_preserved(self):
++  with tempfile.TemporaryDirectory()as d:
++   z=pathlib.Path(d)/'r.zip';p=pathlib.Path(d)/'runtime'
++   with zipfile.ZipFile(z,'w')as f:f.writestr('llama-server.exe',b'x');f.writestr('LICENSE-LLVM-OpenMP',b'License fixture')
++   with patch('jarvis.local_model_files.verified',return_value=True):extract_runtime(z,p,threading.Event())
++   self.assertEqual((p/'LICENSE-LLVM-OpenMP').read_bytes(),b'License fixture')
++ def test_unknown_extensionless_and_nonruntime_scripts_still_rejected(self):
++  for name in ('unexpected','LICENSE-UNKNOWN','nested/LICENSE-LLVM-OpenMP','setup.ps1'):
++   with self.subTest(name=name),tempfile.TemporaryDirectory()as d:
++    z=pathlib.Path(d)/'r.zip';p=pathlib.Path(d)/'runtime'
++    with zipfile.ZipFile(z,'w')as f:f.writestr('llama-server.exe',b'x');f.writestr(name,b'not allowed')
++    with self.assertRaises(ValueError):extract_runtime(z,p,threading.Event())
++    self.assertFalse(p.exists())
+diff --git a/tests/test_microphone_test.py b/tests/test_microphone_test.py
+index d9f2c1d..0a75d59 100644
+--- a/tests/test_microphone_test.py
++++ b/tests/test_microphone_test.py
+@@ -1,4 +1,4 @@
+-import unittest,threading
++import unittest,threading,time
+ import numpy as np
+ from jarvis.microphone_test import MicrophoneTest
+ class MicTests(unittest.TestCase):
+@@ -33,3 +33,36 @@ class MicTests(unittest.TestCase):
+    def abort(self):pass
+    def close(self):pass
+   m=MicrophoneTest(Stream,wait=lambda event:False);m.start(True);m.worker.join(1);self.assertEqual(m.snapshot()['status'],'Test failed');self.assertEqual(m.snapshot()['frames'],0)
++
++ def test_stop_during_open_never_starts_capture(self):
++  opening=threading.Event();resume=threading.Event();calls=[]
++  class Stream:
++   def __init__(self,**kw):opening.set();resume.wait(1)
++   def start(self):calls.append('start')
++   def abort(self):calls.append('abort')
++   def close(self):calls.append('close')
++  m=MicrophoneTest(Stream);m.start(True);self.assertTrue(opening.wait(1));m.stop();resume.set();m.worker.join(1)
++  self.assertEqual(calls,['abort','close']);self.assertEqual(m.snapshot()['status'],'Stopped')
++ def test_callback_does_not_wait_on_ui_lock(self):
++  calls=[];durations=[]
++  class Stream:
++   def __init__(self,**kw):self.cb=kw['callback']
++   def start(self):
++    ready=threading.Event();done=threading.Event()
++    def held():
++     with m.lock:ready.set();done.wait(1)
++    worker=threading.Thread(target=held);worker.start();ready.wait(1);started=time.monotonic()
++    self.cb(np.ones((512,1),dtype='float32'),512,None,None);calls.append('returned');durations.append(time.monotonic()-started);done.set();worker.join(1)
++   def abort(self):pass
++   def close(self):pass
++  m=MicrophoneTest(Stream,wait=lambda e:False);m.start(True);m.worker.join(1)
++  self.assertEqual(calls,['returned']);self.assertLess(durations[0],.1);self.assertEqual(m.snapshot()['frames'],0)
++ def test_malformed_samples_close_without_callback_exception(self):
++  calls=[]
++  class Stream:
++   def __init__(self,**kw):self.cb=kw['callback']
++   def start(self):self.cb(None,512,None,None)
++   def abort(self):calls.append('abort')
++   def close(self):calls.append('close')
++  m=MicrophoneTest(Stream,wait=lambda e:False);m.start(True);m.worker.join(1)
++  self.assertEqual(m.snapshot()['status'],'Test failed');self.assertEqual(calls,['abort','close'])
+diff --git a/tests/test_model_probe.py b/tests/test_model_probe.py
+index bdabdbd..26508e8 100644
+--- a/tests/test_model_probe.py
++++ b/tests/test_model_probe.py
+@@ -25,8 +25,17 @@ class Probe(unittest.TestCase):
+  def test_owned_route_change_blocks_test(self):
+   runtime=self.runtime();http=Mock();n=[0]
+   def opening(*a,**k):n[0]+=1;runtime.route.return_value={'url':'http://127.0.0.1:45679/v1','key':'changed','model':'other'};return io.BytesIO(json.dumps({'choices':[{'message':{'content':'READY'}}]}).encode())
+-  http.open.side_effect=opening;p=ModelProbe(runtime,http);p.start(True);p.worker.join(1);self.assertEqual(p.snapshot()['image'],'failed');self.assertIn('changed',p.snapshot()['error']);self.assertEqual(n[0],1)
++  http.open.side_effect=opening;p=ModelProbe(runtime,http);p.start(True);p.worker.join(1);self.assertEqual(p.snapshot()['text'],'failed');self.assertEqual(p.snapshot()['image'],'not tested');self.assertIn('changed',p.snapshot()['error']);self.assertEqual(n[0],1)
+ 
+  def test_diagnostic_removes_owned_runtime_token_before_artifact(self):
+   import pathlib
+   source=(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/managed-model-proof.py').read_text();self.assertIn("raw.replace(runtime_token,'[owned runtime token removed]')",source)
++
++ def test_final_image_result_from_changed_session_cannot_be_accepted(self):
++  runtime=self.runtime();http=Mock();n=[0]
++  def opening(*a,**k):
++   n[0]+=1
++   if n[0]==2:runtime.route.return_value={'url':'http://127.0.0.1:45679/v1','key':'changed','model':'other'}
++   return io.BytesIO(json.dumps({'choices':[{'message':{'content':'READY'if n[0]==1 else'red'}}]}).encode())
++  http.open.side_effect=opening;p=ModelProbe(runtime,http);p.start(True);p.worker.join(1)
++  self.assertEqual(p.snapshot()['text'],'passed');self.assertEqual(p.snapshot()['image'],'failed');self.assertIn('changed',p.snapshot()['error'])
+diff --git a/tests/test_ui_bridge.py b/tests/test_ui_bridge.py
+index ed1d986..9303c37 100644
+--- a/tests/test_ui_bridge.py
++++ b/tests/test_ui_bridge.py
+@@ -191,7 +191,14 @@ class ManagedModelBridgeTests(unittest.TestCase):
+   b=Bridge(WorkspaceVoice());opened=threading.Event();closed=[]
+   class Stream:
+    def __init__(self,**kw):self.cb=kw['callback']
+-   def start(self):self.cb(np.ones((512,1),dtype='float32')*.1,512,None,None);opened.set()
++   def start(self):
++    def emit():
++     import time
++     while not opened.is_set():
++      self.cb(np.ones((512,1),dtype='float32')*.1,512,None,None)
++      if b.microphone_test.frames:opened.set()
++      else:time.sleep(.001)
++    threading.Thread(target=emit,daemon=True).start()
+    def abort(self):pass
+    def close(self):closed.append(True)
+   b.microphone_test=MicrophoneTest(Stream)
+@@ -239,3 +246,41 @@ class FailedHoldSetupCleanup(unittest.TestCase):
+   try:
+    b.shortcut_monitor.enabled=True;b.voice.busy=False;b.voice.runtime=None;b.execute({'command':'status'});self.assertFalse(b.shortcut_monitor.enabled)
+   finally:b.close()
++
++class DesktopConversationConcurrencyTests(unittest.TestCase):
++ def test_actual_bridge_desktop_worker_does_not_block_active_conversation_or_stop(self):
++  import threading
++  from jarvis.desktop_controller import DesktopController
++  from test_desktop_engine import Adapter
++  entered=threading.Event();release=threading.Event();a=Adapter();a.windows=lambda:[dict(a.target)]
++  original=a.perform
++  def perform(target,row):original(target,row);entered.set();release.wait(1)
++  a.perform=perform;b=Bridge(WorkspaceVoice());b.desktop_control=DesktopController(a)
++  from jarvis.runtime import VoiceRuntime
++  from jarvis.hold_microphone import HoldMic
++  speaker=Mock();runtime=VoiceRuntime(Mock(),Mock(),Mock(),speaker)
++  runtime.mic=HoldMic(Mock(),runtime.on_utterance,stream_factory=lambda **k:self.fail('No device should open in concurrency fixture'))
++  runtime.enable(consent=True);b.voice.runtime=runtime
++  try:
++   b.execute({'command':'desktop-windows','consent':True})
++   state=b.execute({'command':'desktop-task-preview','target':a.target,'steps':[{'action':'move','x':1,'y':1},{'action':'move','x':2,'y':2}],'scope':'Synthetic fixture only'})
++   b.execute({'command':'desktop-task-run','reviewed':state['desktop_control']['task']['pending'],'confirm':True,'effect_approved':True})
++   self.assertTrue(entered.wait(1));state=b.execute({'command':'status'})
++   self.assertTrue(state['desktop_control']['busy']);self.assertTrue(state['voice_active']);self.assertIs(b.voice.runtime,runtime)
++   b.execute({'command':'desktop-task-stop'});release.set();b.desktop_control.worker.join(1)
++   self.assertEqual(len(a.inputs),1);self.assertIs(b.voice.runtime,runtime);self.assertTrue(runtime.enabled)
++  finally:release.set();b.close()
++
++class InputLanguageBridgeTests(unittest.TestCase):
++ def test_explicit_language_selection_is_session_only_and_never_opens_microphone(self):
++  b=Bridge(WorkspaceVoice())
++  try:
++   self.assertEqual(b.execute({'command':'status'})['input_language'],'auto')
++   for language in ('ta','en','auto'):
++    self.assertEqual(b.execute({'command':'voice-input-language','language':language})['input_language'],language)
++    self.assertIsNone(b.voice.runtime)
++   with self.assertRaises(ValueError):b.execute({'command':'voice-input-language','language':'unknown'})
++   b.voice.busy=True
++   with self.assertRaises(ValueError):b.execute({'command':'voice-input-language','language':'ta'})
++   self.assertEqual(b.voice.input_language,'auto')
++  finally:b.close()
