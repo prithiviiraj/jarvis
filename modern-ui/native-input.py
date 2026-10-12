@@ -7,3 +7,17 @@ def activate(control):
   # Other failures must remain visible instead of silently changing input route.
   if type(error).__name__!='NoPatternInterfaceError':raise
   wrapper.click_input()
+
+def resize(control,width,height):
+ import ctypes
+ from ctypes import wintypes
+ u=ctypes.windll.user32;u.SetWindowPos.argtypes=[wintypes.HWND,wintypes.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,wintypes.UINT]
+ hwnd=control.wrapper_object().handle
+ if not u.SetWindowPos(hwnd,None,0,0,width,height,0x0002|0x0004):raise ctypes.WinError()
+
+def minimize(control):
+ import ctypes
+ from ctypes import wintypes
+ u=ctypes.windll.user32;u.ShowWindow.argtypes=[wintypes.HWND,ctypes.c_int];u.IsIconic.argtypes=[wintypes.HWND]
+ hwnd=control.wrapper_object().handle;u.ShowWindow(hwnd,6)
+ if not u.IsIconic(hwnd):raise AssertionError('Actual window did not minimize')

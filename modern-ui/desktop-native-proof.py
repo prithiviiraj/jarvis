@@ -1,7 +1,7 @@
 """Actual Windows selected-window literal editing in an owned disposable Tk app.
 No user app, file opening, shell submission, network, microphone or model effects.
 """
-import os,sys,pathlib,json,subprocess,time
+import os,sys,pathlib,json,subprocess,time,importlib.util
 if os.name!='nt':raise RuntimeError('Requires actual Windows input boundary')
 out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True)
 record=(out/'desktop-owned-app-readback.json').resolve()
@@ -16,6 +16,7 @@ sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'src'))
 from jarvis.desktop_controller import DesktopController
 from pywinauto import Desktop
 from PIL import ImageGrab
+spec=importlib.util.spec_from_file_location('native_input',pathlib.Path(__file__).with_name('native-input.py'));helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
 record.unlink(missing_ok=True)
 child=subprocess.Popen([sys.executable,str(pathlib.Path(__file__).resolve()),'--owned-app'])
 controller=DesktopController();checks=[]
@@ -45,7 +46,7 @@ try:
  else:raise AssertionError('Cancelled review accepted')
  assert text()=='Owned ^+%{} literal text';checks.append('cancelled review produced no input')
  reviewed=controller.prepare(target,[{'action':'type','text':'SHOULD NOT TYPE'}],'Stale geometry rejection only')
- window.move_window(width=800,height=480)
+ helper.resize(window,800,480)
  controller.run(reviewed,True,True).join(timeout=15)
  assert controller.snapshot()['task']['state']=='blocked';assert text()=='Owned ^+%{} literal text';checks.append('changed actual window blocked next input')
  ImageGrab.grab().save(out/'desktop-owned-app-native.png')
