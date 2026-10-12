@@ -24,6 +24,8 @@ shutil.copy2(root.parent/'optional-laya/APACHE-2.0.txt',licenses/'EMBEDDING-APAC
 shutil.copy2(root/'node_modules/3d-force-graph/LICENSE',licenses/'FORCE-GRAPH-MIT.txt')
 (licenses/'BUNDLED-MODELS.txt').write_text('Pinned model sources and hashes are in bundled-models/manifest.json. Whisper and Silero: MIT. Kokoro: Apache2. Laya: Apache2. EmbeddingGemma2: Apache2, subject to Google Prohibited Use Policy https://ai.google.dev/gemma/prohibited_use_policy ; source https://huggingface.co/google/embeddinggemma-2 . Do not describe this as unrestricted use. LM Studio chat and vision weights are separate and not included.\n',encoding='utf-8')
 shutil.copytree(root/'mp3-notices',licenses/'mp3',dirs_exist_ok=True)
+shutil.copy2(root.parent/'LICENSE',licenses/'JARVIS-GPL-3.0.txt')
+shutil.copytree(root.parent/'third-party/bigfoot',licenses/'bigfoot',dirs_exist_ok=True)
 # Corresponding application code/build scripts let recipients relink or replace LGPL modules.
 import tarfile
 with tarfile.open(licenses/'JARVIS-corresponding-application-source.tar.gz','w:gz')as archive:
