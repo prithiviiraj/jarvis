@@ -19,6 +19,8 @@ subprocess.run(['python','-m','PyInstaller','--noconfirm','--clean','--onedir','
 shutil.copytree(root/'diagnostic-dist/jarvis-local-core',out/'backend')
 shutil.copy2(root/'src-tauri/target/release/jarvis-modern-ui.exe',out/'JARVIS.exe')
 shutil.copytree(root/'mp3-notices',out/'licenses/mp3',dirs_exist_ok=True)
+shutil.copy2(root.parent/'LICENSE',out/'licenses'/'JARVIS-GPL-3.0.txt')
+shutil.copytree(root.parent/'third-party/bigfoot',out/'licenses'/'bigfoot',dirs_exist_ok=True)
 import tarfile
 with tarfile.open(out/'licenses/JARVIS-application-source.tar.gz','w:gz')as archive:
  for name in subprocess.check_output(['git','ls-files'],cwd=root.parent,text=True).splitlines():
