@@ -151,6 +151,7 @@ try:
  bounds=companion.rectangle();mouse.move(coords=(bounds.left+300,bounds.top+300));time.sleep(.6)
  ImageGrab.grab().save('ui-evidence/native-bigfoot-cursor.png')
  activate(main.child_window(title='Stop',control_type='Button'))
+ companion.wait_not('visible',timeout=10)
  assert not ctypes.windll.user32.IsWindowVisible(ch),'Stop must hide companion'
  activate(main.child_window(title='Draw on screen',control_type='Button'));companion.wait('visible',timeout=10);time.sleep(.5)
  assert not ctypes.windll.user32.GetWindowLongW(ch,-20)&0x20,'Drawing must accept local pointer input'
@@ -163,9 +164,9 @@ try:
  assert not companion.child_window(title='Undo',control_type='Button').is_enabled(),'Undo must remove the native stroke'
  activate(companion.child_window(title='Clear',control_type='Button'))
  from pywinauto import keyboard
- keyboard.send_keys('{ESC}');time.sleep(.3);assert not ctypes.windll.user32.IsWindowVisible(ch),'Escape must stop drawing'
+ keyboard.send_keys('{ESC}');companion.wait_not('visible',timeout=10);assert not ctypes.windll.user32.IsWindowVisible(ch),'Escape must stop drawing'
  main.set_focus();activate(main.child_window(title='Follow cursor',control_type='Button'));companion.wait('visible',timeout=10)
- main.close();time.sleep(.3);assert not ctypes.windll.user32.IsWindowVisible(ch),'Workspace close must stop companion'
+ main.close();companion.wait_not('visible',timeout=10);assert not ctypes.windll.user32.IsWindowVisible(ch),'Workspace close must stop companion'
  pill_reopen=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Compact voice bar');pill_reopen.wait('visible',timeout=10);activate(pill_reopen.child_window(title='Open JARVIS workspace',control_type='Button'));main.wait('visible',timeout=10);main.set_focus()
  checks.append('native companion explicit start, transparent click-through follow, temporary draw Undo/Clear/Escape and workspace-close Stop')
 
