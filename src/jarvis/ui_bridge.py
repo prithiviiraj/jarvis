@@ -466,19 +466,20 @@ class Bridge:
   if choice['choice']=='cancel':
    if choice['kind']=='browser':self.browser_pending=None
    elif choice['kind']=='app':self.desktop_pending=None
-   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop','github':'github-issue-stop','notion':'notion-text-stop','drive':'drive-text-stop','sheets':'sheets-write-stop','mail':'gmail-stop','calendar':'gcal-stop','telegram':'telegram-output-stop'}[choice['kind']]})
+   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop','github':'github-issue-stop','notion':'notion-text-stop','drive':'drive-text-stop','sheets':'sheets-write-stop','mail':'gmail-stop','calendar':'gcal-stop','telegram':'telegram-output-stop','source':'source-answer-stop','model-download':'models-stop','model-start':'model-session-stop'}[choice['kind']]})
    self.voice.notify('status','Exact '+choice['kind']+' action cancelled. Nothing submitted.');return {'speech_feedback':'Cancelled. Nothing was submitted.'}
-  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save','github':'github-issue-submit','notion':'notion-text-submit','drive':'drive-text-submit','sheets':'sheets-write-submit','mail':'gmail-submit','calendar':'gcal-submit','telegram':'telegram-output-submit'}[choice['kind']]
-  runtime=self.voice.runtime if choice['kind']=='brain'else None
+  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save','github':'github-issue-submit','notion':'notion-text-submit','drive':'drive-text-submit','sheets':'sheets-write-submit','mail':'gmail-submit','calendar':'gcal-submit','telegram':'telegram-output-submit','source':'source-answer-start','model-download':'models-download','model-start':'model-session-start'}[choice['kind']]
+  runtime=self.voice.runtime if choice['kind']in ('brain','source','model-start')else None
   if runtime is not None:
    # Announce before the route-change boundary closes this same speaker.
    # A Stop during playback must prevent the later route verification.
    generation=runtime.generation
    try:
-    runtime.speaker.speak('I accepted the exact local brain review. I am stopping the microphone before verifying that route. The switch is not complete yet.',generation=runtime.speaker.generation)
+    runtime.speaker.speak('I accepted the exact local brain review. I am stopping the microphone before verifying that route. The switch is not complete yet.'if choice['kind']=='brain'else'I accepted the exact model start review. I am stopping the microphone before verifying and starting the owned model. It is not ready yet.'if choice['kind']=='model-start'else'I accepted the exact source, question and local model review. I am stopping the microphone before preparing the draft. The answer is not complete or verified.',generation=runtime.speaker.generation)
     if self.voice.runtime is not runtime or not runtime.valid(generation)or runtime.cancel.is_set():return True
    except Exception as error:
-    self.voice.notify('error','Local brain review acknowledgement failed. Nothing was submitted.');return True
+    self.voice.notify('error','Exact '+choice['kind']+' review acknowledgement failed. Nothing was submitted.');return True
+  if runtime is not None and choice['kind']in ('source','model-start'):self.interrupt_conversation()
   try:self.execute({'command':command,'confirm':True,'reviewed':choice['payload']});self.voice.notify('status','Exact '+choice['kind']+' action submitted. Check actual result, not completion yet.')
   except Exception as error:
    self.voice.notify('error','Voice-approved action stopped: '+str(error)[:200]);return {'speech_feedback':'The reviewed action stopped. Check the visible error; nothing is claimed complete.'}

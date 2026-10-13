@@ -184,3 +184,55 @@ class UnresolvedNotConfirmable(unittest.TestCase):
    with self.assertRaises(ValueError):b.execute({'command':'voice-review-bind','kind':'mail','reviewed':p})
    self.assertIsNone(b.voice_review.snapshot())
   finally:b.google_mail.snapshot=original;b.close()
+
+class SourceVoiceReview(unittest.TestCase):
+ def test_source_confirm_cancel_exact_once_without_live_model(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for action in ('confirm','cancel'):
+   b=Bridge(WorkspaceVoice());p={'payload':{'note':{'name':'fixture.md','text':'Exact quote','sha256':'fixture'},'question':'One question','model':'local-fixture'},'sha256':'fixture'}
+   original_snapshot=b.source_answer.snapshot;original_start=b.source_answer.start;original_stop=b.source_answer.stop
+   try:
+    b.source_answer.snapshot=Mock(return_value={'pending':p});b.source_answer.start=Mock();b.source_answer.stop=Mock()
+    b.execute({'command':'voice-review-bind','kind':'source','reviewed':p});b.voice_action(action+' source')
+    if action=='confirm':b.source_answer.start.assert_called_once_with(None,p,True)
+    else:b.source_answer.start.assert_not_called();b.source_answer.stop.assert_called_once()
+    b.voice_action('confirm source');self.assertLessEqual(b.source_answer.start.call_count,1)
+   finally:b.source_answer.snapshot=original_snapshot;b.source_answer.start=original_start;b.source_answer.stop=original_stop;b.close()
+ def test_source_ack_then_stop_mic_and_stop_during_ack_never_submits(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  import threading
+  for kind in ('source','model-start'):
+   for stopped in (False,True):
+    b=Bridge(WorkspaceVoice());p={'payload':{'note':{'name':'fixture.md','text':'Quote'},'question':'Question','model':'fixture'},'sha256':'fixture'};service=b.source_answer if kind=='source'else b.managed_session;original_snapshot=service.snapshot;original_start=service.start
+    runtime=Mock();runtime.generation=1;runtime.cancel=threading.Event();runtime.valid.return_value=True;runtime.enabled=True;order=[]
+    try:
+     service.snapshot=Mock(return_value={'pending':p});service.start=Mock(side_effect=lambda*args:order.append('start'));b.voice.runtime=runtime
+     def speech(*args,**kw):
+      order.append('ack')
+      if stopped:runtime.cancel.set()
+     runtime.speaker.speak.side_effect=speech
+     b.execute({'command':'voice-review-bind','kind':kind,'reviewed':p});b.voice_action('confirm '+kind)
+     self.assertEqual(order,['ack']if stopped else['ack','start'])
+     if not stopped:self.assertIsNone(b.voice.runtime);service.start.assert_called_once_with(*( (None,p,True)if kind=='source'else(p,True)))
+     else:service.start.assert_not_called()
+    finally:service.snapshot=original_snapshot;service.start=original_start;b.close()
+
+class ModelVoiceReview(unittest.TestCase):
+ def test_exact_model_download_start_confirm_cancel_no_live_assets(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for kind,attr in [('model-download','model_manager'),('model-start','managed_session')]:
+   for action in ('confirm','cancel'):
+    b=Bridge(WorkspaceVoice());service=getattr(b,attr);p={'id':'fixture','destination':'fixture-only','files':[{'source':'https://example.com/fixture','sha256':'fixture'}],'scope':'Exact fixture'};original_snapshot=service.snapshot;original_start=service.start;original_stop=service.stop
+    try:
+     service.snapshot=Mock(return_value={'pending':p});service.start=Mock();service.stop=Mock()
+     b.execute({'command':'voice-review-bind','kind':kind,'reviewed':p});b.voice_action(action+' '+kind)
+     if action=='confirm':service.start.assert_called_once_with(p,True)
+     else:service.start.assert_not_called();service.stop.assert_called_once()
+     b.voice_action('confirm '+kind);self.assertLessEqual(service.start.call_count,1)
+    finally:service.snapshot=original_snapshot;service.start=original_start;service.stop=original_stop;b.close()
