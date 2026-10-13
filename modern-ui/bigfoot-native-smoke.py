@@ -36,7 +36,21 @@ try:
   button(label).wait('exists enabled',timeout=15)
  window.capture_as_image().save(out/'native-bigfoot-home-session-controls.png')
  checks.append('actual default Home settings/mic/Stop/Brave controls visibly present, no audio/control started')
- helper.activate(button('Settings'));visible_text('Edit your profile');helper.activate(button('Edit your profile'));visible_text('Make JARVIS yours')
+ helper.activate(button('Settings'))
+ # General has a real scrollable pane. Reach the Button with actual wheel input,
+ # rather than seeking its label only among Text nodes or invoking it offscreen.
+ deadline=time.monotonic()+15;edit=None
+ while time.monotonic()<deadline:
+  candidates=window.descendants(control_type='Button')
+  edit=next((c for c in candidates if c.window_text()=='Edit your profile'and c.is_visible()),None)
+  r=window.rectangle()
+  if edit is not None:
+   rect=edit.rectangle()
+   if rect.width()>0 and rect.height()>0 and rect.top>=r.top+40 and rect.bottom<=r.bottom-10:break
+  mouse.scroll(coords=(r.right-80,r.bottom-130),wheel_dist=-3);time.sleep(.2)
+ else:raise AssertionError('Profile edit button is not reachable with native scroll')
+ window.capture_as_image().save(out/'native-bigfoot-profile-edit-reached.png')
+ helper.activate(button('Edit your profile'));visible_text('Make JARVIS yours')
  name_control=window.child_window(title='Your name',control_type='Edit').wrapper_object();call_control=window.child_window(title='Call me',control_type='Edit').wrapper_object()
  assert name_control.iface_value.CurrentValue=='Native Fixture','Profile name did not persist after navigation'
  assert call_control.iface_value.CurrentValue=='Friend','Address preference did not persist after navigation'
