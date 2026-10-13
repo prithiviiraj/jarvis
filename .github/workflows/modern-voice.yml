@@ -2,6 +2,10 @@ name: JARVIS modern local voice preview
 on:
   workflow_dispatch:
     inputs:
+      candidate_acceptance_run:
+        description: Recheck exact preserved candidate after fixture-only correction, no rebuild/release
+        required: false
+        type: string
       assemble_tested_source:
         description: Apply hash-pinned tested product patches to integration source only, no builds or release
         required: false
@@ -65,7 +69,7 @@ jobs:
         run: |
           printf 'Accepted ref: %s\nAccepted SHA: %s\nAccepted inputs: %s\n' "$ACCEPTED_REF" "$ACCEPTED_SHA" "$ACCEPTED_INPUTS" | tee -a "$GITHUB_STEP_SUMMARY"
   native-iteration:
-    if: ${{ inputs.native_only && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.native_only && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: windows-latest
     timeout-minutes: 25
     defaults:
@@ -175,7 +179,7 @@ jobs:
           if-no-files-found: warn
   windows:
     needs: embedding-runtime
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: windows-latest
     timeout-minutes: 70
     defaults:
@@ -384,7 +388,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   actual-laya:
-    if: ${{ inputs.run_laya && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.run_laya && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -410,7 +414,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   xtts-runtime:
-    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: windows-latest
     timeout-minutes: 30
     env:
@@ -437,7 +441,7 @@ jobs:
           retention-days: 7
 
   windows-laya:
-    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -479,7 +483,7 @@ jobs:
           if-no-files-found: error
 
   embedding-runtime:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -500,7 +504,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   embedding-model:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -528,7 +532,7 @@ jobs:
           retention-days: 7
 
   stage-draft:
-    if: ${{ inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     permissions:
       actions: read
       contents: write
@@ -577,7 +581,7 @@ jobs:
           jq -e '.isDraft==true and .isPrerelease==true and any(.assets[]; .name=="JARVIS-tested-build-a77b5bc.zip" and .size==1364917105)' staged.json
           cat staged.json
   managed-model-proof:
-    if: ${{ inputs.managed_model_proof && !inputs.stage_tested_draft && !inputs.assemble_tested_source }}
+    if: ${{ inputs.managed_model_proof && !inputs.stage_tested_draft && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -623,7 +627,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   assemble-tested-source:
-    if: ${{ inputs.assemble_tested_source && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && github.ref == 'refs/heads/jarvis-bigfoot-integration' }}
+    if: ${{ inputs.assemble_tested_source && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && github.ref == 'refs/heads/jarvis-bigfoot-integration' && !inputs.candidate_acceptance_run }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -669,7 +673,7 @@ jobs:
           git commit -m 'Assemble first-candidate frozen proof and honest limits'
           git push origin HEAD:refs/heads/jarvis-bigfoot-integration
   voice-device-proof:
-    if: ${{ inputs.voice_device_proof && !inputs.managed_model_proof && !inputs.native_only && !inputs.stage_tested_draft && !inputs.assemble_tested_source }}
+    if: ${{ inputs.voice_device_proof && !inputs.managed_model_proof && !inputs.native_only && !inputs.stage_tested_draft && !inputs.assemble_tested_source && !inputs.candidate_acceptance_run }}
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
@@ -710,5 +714,88 @@ jobs:
         with:
           name: JARVIS-Tamil-STT-diagnostic-evidence
           path: modern-ui/tamil-stt-evidence
+          retention-days: 7
+          if-no-files-found: error
+
+  candidate-acceptance:
+    if: ${{ inputs.candidate_acceptance_run == '38390914683' && github.ref == 'refs/heads/jarvis-bigfoot-integration' }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: modern-ui
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 209f936b5f7bf0088806a8cd0a57a817609fa462
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download exact assembled candidate314, no rebuild
+        uses: actions/download-artifact@v4
+        with:
+          name: JARVIS-FULL-PACKAGE-DIAGNOSTIC-NOT-ACCEPTED
+          path: modern-ui/windows-portable
+          run-id: 38390914683
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify candidate source archive and exact executable checksums
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes('verify-candidate.py',[Convert]::FromBase64String('aW1wb3J0IHRhcmZpbGUscGF0aGxpYixoYXNobGliLGpzb24Kcm9vdD1wYXRobGliLlBhdGgoJy4uJyk7b3V0PXBhdGhsaWIuUGF0aCgndWktZXZpZGVuY2UnKTtvdXQubWtkaXIoZXhpc3Rfb2s9VHJ1ZSkKd2l0aCB0YXJmaWxlLm9wZW4oJ3dpbmRvd3MtcG9ydGFibGUvbGljZW5zZXMvSkFSVklTLWNvcnJlc3BvbmRpbmctYXBwbGljYXRpb24tc291cmNlLnRhci5neicpYXMgdDoKIG5hbWVzPVttLm5hbWUgZm9yIG0gaW4gdC5nZXRtZW1iZXJzKClpZiBtLmlzZmlsZSgpYW5kIG0ubmFtZS5zdGFydHN3aXRoKCgnc3JjLycsJ21vZGVybi11aS9zcmMvJywnbW9kZXJuLXVpL3B1YmxpYy8nLCdtb2Rlcm4tdWkvc3JjLXRhdXJpLycpKV0KIGZvciBuIGluIG5hbWVzOmFzc2VydCBoYXNobGliLnNoYTI1Nih0LmV4dHJhY3RmaWxlKG4pLnJlYWQoKSkuZGlnZXN0KCk9PWhhc2hsaWIuc2hhMjU2KChyb290L24pLnJlYWRfYnl0ZXMoKSkuZGlnZXN0KCksbgpyZXBvcnQ9eydzb3VyY2UnOicyMDlmOTM2YjVmN2JmMDA4ODgwNmE4Y2QwYTU3YTgxNzYwOWZhNDYyJywnY2FuZGlkYXRlX3J1bic6MzgzOTA5MTQ2ODMsJ3NvdXJjZV9maWxlc19jaGVja2VkJzpsZW4obmFtZXMpLCdleGVjdXRhYmxlcyc6e246aGFzaGxpYi5zaGEyNTYocGF0aGxpYi5QYXRoKCd3aW5kb3dzLXBvcnRhYmxlJyxuKS5yZWFkX2J5dGVzKCkpLmhleGRpZ2VzdCgpZm9yIG4gaW4gWydKQVJWSVMuZXhlJywnYmFja2VuZC9qYXJ2aXMtbG9jYWwtY29yZS5leGUnXX0sJ3JlYnVpbHQnOkZhbHNlfQoob3V0LydleGFjdC1jYW5kaWRhdGUtZmluZ2VycHJpbnQuanNvbicpLndyaXRlX3RleHQoanNvbi5kdW1wcyhyZXBvcnQsaW5kZW50PTIpKTtwcmludChyZXBvcnQpCg=='))
+          python verify-candidate.py
+          if ($LASTEXITCODE -ne 0) { throw 'Exact candidate source mismatch' }
+      - name: Install proof-only dependencies and runner host prerequisites
+        shell: pwsh
+        run: |
+          python -m pip install Pillow==11.3.0 pywinauto==0.6.9 numpy==2.2.6 opencv-python==4.12.0.88 playwright==1.56.0 certifi==2026.7.22 tzdata==2025.2
+          if ($LASTEXITCODE -ne 0) { throw 'Fixture dependencies failed' }
+          choco install brave --version=1.88.134 --yes --no-progress --limit-output
+          if ($LASTEXITCODE -notin @(0,3010)) { throw 'Brave host prerequisite failed' }
+          python obsidian-host-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Obsidian host prerequisite failed' }
+      - name: Correct only the UIA proof fixture, not candidate files
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes('bigfoot-native-smoke.py',[Convert]::FromBase64String('IiIiQWN0dWFsIGNvcGllZC1zaGVsbCBXaW5kb3dzIFVJQSBkaWFnbm9zdGljLiBObyBtb2RlbC9kb3dubG9hZC9taWMvY29udHJvbCBzdGFydHMuIiIiCmltcG9ydCBvcyxwYXRobGliLHN1YnByb2Nlc3MsdGltZSxqc29uLGltcG9ydGxpYi51dGlsLHN5cyxpbyxjdHlwZXMKaWYgIi0tb3duZWQtdGFyZ2V0IiBpbiBzeXMuYXJndjoKIGltcG9ydCB0a2ludGVyIGFzIHRrCiByb290PXRrLlRrKCk7cm9vdC50aXRsZSgiSkFSVklTIG93bmVkIGZvcmVncm91bmQgY2FwdHVyZSB0YXJnZXQiKTtyb290Lmdlb21ldHJ5KCI4MDB4NDUwKzQwKzQwIik7cm9vdC5jb25maWd1cmUoYmc9IiMxNDRjOWQiKTtyb290Lm1haW5sb29wKCk7c3lzLmV4aXQoMCkKZnJvbSBweXdpbmF1dG8gaW1wb3J0IERlc2t0b3AsbW91c2UKZnJvbSBQSUwgaW1wb3J0IEltYWdlR3JhYgpzcGVjPWltcG9ydGxpYi51dGlsLnNwZWNfZnJvbV9maWxlX2xvY2F0aW9uKCduYXRpdmVfaW5wdXQnLHBhdGhsaWIuUGF0aChfX2ZpbGVfXykud2l0aF9uYW1lKCduYXRpdmUtaW5wdXQucHknKSk7aGVscGVyPWltcG9ydGxpYi51dGlsLm1vZHVsZV9mcm9tX3NwZWMoc3BlYyk7c3BlYy5sb2FkZXIuZXhlY19tb2R1bGUoaGVscGVyKQppZiBvcy5uYW1lIT0nbnQnOnJhaXNlIFJ1bnRpbWVFcnJvcignQWN0dWFsIGNvcGllZC1zaGVsbCBkaWFnbm9zdGljIHJlcXVpcmVzIFdpbmRvd3MnKQpleGU9cGF0aGxpYi5QYXRoKG9zLmVudmlyb25bJ0pBUlZJU19VSV9FWEUnXSkucmVzb2x2ZSgpO291dD1wYXRobGliLlBhdGgoJ3VpLWV2aWRlbmNlJyk7b3V0Lm1rZGlyKGV4aXN0X29rPVRydWUpCmVudj1kaWN0KG9zLmVudmlyb24sSkFSVklTX0JJR0ZPT1RfRElBR05PU1RJQz0nMScsSkFSVklTX0RBVEFfRElSPXN0cigob3V0LydiaWdmb290LW5hdGl2ZS1pc29sYXRlZC1kYXRhJykucmVzb2x2ZSgpKSkKY2hpbGQ9c3VicHJvY2Vzcy5Qb3Blbihbc3RyKGV4ZSldLGVudj1lbnYpO2NoZWNrcz1bXTt0YXJnZXRfY2hpbGQ9Tm9uZQp0cnk6CiB3aW5kb3c9RGVza3RvcChiYWNrZW5kPSd1aWEnKS53aW5kb3codGl0bGU9J0pBUlZJUyAvIE1vZGVybiB3b3Jrc3BhY2UgcHJldmlldycscHJvY2Vzcz1jaGlsZC5waWQpO3dpbmRvdy53YWl0KCd2aXNpYmxlJyx0aW1lb3V0PTMwKQogZGVmIGJ1dHRvbihuYW1lKToKICBjb250cm9sPXdpbmRvdy5jaGlsZF93aW5kb3codGl0bGU9bmFtZSxjb250cm9sX3R5cGU9J0J1dHRvbicsdmlzaWJsZV9vbmx5PVRydWUpO2NvbnRyb2wud2FpdCgnZXhpc3RzIGVuYWJsZWQnLHRpbWVvdXQ9MTUpO3JldHVybiBjb250cm9sCiBkZWYgdmlzaWJsZV90ZXh0KHRleHQpOgogIGRlYWRsaW5lPXRpbWUubW9ub3RvbmljKCkrMTUKICB3aGlsZSB0aW1lLm1vbm90b25pYygpPGRlYWRsaW5lOgogICBpZiBhbnkodGV4dCBpbiBjLndpbmRvd190ZXh0KClmb3IgYyBpbiB3aW5kb3cuZGVzY2VuZGFudHMoY29udHJvbF90eXBlPSdUZXh0JykpOnJldHVybgogICB0aW1lLnNsZWVwKC4yKQogIHJhaXNlIEFzc2VydGlvbkVycm9yKCdDb3BpZWQgbmF0aXZlIHRleHQgYWJzZW50OiAnK3RleHQpCiB2aXNpYmxlX3RleHQoJ1ZvaWNlJyk7dmlzaWJsZV90ZXh0KCdMb2NhbCBzcGVlY2ggYXNzZXRzJyk7Y2hlY2tzLmFwcGVuZCgnYWN0dWFsIGZpcnN0LW9wZW4gVm9pY2Ugb2ZmZXInKQogZm9yIG5hbWUgaW4gKCdNb2RlbHMnLCdKQVJWSVMnLCdHZW5lcmFsJywnVm9pY2UnKToKICBoZWxwZXIuYWN0aXZhdGUoYnV0dG9uKG5hbWUpKTt0aW1lLnNsZWVwKC4zKTtJbWFnZUdyYWIuZ3JhYigpLnNhdmUob3V0LygnbmF0aXZlLWJpZ2Zvb3QtJytuYW1lLmxvd2VyKCkrJy5wbmcnKSk7Y2hlY2tzLmFwcGVuZCgnYWN0dWFsIG5hdGl2ZSAnK25hbWUrJyBuYXZpZ2F0aW9uJykKICMgSW5zcGVjdCBleGlzdGluZyBsb2NhbCBjb250cm9scyBvbmx5LiBOZXZlciBjbGljayBtb2RlbC9zcGVlY2ggZG93bmxvYWRzIG9yIGNhcHR1cmUuCiB2aXNpYmxlX3RleHQoJ1NwZWVjaCBpbnB1dCcpCiAjIE5hdGl2ZSBzZWxlY3QgZGlzcGxheXMgaXRzIGNob3NlbiB2YWx1ZSB2aWEgVUlBIFZhbHVlL1NlbGVjdGlvbiBwYXR0ZXJucywKICMgbm90IG5lY2Vzc2FyaWx5IHRoZSBhY2Nlc3NpYmxlIE5hbWUgcmV0dXJuZWQgYnkgd2luZG93X3RleHQoKS4KIGNob2ljZXM9W107cm91dGVfY29udHJvbD1Ob25lCiBmb3IgYyBpbiB3aW5kb3cuZGVzY2VuZGFudHMoY29udHJvbF90eXBlPSdDb21ib0JveCcpOgogIHZhbHVlcz1bYy53aW5kb3dfdGV4dCgpXQogIHRyeTp2YWx1ZXMuYXBwZW5kKGMuaWZhY2VfdmFsdWUuQ3VycmVudFZhbHVlKQogIGV4Y2VwdCBFeGNlcHRpb246cGFzcwogIHRyeTp2YWx1ZXMuYXBwZW5kKGMuc2VsZWN0ZWRfdGV4dCgpKQogIGV4Y2VwdCBFeGNlcHRpb246cGFzcwogIGNob2ljZXMuYXBwZW5kKHZhbHVlcykKICBpZiAnTG9jYWwgLSBvZmZsaW5lIGRlZmF1bHQnaW4gc3RyKHZhbHVlcyk6cm91dGVfY29udHJvbD1jCiAob3V0LyduYXRpdmUtYmlnZm9vdC1jb21ib2JveC12YWx1ZXMuanNvbicpLndyaXRlX3RleHQoanNvbi5kdW1wcyhjaG9pY2VzLGluZGVudD0yKSkKIGFzc2VydCBhbnkoJ0F1dG9tYXRpYyAobXVsdGlsaW5ndWFsKSdpbiBzdHIodmFsdWVzKWZvciB2YWx1ZXMgaW4gY2hvaWNlcyksJ05hdGl2ZSBzcGVlY2ggaW5wdXQgZGVmYXVsdCB2YWx1ZSBhYnNlbnQnCiBjaGVja3MuYXBwZW5kKCdhY3R1YWwgbmF0aXZlIHNwZWVjaCBpbnB1dCBBdXRvbWF0aWMgKG11bHRpbGluZ3VhbCkgdmFsdWUgcGF0dGVybicpCiBhc3NlcnQgYW55KCdMb2NhbCAtIG9mZmxpbmUgZGVmYXVsdCdpbiBzdHIodmFsdWVzKWZvciB2YWx1ZXMgaW4gY2hvaWNlcyksJ0RlZmF1bHQgc3BlZWNoIHJlY29nbml0aW9uIHJvdXRlIGFic2VudCcKIGFzc2VydCByb3V0ZV9jb250cm9sIGlzIG5vdCBOb25lCiAjIE9wZW4gdGhlIG5hdGl2ZSBvcHRpb24gbGlzdCBvbmx5LCBuZXZlciBzZWxlY3QgdGhlIG9ubGluZSByb3V0ZSBvciB1cGxvYWQuCiByb3V0ZV9jb250cm9sLmNsaWNrX2lucHV0KCk7dGltZS5zbGVlcCguMikKIHZpc2libGVfdGV4dCgnR3JvcSAtIG9ubGluZSBhdWRpbyBvcHQtaW4nKQogSW1hZ2VHcmFiLmdyYWIoKS5zYXZlKG91dC8nbmF0aXZlLWJpZ2Zvb3Qtc3R0LXJvdXRlLW9wdGlvbnMucG5nJykKIHJvdXRlX2NvbnRyb2wudHlwZV9rZXlzKCd7RVNDfScpO3RpbWUuc2xlZXAoLjIpCiBjaGVja3MuYXBwZW5kKCdhY3R1YWwgbmF0aXZlIGxvY2FsLWRlZmF1bHQvR3JvcSBvcHQtaW4gcm91dGUgY29udHJvbCB2aXNpYmxlOyBubyB1cGxvYWQnKQogIyBGaXJzdC1vcGVuIG1pY3JvcGhvbmUgdGVzdCBpcyBiZWxvdyB0aGUgdm9pY2UgbGlzdC4gU2Nyb2xsIGFjdHVhbCBwaXhlbHMsCiAjIG5ldmVyIGFjdGl2YXRlIG1pY3JvcGhvbmUvZG93bmxvYWQgY29udHJvbHMgZm9yIHRoaXMgbmF2aWdhdGlvbiBkaWFnbm9zdGljLgogZGVmIG1pY3JvcGhvbmVfcmVhY2hhYmxlKGxhYmVsKToKICBhcmVhPWhlbHBlci53b3JrX2FyZWEoKQogIGZvciBfIGluIHJhbmdlKDgpOgogICBjb250cm9scz1bYyBmb3IgYyBpbiB3aW5kb3cuZGVzY2VuZGFudHMoY29udHJvbF90eXBlPSdCdXR0b24nKWlmIGMud2luZG93X3RleHQoKT09J1Rlc3QgTWljcm9waG9uZSddCiAgIGlmIGNvbnRyb2xzIGFuZCBjb250cm9sc1swXS5pc192aXNpYmxlKClhbmQgY29udHJvbHNbMF0ucmVjdGFuZ2xlKCkudG9wPndpbmRvdy5yZWN0YW5nbGUoKS50b3AgYW5kIGNvbnRyb2xzWzBdLnJlY3RhbmdsZSgpLmJvdHRvbTxtaW4od2luZG93LnJlY3RhbmdsZSgpLmJvdHRvbSxhcmVhLmJvdHRvbSkgYW5kIGNvbnRyb2xzWzBdLnJlY3RhbmdsZSgpLmxlZnQ+PWFyZWEubGVmdCBhbmQgY29udHJvbHNbMF0ucmVjdGFuZ2xlKCkucmlnaHQ8PWFyZWEucmlnaHQ6YnJlYWsKICAgYm91bmRzPXdpbmRvdy5yZWN0YW5nbGUoKTttb3VzZS5zY3JvbGwoY29vcmRzPShtaW4oYm91bmRzLnJpZ2h0LGFyZWEucmlnaHQpLTgwLG1pbihib3VuZHMuYm90dG9tLGFyZWEuYm90dG9tKS0xODApLHdoZWVsX2Rpc3Q9LTMpO3RpbWUuc2xlZXAoLjE1KQogIGVsc2U6cmFpc2UgQXNzZXJ0aW9uRXJyb3IoJ0ZpcnN0LW9wZW4gbWljcm9waG9uZSBjb250cm9sIGRpZCBub3QgYmVjb21lIHZpc2libHkgcmVhY2hhYmxlJykKICBJbWFnZUdyYWIuZ3JhYigpLnNhdmUob3V0LygnbmF0aXZlLWJpZ2Zvb3QtbWljcm9waG9uZS0nK2xhYmVsKycucG5nJykpO2NoZWNrcy5hcHBlbmQoJ2FjdHVhbCBtaWNyb3Bob25lIGNvbnRyb2wgdmlzaWJseSByZWFjaGFibGUgd2l0aG91dCBhY3RpdmF0aW9uICcrbGFiZWwpCiBtaWNyb3Bob25lX3JlYWNoYWJsZSgnaW5pdGlhbCcpCgogZm9yIHNpemUgaW4gKCg4MDAsNjAwKSwoMTAyNCw3NjgpKToKICBoZWxwZXIucGxhY2VfaW5fd29ya19hcmVhKHdpbmRvdyxzaXplWzBdLHNpemVbMV0pO3RpbWUuc2xlZXAoLjQpO0ltYWdlR3JhYi5ncmFiKCkuc2F2ZShvdXQvKCduYXRpdmUtYmlnZm9vdC0nK3N0cihzaXplWzBdKSsnLnBuZycpKTtjaGVja3MuYXBwZW5kKCduYXRpdmUgcmVzaXplZCAnK3N0cihzaXplKSk7bWljcm9waG9uZV9yZWFjaGFibGUoc3RyKHNpemVbMF0pKQogIyBKQVJWSVMgaXRzZWxmIG1heSBiZSBtaW5pbWl6ZWQgd2hpbGUgYSBkaWZmZXJlbnQgc2VsZWN0ZWQgdGFyZ2V0IHN0YXlzIGZvcmVncm91bmQuCiBzeXMucGF0aC5pbnNlcnQoMCxzdHIocGF0aGxpYi5QYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkucGFyZW50c1sxXS8nc3JjJykpCiBmcm9tIGphcnZpcy5nYW1lX2NvbXBhbmlvbiBpbXBvcnQgd2luZG93cyxjYXB0dXJlCiBmcm9tIFBJTCBpbXBvcnQgSW1hZ2UKIHRhcmdldF9jaGlsZD1zdWJwcm9jZXNzLlBvcGVuKFtzeXMuZXhlY3V0YWJsZSxzdHIocGF0aGxpYi5QYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkpLCctLW93bmVkLXRhcmdldCddKQogdGFyZ2V0X3dpbmRvdz1EZXNrdG9wKGJhY2tlbmQ9J3VpYScpLndpbmRvdyh0aXRsZT0nSkFSVklTIG93bmVkIGZvcmVncm91bmQgY2FwdHVyZSB0YXJnZXQnLHByb2Nlc3M9dGFyZ2V0X2NoaWxkLnBpZCk7dGFyZ2V0X3dpbmRvdy53YWl0KCd2aXNpYmxlJyx0aW1lb3V0PTE1KQogaGVscGVyLm1pbmltaXplKHdpbmRvdykKIHRhcmdldF93aW5kb3cud3JhcHBlcl9vYmplY3QoKS5zZXRfZm9jdXMoKQogdGFyZ2V0PW5leHQoeCBmb3IgeCBpbiB3aW5kb3dzKClpZiB4Wyd0aXRsZSddPT0nSkFSVklTIG93bmVkIGZvcmVncm91bmQgY2FwdHVyZSB0YXJnZXQnKTtyYXc9Tm9uZTtkZWFkbGluZT10aW1lLm1vbm90b25pYygpKzEwCiB3aGlsZSByYXcgaXMgTm9uZSBhbmQgdGltZS5tb25vdG9uaWMoKTxkZWFkbGluZToKICB0YXJnZXRfd2luZG93LndyYXBwZXJfb2JqZWN0KCkuc2V0X2ZvY3VzKCk7cmF3PWNhcHR1cmUodGFyZ2V0KQogIGlmIHJhdyBpcyBOb25lOnRpbWUuc2xlZXAoLjEpCiBhc3NlcnQgcmF3LCdGb3JlZ3JvdW5kIHRhcmdldCBjYXB0dXJlIGZhaWxlZCB3aXRoIGFjdHVhbCBKQVJWSVMgbWluaW1pemVkJwogZnJhbWU9SW1hZ2Uub3Blbihpby5CeXRlc0lPKHJhdykpO2ZyYW1lLnNhdmUob3V0LyduYXRpdmUtYmlnZm9vdC1taW5pbWl6ZWQtdGFyZ2V0LWZyYW1lLnBuZycpO2NlbnRlcj1mcmFtZS5jb252ZXJ0KCdSR0InKS5nZXRwaXhlbCgoZnJhbWUud2lkdGgvLzIsZnJhbWUuaGVpZ2h0Ly8yKSk7YXNzZXJ0IG1heChhYnMoeC15KWZvciB4LHkgaW4gemlwKGNlbnRlciwoMjAsNzYsMTU3KSkpPDEwLCdXcm9uZyB0YXJnZXQgcGl4ZWxzIHdpdGggSkFSVklTIG1pbmltaXplZCcKIEltYWdlR3JhYi5ncmFiKCkuc2F2ZShvdXQvJ25hdGl2ZS1iaWdmb290LW1pbmltaXplZC10YXJnZXQtZGVza3RvcC5wbmcnKTtjaGVja3MuYXBwZW5kKCdhY3R1YWwgY29waWVkIEpBUlZJUyBtaW5pbWl6ZWQgd2hpbGUgc2VsZWN0ZWQgZm9yZWdyb3VuZCBvd25lZCBibHVlIHRhcmdldCBjYXB0dXJlZCBleGFjdCBwaXhlbHMnKQogaGVscGVyLm1pbmltaXplKHRhcmdldF93aW5kb3cpO2Fzc2VydCBjYXB0dXJlKHRhcmdldClpcyBOb25lLCdNaW5pbWl6ZWQgVEFSR0VUIHNob3VsZCBzdGlsbCBiZSByZWplY3RlZCc7Y2hlY2tzLmFwcGVuZCgnbWluaW1pemVkIFRBUkdFVCByZWplY3RlZCBzZXBhcmF0ZWx5IGZyb20gbWluaW1pemVkIEpBUlZJUycpCiAob3V0LyduYXRpdmUtYmlnZm9vdC1yZXBvcnQuanNvbicpLndyaXRlX3RleHQoanNvbi5kdW1wcyh7J2NoZWNrcyc6Y2hlY2tzLCdzY29wZSc6J0FjdHVhbCBXaW5kb3dzIFdlYlZpZXcvVUlBIHBpeGVscyBhbmQgbmF2aWdhdGlvbiBvbmx5LiBJbmNsdWRlcyBhY3R1YWwgbWluaW1pemVkIEpBUlZJUyBwbHVzIHNlbGVjdGVkIHN5bnRoZXRpYyBmb3JlZ3JvdW5kIHRhcmdldCBwaXhlbHMuIE5vIG1vZGVsLCBtaWNyb3Bob25lLCBhdWRpbywgbGl2ZSB2aWRlbyB1bmRlcnN0YW5kaW5nLCBkZXNrdG9wIHRhc2sgb3Igb3duZXItaGFyZHdhcmUgcHJvb2YuJ30saW5kZW50PTIpKQpmaW5hbGx5OgogaWYgdGFyZ2V0X2NoaWxkOgogIHN1YnByb2Nlc3MucnVuKFsndGFza2tpbGwnLCcvUElEJyxzdHIodGFyZ2V0X2NoaWxkLnBpZCksJy9UJywnL0YnXSxjaGVjaz1GYWxzZSxjYXB0dXJlX291dHB1dD1UcnVlLHRpbWVvdXQ9MTApCiAgdHJ5OnRhcmdldF9jaGlsZC53YWl0KHRpbWVvdXQ9NSkKICBleGNlcHQgc3VicHJvY2Vzcy5UaW1lb3V0RXhwaXJlZDp0YXJnZXRfY2hpbGQua2lsbCgpO3RhcmdldF9jaGlsZC53YWl0KHRpbWVvdXQ9NSkKIHN1YnByb2Nlc3MucnVuKFsndGFza2tpbGwnLCcvUElEJyxzdHIoY2hpbGQucGlkKSwnL1QnLCcvRiddLGNoZWNrPUZhbHNlLGNhcHR1cmVfb3V0cHV0PVRydWUsdGltZW91dD0xMCkKIHRyeTpjaGlsZC53YWl0KHRpbWVvdXQ9MTApCiBleGNlcHQgc3VicHJvY2Vzcy5UaW1lb3V0RXhwaXJlZDpjaGlsZC5raWxsKCk7Y2hpbGQud2FpdCh0aW1lb3V0PTUpCg=='))
+      - name: Entire exact candidate native and frozen runtime acceptance
+        shell: pwsh
+        run: |
+          $env:JARVIS_UI_EXE = (Resolve-Path 'windows-portable/JARVIS.exe').Path
+          $env:PYTHONPATH = ''
+          python native-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual candidate native smoke failed' }
+          python bigfoot-native-smoke.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual copied Bigfoot UI failed' }
+          python desktop-native-proof.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual desktop proof failed' }
+          foreach ($check in @('groq-stt','voice','phone','laya','turn','search')) {
+            & ./windows-portable/backend/jarvis-local-core.exe "--${check}-self-test"
+            if ($LASTEXITCODE -ne 0) { throw "Actual frozen $check failed" }
+          }
+      - name: Exact candidate managed-model and real speed command
+        shell: pwsh
+        run: |
+          $env:JARVIS_CORE_EXE = (Resolve-Path 'windows-portable/backend/jarvis-local-core.exe').Path
+          $env:JARVIS_DATA_DIR = (Join-Path (Get-Location) 'candidate-managed-proof-data')
+          python owner-speed-proof.py
+          if ($LASTEXITCODE -ne 0) { throw 'Exact assembled speed command failed' }
+      - name: Preserve accepted exact candidate only after all checks
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-First-Candidate-Exact-314
+          path: modern-ui/windows-portable
+          retention-days: 7
+          if-no-files-found: error
+      - name: Small native and managed-speed evidence, always
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Exact-Candidate-314-Evidence
+          path: |
+            modern-ui/ui-evidence/*.png
+            modern-ui/ui-evidence/*report*.json
+            modern-ui/ui-evidence/*fingerprint*.json
+            modern-ui/ui-evidence/native-bigfoot-combobox-values.json
+            modern-ui/owner-speed-evidence
           retention-days: 7
           if-no-files-found: error
