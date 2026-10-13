@@ -449,7 +449,8 @@ class Bridge:
     reviews[key]=row.get('plan')if row.get('state')=='review'else {'state':row['state'],'scope':'Unresolved connector effect blocks unrelated voice approval'}
   reviews['telegram-pair']=self.telegram.snapshot().get('pending')
   reviews['phone-handoff']=self.phone.snapshot().get('handoff')
-  reviews['phone-delivery']=self.phone_endpoints.snapshot().get('pending')
+  delivery=self.phone_endpoints.snapshot().get('pending')
+  if delivery is not None and delivery!=reviews.get('phone-pair'):reviews['phone-delivery']=delivery
   if self.calendar_telegram.snapshot().get('busy'):reviews['calendar-telegram']={'state':'preparing','scope':'Connector draft handoff in progress'}
   reviews['desktop-task']=self.desktop_control.snapshot().get('task',{}).get('pending')
   reviews['planning-open']=self.plan_pending
@@ -466,9 +467,9 @@ class Bridge:
   if choice['choice']=='cancel':
    if choice['kind']=='browser':self.browser_pending=None
    elif choice['kind']=='app':self.desktop_pending=None
-   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop','github':'github-issue-stop','notion':'notion-text-stop','drive':'drive-text-stop','sheets':'sheets-write-stop','mail':'gmail-stop','calendar':'gcal-stop','telegram':'telegram-output-stop','source':'source-answer-stop','model-download':'models-stop','model-start':'model-session-stop'}[choice['kind']]})
+   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop','github':'github-issue-stop','notion':'notion-text-stop','drive':'drive-text-stop','sheets':'sheets-write-stop','mail':'gmail-stop','calendar':'gcal-stop','telegram':'telegram-output-stop','source':'source-answer-stop','model-download':'models-stop','model-start':'model-session-stop','phone-pair':'phone-stop','news':'news-cancel','local-calendar':'calendar-cancel'}[choice['kind']]})
    self.voice.notify('status','Exact '+choice['kind']+' action cancelled. Nothing submitted.');return {'speech_feedback':'Cancelled. Nothing was submitted.'}
-  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save','github':'github-issue-submit','notion':'notion-text-submit','drive':'drive-text-submit','sheets':'sheets-write-submit','mail':'gmail-submit','calendar':'gcal-submit','telegram':'telegram-output-submit','source':'source-answer-start','model-download':'models-download','model-start':'model-session-start'}[choice['kind']]
+  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save','github':'github-issue-submit','notion':'notion-text-submit','drive':'drive-text-submit','sheets':'sheets-write-submit','mail':'gmail-submit','calendar':'gcal-submit','telegram':'telegram-output-submit','source':'source-answer-start','model-download':'models-download','model-start':'model-session-start','phone-pair':'phone-pair-approve','news':'news-open','local-calendar':'calendar-save'}[choice['kind']]
   runtime=self.voice.runtime if choice['kind']in ('brain','source','model-start')else None
   if runtime is not None:
    # Announce before the route-change boundary closes this same speaker.

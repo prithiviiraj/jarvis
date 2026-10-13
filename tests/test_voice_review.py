@@ -236,3 +236,62 @@ class ModelVoiceReview(unittest.TestCase):
      else:service.start.assert_not_called();service.stop.assert_called_once()
      b.voice_action('confirm '+kind);self.assertLessEqual(service.start.call_count,1)
     finally:service.snapshot=original_snapshot;service.start=original_start;service.stop=original_stop;b.close()
+
+class PhonePairVoiceReview(unittest.TestCase):
+ def test_same_pair_request_has_one_review_and_exact_local_approval_once(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  import json
+  for action in ('confirm','cancel'):
+   b=Bridge(WorkspaceVoice())
+   try:
+    code=b.phone.enable(True);b.phone_endpoints.handle('/phone/pair',json.dumps({'code':code,'label':'Fixture phone, unverified label'}).encode(),trusted_https=True,same_origin=True);p=b.phone.snapshot()['pending'];self.assertEqual(b.pending_voice_reviews(),{'phone-pair':p})
+    b.execute({'command':'voice-review-bind','kind':'phone-pair','reviewed':p});b.voice_action(action+' phone-pair')
+    self.assertIsNone(b.voice_review.snapshot())
+    if action=='confirm':self.assertIsNotNone(b.phone_endpoints.delivery);self.assertIn('phone-delivery',b.pending_voice_reviews())
+    else:self.assertIsNone(b.phone_endpoints.delivery);self.assertIsNone(b.phone.snapshot()['pending'])
+    delivery=b.phone_endpoints.delivery;b.voice_action('confirm phone-pair');self.assertEqual(delivery,b.phone_endpoints.delivery)
+   finally:b.close()
+ def test_changed_pair_request_or_extra_permission_never_delivers(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  import json
+  for change in ('changed','extra'):
+   b=Bridge(WorkspaceVoice())
+   try:
+    code=b.phone.enable(True);b.phone_endpoints.handle('/phone/pair',json.dumps({'code':code,'label':'Fixture phone'}).encode(),trusted_https=True,same_origin=True);p=b.phone.snapshot()['pending'];b.execute({'command':'voice-review-bind','kind':'phone-pair','reviewed':p})
+    if change=='changed':b.phone.session.pending={'request_id':'different','label':'different'}
+    else:b.focus_session.prepare('Read',25)
+    b.voice_action('confirm phone-pair');self.assertIsNone(b.phone_endpoints.delivery)
+   finally:b.close()
+
+class NewsCalendarVoiceReview(unittest.TestCase):
+ def test_news_exact_once_cancel_and_browser_gate_preserved(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for action in ('confirm','cancel'):
+   b=Bridge(WorkspaceVoice())
+   try:
+    b.browser=Mock();b.browser_enabled=True;p=b.news.preview('https://example.com/news');b.execute({'command':'voice-review-bind','kind':'news','reviewed':p});b.voice_action(action+' news')
+    if action=='confirm':b.browser.submit.assert_called_once_with('open','https://example.com/news',confirmed=True)
+    else:b.browser.submit.assert_not_called();self.assertIsNone(b.news.pending)
+    b.voice_action('confirm news');self.assertLessEqual(b.browser.submit.call_count,1)
+   finally:b.close()
+  b=Bridge(WorkspaceVoice())
+  try:
+   p=b.news.preview('https://example.com/news');b.execute({'command':'voice-review-bind','kind':'news','reviewed':p});b.voice_action('confirm news');self.assertEqual(b.news.pending,p)
+  finally:b.close()
+ def test_local_calendar_exact_review_calls_existing_save_and_cancel_only(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for action in ('confirm','cancel'):
+   b=Bridge(WorkspaceVoice());original_snapshot=b.calendar.snapshot;original_save=b.calendar.save;original_cancel=b.calendar.cancel;p={'title':'Fixture','start':'2026-10-20T09:00','end':'2026-10-20T10:00','timezone':'Asia/Calcutta','place':'Local','notes':'Fixture only'}
+   try:
+    b.calendar.snapshot=Mock(return_value={'pending':p});b.calendar.save=Mock();b.calendar.cancel=Mock();b.execute({'command':'voice-review-bind','kind':'local-calendar','reviewed':p});b.voice_action(action+' local-calendar')
+    if action=='confirm':b.calendar.save.assert_called_once_with(p,True)
+    else:b.calendar.save.assert_not_called();b.calendar.cancel.assert_called_once()
+    b.voice_action('confirm local-calendar');self.assertLessEqual(b.calendar.save.call_count,1)
+   finally:b.calendar.snapshot=original_snapshot;b.calendar.save=original_save;b.calendar.cancel=original_cancel;b.close()
