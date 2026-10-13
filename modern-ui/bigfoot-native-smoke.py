@@ -41,16 +41,17 @@ try:
  # First-open microphone test is below the voice list. Scroll actual pixels,
  # never activate microphone/download controls for this navigation diagnostic.
  def microphone_reachable(label):
+  area=helper.work_area()
   for _ in range(8):
    controls=[c for c in window.descendants(control_type='Button')if c.window_text()=='Test Microphone']
-   if controls and controls[0].is_visible()and controls[0].rectangle().top>window.rectangle().top and controls[0].rectangle().bottom<window.rectangle().bottom:break
-   bounds=window.rectangle();mouse.scroll(coords=(bounds.right-80,bounds.bottom-180),wheel_dist=-3);time.sleep(.15)
+   if controls and controls[0].is_visible()and controls[0].rectangle().top>window.rectangle().top and controls[0].rectangle().bottom<min(window.rectangle().bottom,area.bottom) and controls[0].rectangle().left>=area.left and controls[0].rectangle().right<=area.right:break
+   bounds=window.rectangle();mouse.scroll(coords=(min(bounds.right,area.right)-80,min(bounds.bottom,area.bottom)-180),wheel_dist=-3);time.sleep(.15)
   else:raise AssertionError('First-open microphone control did not become visibly reachable')
   ImageGrab.grab().save(out/('native-bigfoot-microphone-'+label+'.png'));checks.append('actual microphone control visibly reachable without activation '+label)
  microphone_reachable('initial')
 
  for size in ((800,600),(1024,768)):
-  helper.resize(window,size[0],size[1]);time.sleep(.4);ImageGrab.grab().save(out/('native-bigfoot-'+str(size[0])+'.png'));checks.append('native resized '+str(size));microphone_reachable(str(size[0]))
+  helper.place_in_work_area(window,size[0],size[1]);time.sleep(.4);ImageGrab.grab().save(out/('native-bigfoot-'+str(size[0])+'.png'));checks.append('native resized '+str(size));microphone_reachable(str(size[0]))
  # JARVIS itself may be minimized while a different selected target stays foreground.
  sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'src'))
  from jarvis.game_companion import windows,capture

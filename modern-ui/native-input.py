@@ -21,3 +21,16 @@ def minimize(control):
  u=ctypes.windll.user32;u.ShowWindow.argtypes=[wintypes.HWND,ctypes.c_int];u.IsIconic.argtypes=[wintypes.HWND]
  hwnd=control.wrapper_object().handle;u.ShowWindow(hwnd,6)
  if not u.IsIconic(hwnd):raise AssertionError('Actual window did not minimize')
+
+def work_area():
+ import ctypes
+ from ctypes import wintypes
+ rect=wintypes.RECT();u=ctypes.windll.user32
+ if not u.SystemParametersInfoW(0x0030,0,ctypes.byref(rect),0):raise ctypes.WinError()
+ return rect
+
+def place_in_work_area(control,width,height):
+ import ctypes
+ from ctypes import wintypes
+ rect=work_area();u=ctypes.windll.user32;u.SetWindowPos.argtypes=[wintypes.HWND,wintypes.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,wintypes.UINT]
+ if not u.SetWindowPos(control.wrapper_object().handle,None,rect.left,rect.top,width,height,0x0004):raise ctypes.WinError()
