@@ -2,7 +2,10 @@
 from jarvis.ui_bridge import main
 if __name__ == '__main__':
     import sys
-    if len(sys.argv)==2 and sys.argv[1]=='--bundle-self-test':
+    if len(sys.argv)==2 and sys.argv[1]=='--real-speed-test':
+        from jarvis.owner_speed import run
+        run(confirm=True)
+    elif len(sys.argv)==2 and sys.argv[1]=='--bundle-self-test':
         from jarvis.bundle_acceptance import run
         run()
     elif len(sys.argv)==2 and sys.argv[1]=='--desktop-input-fixture':
