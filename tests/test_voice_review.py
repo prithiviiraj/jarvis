@@ -56,3 +56,32 @@ class LocalReviewDomains(unittest.TestCase):
   try:
    b.invoice.pending={'review_id':'fixture','document':{'state':'draft'},'sha256':'fixture'};p=b.invoice.snapshot()['pending'];b.execute({'command':'voice-review-bind','kind':'invoice','reviewed':p});self.assertIn('speech_feedback',b.voice_action('cancel invoice'));self.assertIsNone(b.invoice.pending);self.assertIsNone(b.invoice.result)
   finally:b.close()
+
+class RuntimeReviewFeedback(unittest.TestCase):
+ def test_runtime_uses_mic_transcript_and_speaks_exact_action_feedback(self):
+  from jarvis.runtime import VoiceRuntime
+  from unittest.mock import Mock
+  v=VoiceRuntime(Mock(),Mock(),Mock(),Mock());v.mic=Mock();v.stt.transcribe.return_value='confirm focus';v.action_handler=Mock(return_value={'speech_feedback':'The exact reviewed action was submitted.'})
+  try:
+   v.enable(True);v.turn([0],v.generation,False,[]);v.action_handler.assert_called_once_with('confirm focus');v.router.ask.assert_not_called();v.speaker.speak.assert_called_once();self.assertEqual(v.speaker.speak.call_args.args[0],'The exact reviewed action was submitted.');self.assertEqual(v.history,[])
+  finally:v.close()
+
+class BrainReviewSpeechBoundary(unittest.TestCase):
+ def test_brain_ack_before_close_and_stop_during_ack_never_submits(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from jarvis.runtime import VoiceRuntime
+  from unittest.mock import Mock
+  for stopped in (False,True):
+   b=Bridge(WorkspaceVoice());v=VoiceRuntime(Mock(),Mock(),Mock(),Mock());v.mic=Mock();v.enable(True);b.voice.runtime=v
+   p={'payload':{'model':'fixture'},'sha256':'fixture'};b.brain_switch=Mock();b.brain_switch.snapshot.return_value={'pending':p};order=[]
+   b.brain_switch.apply.side_effect=lambda *a:order.append('apply')
+   def speech(*a,**kw):
+    order.append('speech')
+    if stopped:b.voice.pause()
+   v.speaker.speak.side_effect=speech
+   try:
+    b.execute({'command':'voice-review-bind','kind':'brain','reviewed':p});self.assertTrue(b.voice_action('confirm brain'));self.assertIsNone(b.voice.runtime);self.assertEqual(order,['speech']if stopped else['speech','apply']);self.assertIsNone(b.voice_review.snapshot())
+    if not stopped:b.brain_switch.apply.assert_called_once_with(p,True)
+    else:b.brain_switch.apply.assert_not_called()
+   finally:b.close()

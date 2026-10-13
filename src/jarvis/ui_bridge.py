@@ -458,9 +458,20 @@ class Bridge:
    else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop'}[choice['kind']]})
    self.voice.notify('status','Exact '+choice['kind']+' action cancelled. Nothing submitted.');return {'speech_feedback':'Cancelled. Nothing was submitted.'}
   command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save'}[choice['kind']]
+  runtime=self.voice.runtime if choice['kind']=='brain'else None
+  if runtime is not None:
+   # Announce before the route-change boundary closes this same speaker.
+   # A Stop during playback must prevent the later route verification.
+   generation=runtime.generation
+   try:
+    runtime.speaker.speak('I accepted the exact local brain review. I am stopping the microphone before verifying that route. The switch is not complete yet.',generation=runtime.speaker.generation)
+    if self.voice.runtime is not runtime or not runtime.valid(generation)or runtime.cancel.is_set():return True
+   except Exception as error:
+    self.voice.notify('error','Local brain review acknowledgement failed. Nothing was submitted.');return True
   try:self.execute({'command':command,'confirm':True,'reviewed':choice['payload']});self.voice.notify('status','Exact '+choice['kind']+' action submitted. Check actual result, not completion yet.')
   except Exception as error:
    self.voice.notify('error','Voice-approved action stopped: '+str(error)[:200]);return {'speech_feedback':'The reviewed action stopped. Check the visible error; nothing is claimed complete.'}
+  if runtime is not None:return True
   return {'speech_feedback':'The exact reviewed action was submitted. I will not call it complete until its result is checked.'}
  def voice_action(self,text):
   approval=self.voice_approval_action(text)
