@@ -2,6 +2,11 @@
 import subprocess,pathlib,time,json,ctypes,os
 from PIL import ImageGrab
 from pywinauto import Desktop,mouse
+# Proof-only pywinauto compatibility: WebView2 can expose a transient
+# unknown/null role. Use the generic UIA wrapper instead of a registry KeyError.
+# All original role/name/state/readback assertions and real input stay intact.
+from pywinauto.controls.uiawrapper import UiaMeta,UIAWrapper
+UiaMeta.control_type_to_cls.setdefault(None,UIAWrapper)
 import importlib.util
 _spec=importlib.util.spec_from_file_location("native_input",pathlib.Path(__file__).with_name("native-input.py"));_input=importlib.util.module_from_spec(_spec);_spec.loader.exec_module(_input)
 activate=_input.activate

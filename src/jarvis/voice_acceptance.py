@@ -1,4 +1,28 @@
 """CI-only explicit frozen software test. Real engines, simulated mic/output/brain."""
+def validate_turn_evidence(metrics,caption_events,output_events,persona):
+ """Ack and reply have separate partial orders: ack may precede model text."""
+ import math
+ required=('stt_s','first_text_s','first_output_write_s','turn_s')
+ assert all(isinstance(metrics.get(k),(int,float))and not isinstance(metrics[k],bool)and math.isfinite(metrics[k])and metrics[k]>=0 for k in required),metrics
+ assert metrics['stt_s']<=metrics['first_text_s']<=metrics['turn_s'],metrics
+ assert metrics['stt_s']<=metrics['first_output_write_s']<=metrics['turn_s'],metrics
+ assert 'not sound heard'in metrics['scope'],metrics
+ starts=[e for e in caption_events if e['event']=='start']
+ assert starts and all(e['persona']==persona for e in starts),caption_events
+ assert starts[0]['text']=='On it.',caption_events
+ assert ' '.join(e['text']for e in starts[1:])=='Hello. I am ready when you are.',caption_events
+ assert len(output_events)==len(starts)and all(e['event']=='first-write'for e in output_events),output_events
+ # Every actual adapter write belongs inside its corresponding caption lifetime.
+ assert len(caption_events)==2*len(starts),caption_events
+ for index,start in enumerate(starts):
+  opening,closing=caption_events[2*index:2*index+2]
+  assert opening==start and closing['event']=='finish',caption_events
+  assert opening['at']<=output_events[index]['at']<=closing['at'],(caption_events,output_events)
+  assert metrics['stt_s']<=output_events[index]['elapsed_s']<=metrics['turn_s'],(metrics,output_events)
+  if index:assert metrics['first_text_s']<=output_events[index]['elapsed_s'],(metrics,output_events)
+  if index:assert caption_events[2*index-1]['at']<=opening['at'],caption_events
+ assert caption_events[-1]['event']=='finish',caption_events
+
 def run():
  import os,json,pathlib,threading,http.server,wave,urllib.request,time,hashlib
  import numpy as np
@@ -64,10 +88,13 @@ def run():
     assert bridge.voice.endpoint_mode=='fast','Experimental session default must be480ms Fast'
     assert runtime.mic.endpointer.silence_frames==ENDPOINT_FRAMES['fast']==15,'Runtime must apply480ms Fast default'
     runtime.speaker.output_factory=Sink
-    caption_events=[];original_playback=runtime.speaker.playback_event
+    caption_events=[];output_events=[];original_playback=runtime.speaker.playback_event;original_output=runtime.speaker.output_event
     def playback(event,text,actor,sr,n):
      caption_events.append({'event':event,'text':text,'persona':actor,'at':time.monotonic()});original_playback(event,text,actor,sr,n)
     runtime.speaker.playback_event=playback
+    def output(event,ticket,sr):
+     stamp=time.monotonic();output_events.append({'event':event,'ticket':ticket,'sr':sr,'at':stamp,'elapsed_s':stamp-runtime.turn_metrics['started'] if runtime.turn_metrics else None});original_output(event,ticket,sr)
+    runtime.speaker.output_event=output
     assert len(runtime.speaker.profiles)==3
     assert len({id(x.voice)for x in runtime.speaker.profiles.values()})==3
     assert runtime.speaker.profile==name
@@ -80,12 +107,12 @@ def run():
     assert any('country' in x['text'].lower() for x in state['messages'])
     assert any(x['name']==name and x['text']=='Hello. I am ready when you are.' for x in state['messages']),state
     assert len(samples)>0
-    metrics=state['voice_metrics'];assert 0<=metrics['stt_s']<=metrics['first_text_s']<=metrics['first_output_write_s']<=metrics['turn_s']
-    assert 'not sound heard'in metrics['scope']
+    metrics=state['voice_metrics']
+    diagnostic={'persona':name,'voice_metrics':metrics,'caption_events':caption_events,'output_events':output_events,'pcm_chunks':len(samples),'scope':'Real local engines; simulated mic/output and loopback model. No physical sound or owner latency proof'}
+    (out/(name+'-voice-turn-evidence.json')).write_text(json.dumps(diagnostic,indent=2),encoding='utf-8')
+    progress('turn-evidence',**diagnostic)
+    validate_turn_evidence(metrics,caption_events,output_events,name)
     assert 'caption'in state and not state['caption']['active']
-    caption_starts=[e for e in caption_events if e['event']=='start'];assert caption_starts and all(e['persona']==name for e in caption_starts)
-    assert ' '.join(e['text']for e in caption_starts)=='Hello. I am ready when you are.'
-    assert caption_events[-1]['event']=='finish'
     pcm=np.concatenate(samples)
     with wave.open(str(out/(name+'-local-voice.wav')),'wb') as w:w.setnchannels(1);w.setsampwidth(2);w.setframerate(24000);w.writeframes((pcm*32767).astype('<i2').tobytes())
     rows.append({'persona':name,'voice_metrics':metrics,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'clean_caption_playback_events':caption_events,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
