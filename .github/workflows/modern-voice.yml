@@ -7,6 +7,11 @@ on:
         required: false
         type: boolean
         default: false
+      voice_device_proof:
+        description: Actual Windows device attempt and public Tamil English Auto engine fixture proof only
+        required: false
+        type: boolean
+        default: false
       managed_model_proof:
         description: Real pinned managed runtime synthetic diagnostic only, not shipping
         required: false
@@ -60,7 +65,7 @@ jobs:
         run: |
           printf 'Accepted ref: %s\nAccepted SHA: %s\nAccepted inputs: %s\n' "$ACCEPTED_REF" "$ACCEPTED_SHA" "$ACCEPTED_INPUTS" | tee -a "$GITHUB_STEP_SUMMARY"
   native-iteration:
-    if: ${{ inputs.native_only && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.native_only && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 25
     defaults:
@@ -170,7 +175,7 @@ jobs:
           if-no-files-found: warn
   windows:
     needs: embedding-runtime
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 70
     defaults:
@@ -362,7 +367,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   actual-laya:
-    if: ${{ inputs.run_laya && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.run_laya && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -388,7 +393,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   xtts-runtime:
-    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.run_xtts && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 30
     env:
@@ -415,7 +420,7 @@ jobs:
           retention-days: 7
 
   windows-laya:
-    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.run_laya_windows && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -457,7 +462,7 @@ jobs:
           if-no-files-found: error
 
   embedding-runtime:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -478,7 +483,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   embedding-model:
-    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ !inputs.stage_tested_draft && !inputs.native_only && !inputs.run_laya && !inputs.run_xtts && !inputs.run_laya_windows && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -506,7 +511,7 @@ jobs:
           retention-days: 7
 
   stage-draft:
-    if: ${{ inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.assemble_tested_source }}
+    if: ${{ inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && !inputs.assemble_tested_source }}
     permissions:
       actions: read
       contents: write
@@ -601,7 +606,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   assemble-tested-source:
-    if: ${{ inputs.assemble_tested_source && !inputs.stage_tested_draft && !inputs.managed_model_proof && github.ref == 'refs/heads/jarvis-bigfoot-integration' }}
+    if: ${{ inputs.assemble_tested_source && !inputs.stage_tested_draft && !inputs.managed_model_proof && !inputs.voice_device_proof && github.ref == 'refs/heads/jarvis-bigfoot-integration' }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -645,3 +650,42 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'Assemble tested microphone responsive speech and owned-route follow-up'
           git push origin HEAD:refs/heads/jarvis-bigfoot-integration
+  voice-device-proof:
+    if: ${{ inputs.voice_device_proof && !inputs.managed_model_proof && !inputs.native_only && !inputs.stage_tested_draft && !inputs.assemble_tested_source }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Preserve exact LF diagnostic bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Stage device and installed-speed diagnostic only
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes('modern-ui/voice-device-proof.py',[Convert]::FromBase64String('IiIiQWN0dWFsIFdpbmRvd3Mgc3BlZWNoIGVuZ2luZXMgYW5kIGRldmljZSBhdHRlbXB0LCBub3Qgb3duZXIgcGh5c2ljYWwgc3BlZWNoIHByb29mLiIiIgppbXBvcnQgb3MscGF0aGxpYixzeXMsanNvbix0aW1lLHRocmVhZGluZyx1cmxsaWIucmVxdWVzdCx3YXZlLGhhc2hsaWIscmUKaW1wb3J0IG51bXB5IGFzIG5wCnN5cy5wYXRoLmluc2VydCgwLHN0cihwYXRobGliLlBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzFdLydzcmMnKSkKZnJvbSBqYXJ2aXMuc3BlZWNoIGltcG9ydCBXaGlzcGVyU1RUCmZyb20gamFydmlzLm1pY3JvcGhvbmVfdGVzdCBpbXBvcnQgTWljcm9waG9uZVRlc3QKZnJvbSBqYXJ2aXMuaG9sZF9taWNyb3Bob25lIGltcG9ydCBIb2xkTWljCmZyb20gamFydmlzLnBhdGhzIGltcG9ydCBlbnN1cmVfbGF5b3V0CmZyb20gamFydmlzIGltcG9ydCBtb2RlbHMsdm9pY2VfYXNzZXRzCm91dD1wYXRobGliLlBhdGgoJ3ZvaWNlLWRldmljZS1ldmlkZW5jZScpO291dC5ta2RpcihleGlzdF9vaz1UcnVlKQpnMnA9Tm9uZQpyZXBvcnQ9eydzY29wZSc6J0FjdHVhbCBXaW5kb3dzIG1pYyBkZXZpY2UgYXR0ZW1wdCBwbHVzIGFjdHVhbCBsb2NhbCBUYW1pbC9FbmdsaXNoL0F1dG8gZml4dHVyZSBTVFQgYW5kIEtva29ybyBQQ00uIFB1YmxpYyBmaXh0dXJlcywgbm8gb3duZXIgaGFyZHdhcmUvYWNjZW50L2F1ZGlvIG91dHB1dCBvciBzaW11bHRhbmVvdXMgZGVza3RvcCBjb250cm9sIGNsYWltLicsJ3BoeXNpY2FsJzp7J3Jlc3VsdCc6J25vdCBhdHRlbXB0ZWQnfSwnZml4dHVyZV9yb3dzJzpbXSwncmVzdWx0JzonaW5jb21wbGV0ZSd9CnRyeToKIGlmIG9zLm5hbWUhPSdudCc6cmFpc2UgUnVudGltZUVycm9yKCdXaW5kb3dzIHJlcXVpcmVkJykKIGltcG9ydCBzb3VuZGRldmljZSBhcyBzZAogZGV2aWNlcz1beydpbmRleCc6aSwnaW5wdXRfY2hhbm5lbHMnOmRbJ21heF9pbnB1dF9jaGFubmVscyddLCdvdXRwdXRfY2hhbm5lbHMnOmRbJ21heF9vdXRwdXRfY2hhbm5lbHMnXX1mb3IgaSxkIGluIGVudW1lcmF0ZShzZC5xdWVyeV9kZXZpY2VzKCkpXQogcmVwb3J0WydkZXZpY2VfY291bnRzJ109ZGV2aWNlcwogbWljPU1pY3JvcGhvbmVUZXN0KCk7bWljLnN0YXJ0KFRydWUpO21pYy53b3JrZXIuam9pbigxMikKIGlmIG1pYy53b3JrZXIuaXNfYWxpdmUoKTptaWMuc3RvcCgpO3JhaXNlIFJ1bnRpbWVFcnJvcignUGh5c2ljYWwgbGV2ZWwgY2FwdHVyZSB0aW1lb3V0JykKIGxldmVsPW1pYy5zbmFwc2hvdCgpO3JlcG9ydFsncGh5c2ljYWwnXT17J3Jlc3VsdCc6J2NhcHR1cmUgc2FtcGxlcyBvYnNlcnZlZCdpZiBsZXZlbFsnZnJhbWVzJ10gZWxzZSAndW5hdmFpbGFibGUnLCdsZXZlbF90ZXN0JzpsZXZlbCwnc2NvcGUnOidBY3R1YWwgUG9ydEF1ZGlvIGF0dGVtcHQsIG5vdCBzcGVlY2ggcmVjb2duaXRpb24gb3Igc291bmQgaGVhcmQnfQogIyBFeGVyY2lzZSB0aGUgYWN0dWFsIGhvbGQgYWRhcHRlciB3aXRob3V0IGEgcmVwbGFjZWQgc3RyZWFtIGZhY3RvcnkuIERpc2NhcmQgYXVkaW8gYWZ0ZXIKICMgY291bnQvZmluaXRlIGNoZWNrcywgbmV2ZXIgd3JpdGUgcGh5c2ljYWwgcmVjb3JkaW5ncyBvciBmZWVkIENJIGJhY2tncm91bmQgaW50byBhIG1vZGVsLgogc2l6ZXM9W107aG9sZD1Ib2xkTWljKE5vbmUsbGFtYmRhIGF1ZGlvOnNpemVzLmFwcGVuZCh7J3NhbXBsZXMnOmxlbihhdWRpbyksJ2Zpbml0ZSc6Ym9vbChucC5pc2Zpbml0ZShhdWRpbykuYWxsKCkpfSkpCiB0cnk6CiAgaG9sZC5zdGFydChUcnVlKTtob2xkLmhvbGQoKTt0aW1lLnNsZWVwKDEpO2hvbGQucmVsZWFzZSgpO3JlcG9ydFsncGh5c2ljYWwnXVsnaG9sZF9jYXB0dXJlJ109c2l6ZXMKIGV4Y2VwdCBFeGNlcHRpb24gYXMgZTpyZXBvcnRbJ3BoeXNpY2FsJ11bJ2hvbGRfZXJyb3InXT10eXBlKGUpLl9fbmFtZV9fKyc6ICcrc3RyKGUpCiBmaW5hbGx5OmhvbGQuY2xvc2UoKQogb3MuZW52aXJvblsnSkFSVklTX0RBVEFfRElSJ109c3RyKHBhdGhsaWIuUGF0aCgndm9pY2UtZGV2aWNlLWNhY2hlJykucmVzb2x2ZSgpKTtjYWNoZT1lbnN1cmVfbGF5b3V0KCkvJ21vZGVscycKIG1vZGVscy5kb3dubG9hZChjYWNoZSxjb25zZW50PVRydWUpO3ZvaWNlX2Fzc2V0cy5kb3dubG9hZChjYWNoZS8ndm9pY2VzJyxjb25zZW50PVRydWUpCiBzb3VyY2VzPVsoJ0VuZ2xpc2gnLCdodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vZ2dlcmdhbm92L3doaXNwZXIuY3BwL21hc3Rlci9zYW1wbGVzL2pmay53YXYnLE5vbmUsWydlbicsTm9uZV0pXQogYXBpPSdodHRwczovL2RhdGFzZXRzLXNlcnZlci5odWdnaW5nZmFjZS5jby9yb3dzP2RhdGFzZXQ9ZGVlcGRtbCUyRm9wZW5zbHI2NS10YW1pbCZjb25maWc9ZGVmYXVsdCZzcGxpdD10cmFpbiZvZmZzZXQ9MCZsZW5ndGg9MScKIGRhdGE9anNvbi5sb2FkKHVybGxpYi5yZXF1ZXN0LnVybG9wZW4oYXBpLHRpbWVvdXQ9MzApKVsncm93cyddWzBdWydyb3cnXQogaWYgZGF0YVsnZmlsZV9pZCddIT0ndGFmXzAyMzQ1XzAwMzQ4MDM3MTY3JzpyYWlzZSBWYWx1ZUVycm9yKCdUYW1pbCBmaXh0dXJlIGlkZW50aXR5IGNoYW5nZWQnKQogc291cmNlcy5hcHBlbmQoKCdUYW1pbCcsZGF0YVsnYXVkaW8nXVswXVsnc3JjJ10sJzFjNjQ0ZTRjNGQwOTBiN2RmYWFjOTgwZTc2ODJmOTViYjY4YTljMDllZTUxOTE2YjEzOTRjYjM5N2VlYzg0ZWMnLFsndGEnLE5vbmVdKSkKIGZvciBsYWJlbCx1cmwsZXhwZWN0ZWQsbGFuZ3VhZ2VzIGluIHNvdXJjZXM6CiAgcmF3PXVybGxpYi5yZXF1ZXN0LnVybG9wZW4odXJsLHRpbWVvdXQ9MzApLnJlYWQoMjAwMDAwMCkKICBpZiBleHBlY3RlZCBhbmQgaGFzaGxpYi5zaGEyNTYocmF3KS5oZXhkaWdlc3QoKSE9ZXhwZWN0ZWQ6cmFpc2UgVmFsdWVFcnJvcignVGFtaWwgZml4dHVyZSBjaGVja3N1bSBjaGFuZ2VkJykKICBpbXBvcnQgaW8KICB3aXRoIHdhdmUub3Blbihpby5CeXRlc0lPKHJhdykpYXMgdzoKICAgaWYgdy5nZXRuY2hhbm5lbHMoKSE9MSBvciB3LmdldHNhbXB3aWR0aCgpIT0yOnJhaXNlIFZhbHVlRXJyb3IoJ0ludmFsaWQgZml4dHVyZSBQQ00nKQogICBzcj13LmdldGZyYW1lcmF0ZSgpO2F1ZGlvPW5wLmZyb21idWZmZXIody5yZWFkZnJhbWVzKHcuZ2V0bmZyYW1lcygpKSwnPGkyJykuYXN0eXBlKG5wLmZsb2F0MzIpLzMyNzY4CiAgaWYgc3IhPTE2MDAwOgogICAjIFB1YmxpYyBmaXh0dXJlNDhrLT4xNmsgd2l0aCBsb3ctcGFzcyBwb2x5cGhhc2UgcmVzYW1wbGluZzsgbm8gbmF0aXZlIGRldmljZSBjaGFuZ2UuCiAgIGZyb20gc2NpcHkuc2lnbmFsIGltcG9ydCByZXNhbXBsZV9wb2x5CiAgIGF1ZGlvPXJlc2FtcGxlX3BvbHkoYXVkaW8sMTYwMDAsc3IpLmFzdHlwZShucC5mbG9hdDMyKQogIGZvciBsYW5ndWFnZSBpbiBsYW5ndWFnZXM6CiAgIHN0dD1XaGlzcGVyU1RUKGNhY2hlLyd3aGlzcGVyLWJhc2UnLGxhbmd1YWdlPWxhbmd1YWdlKTtzdGFydGVkPXRpbWUubW9ub3RvbmljKCkKICAgdHJ5OgogICAgdGV4dD1zdHQudHJhbnNjcmliZShhdWRpbyk7ZWxhcHNlZD10aW1lLm1vbm90b25pYygpLXN0YXJ0ZWQKICAgIHBhc3NlZD0oJ2NvdW50cnknaW4gdGV4dC5sb3dlcigpKWlmIGxhYmVsPT0nRW5nbGlzaCdlbHNlIGFsbCh3b3JkIGluIHRleHQgZm9yIHdvcmQgaW4gWyfgrqrgr4bgrqPgr40nLCfgrofgrqjgr43grqTgrr/grq/grr4nLCfgrofgrrTgrqrgr43grqrgr4Dgrp/gr4EnXSkKICAgIHJlcG9ydFsnZml4dHVyZV9yb3dzJ10uYXBwZW5kKHsnZml4dHVyZSc6bGFiZWwsJ2xhbmd1YWdlJzpsYW5ndWFnZSBvcidBdXRvJywnc3R0X3MnOnJvdW5kKGVsYXBzZWQsNCksJ3RyYW5zY3JpcHQnOnRleHQsJ2FuY2hvcl9xdWFsaXR5X3Bhc3MnOnBhc3NlZCwnc2NvcGUnOidPbmUgcHVibGljIHJlY29yZGluZyBhbmQgY29uc2VydmF0aXZlIGFuY2hvcnMsIG5vdCBhY2NlbnQvY29kZS1zd2l0Y2ggYWNjZXB0YW5jZSd9KQogICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6cmVwb3J0WydmaXh0dXJlX3Jvd3MnXS5hcHBlbmQoeydmaXh0dXJlJzpsYWJlbCwnbGFuZ3VhZ2UnOmxhbmd1YWdlIG9yJ0F1dG8nLCdlcnJvcic6dHlwZShlKS5fX25hbWVfXysnOiAnK3N0cihlKSwnYW5jaG9yX3F1YWxpdHlfcGFzcyc6RmFsc2V9KQogZnJvbSBqYXJ2aXMubmF0aXZlX2Zyb250ZW5kIGltcG9ydCB2ZXJpZmllZF9mcm9udGVuZAogc3lzLl9NRUlQQVNTPXN0cihwYXRobGliLlBhdGguY3dkKCkpO2V4ZSxuYXRpdmVfZGF0YT12ZXJpZmllZF9mcm9udGVuZCgpCiBmcm9tIGphcnZpcy5leHBlcmltZW50YWwua29rb3JvIGltcG9ydCBOYXRpdmVHMlAKIGZyb20gamFydmlzLmV4cGVyaW1lbnRhbC5rb2tvcm8gaW1wb3J0IEtva29yb1N5bnRoCiBmcm9tIGphcnZpcy5leHBlcmltZW50YWwua29rb3JvX3NwZWFrZXIgaW1wb3J0IEtva29yb1NwZWFrZXIKIGZyb20gamFydmlzLndvcmtzcGFjZV92b2ljZSBpbXBvcnQgVk9JQ0VTCiBnMnA9TmF0aXZlRzJQKGV4ZSxuYXRpdmVfZGF0YSkKIHN5bnRoPUtva29yb1N5bnRoKGNhY2hlLyd2b2ljZXMnLydtb2RlbC5vbm54JyxjYWNoZS8ndm9pY2VzJy8oVk9JQ0VTWydKQVJWSVMnXSsnLmJpbicpLGNhY2hlLyd2b2ljZXMnLydjb25maWcuanNvbicsZzJwKQogc3BlYWtlcj1Lb2tvcm9TcGVha2VyKHN5bnRoKTtzdGFydGVkPXRpbWUubW9ub3RvbmljKCk7cmVwbHk9J0kgaGVhcmQgdGhlIHNwZWVjaCBmaXh0dXJlLiBUaGlzIGlzIGEgbG9jYWwgdm9pY2UgdGVzdC4nO3ByZXBhcmVkPXNwZWFrZXIucHJlcGFyZShyZXBseSkKIHRleHQscGNtLHNyPXByZXBhcmVkCiBpZiBzciE9MjQwMDAgb3Igbm90IGxlbihwY20pb3Igbm90IG5wLmlzZmluaXRlKHBjbSkuYWxsKCk6cmFpc2UgVmFsdWVFcnJvcignSW52YWxpZCBUVFMgUENNJykKIHJlcG9ydFsndHRzJ109eydzeW50aGVzaXNfcyc6cm91bmQodGltZS5tb25vdG9uaWMoKS1zdGFydGVkLDQpLCdzYW1wbGVfcmF0ZSc6c3IsJ2R1cmF0aW9uX3MnOmxlbihwY20pL3NyLCdyZXBseSc6dGV4dCwnc2NvcGUnOidBY3R1YWwgbG9jYWwgS29rb3JvIHJlcGx5IFBDTSwgbm90IHBoeXNpY2FsIHNwZWFrZXIgc291bmQgb3IgbW9kZWwtZ2VuZXJhdGVkIHJlcGx5J30KIHdpdGggd2F2ZS5vcGVuKHN0cihvdXQvJ2xvY2FsLXJlcGx5LndhdicpLCd3YicpYXMgdzp3LnNldG5jaGFubmVscygxKTt3LnNldHNhbXB3aWR0aCgyKTt3LnNldGZyYW1lcmF0ZShzcik7dy53cml0ZWZyYW1lcygobnAuY2xpcChwY20sLTEsMSkqMzI3NjcpLmFzdHlwZSgnPGkyJykudG9ieXRlcygpKQogcmVwb3J0WydmaXh0dXJlX3NvdXJjZXMnXT17J0VuZ2xpc2gnOnNvdXJjZXNbMF1bMV0sJ1RhbWlsJzonaHR0cHM6Ly93d3cub3BlbnNsci5vcmcvNjUvJywnVGFtaWxfbWlycm9yJzonaHR0cHM6Ly9odWdnaW5nZmFjZS5jby9kYXRhc2V0cy9kZWVwZG1sL29wZW5zbHI2NS10YW1pbCcsJ1RhbWlsX2xpY2Vuc2UnOidDQyBCWS1TQSA0LjAgcGVyIG9yaWdpbmFsIE9wZW5TTFIsIG1pcnJvciBjYXJkIENDIEJZIGRpZmZlcnMsIHByZXNlcnZlIG9yaWdpbmFsIHJlc3RyaWN0aW9uJywnVGFtaWxfc2hhMjU2Jzpzb3VyY2VzWzFdWzJdfQogcmVwb3J0WydyZXN1bHQnXT0nZW5naW5lcyBtZWFzdXJlZDsgcGh5c2ljYWwgc3RhdHVzIHNlcGFyYXRlJwpleGNlcHQgRXhjZXB0aW9uIGFzIGU6cmVwb3J0WydlcnJvciddPXR5cGUoZSkuX19uYW1lX18rJzogJytzdHIoZSk7cmVwb3J0WydyZXN1bHQnXT0nZmFpbGVkJztyYWlzZQpmaW5hbGx5OgogaWYgZzJwOmcycC5jbG9zZSgpCiAob3V0LydyZXBvcnQuanNvbicpLndyaXRlX3RleHQoanNvbi5kdW1wcyhyZXBvcnQsaW5kZW50PTIsZW5zdXJlX2FzY2lpPUZhbHNlKSxlbmNvZGluZz0ndXRmLTgnKQo='))
+          [IO.File]::WriteAllBytes('src/jarvis/owner_speed.py',[Convert]::FromBase64String('IiIiRXhwbGljaXQgb3duZXIgaGFyZHdhcmUgdGltaW5nOyBpbnN0YWxsZWQgYXNzZXRzIG9ubHksIG5vIG1pYy9zY3JlZW5zL2Nsb3VkL2Rvd25sb2Fkcy4iIiIKaW1wb3J0IG9zLHBhdGhsaWIsdGltZSxqc29uLHBsYXRmb3JtCmZyb20gLmxvY2FsX21vZGVscyBpbXBvcnQgQ0FUQUxPRyxkZXRlY3RfaGFyZHdhcmUKZnJvbSAucGF0aHMgaW1wb3J0IGRhdGFfcm9vdApmcm9tIC5sb2NhbF9tb2RlbF9maWxlcyBpbXBvcnQgdmVyaWZpZWQKZnJvbSAubWFuYWdlZF9ydW50aW1lIGltcG9ydCBNYW5hZ2VkUnVudGltZQpmcm9tIC5jaGFuZ2VkX2ltYWdlX2xhdGVuY3kgaW1wb3J0IEltYWdlUHJvZmlsZSxydW5fY2hhbmdlZAoKZGVmIGluc3RhbGxlZChyb290KToKIHJldHVybiBbbSBmb3IgbSBpbiBDQVRBTE9HWydtb2RlbHMnXWlmIGFsbCh2ZXJpZmllZChwYXRobGliLlBhdGgocm9vdCkvJ21vZGVscycvbVsnaWQnXS9mWyduYW1lJ10sZilmb3IgZiBpbiBtWydmaWxlcyddKV0KZGVmIHJ1bihjb25maXJtPUZhbHNlLHJvb3Q9Tm9uZSxvdXRwdXQ9Tm9uZSk6CiBpZiBjb25maXJtIGlzIG5vdCBUcnVlOnJhaXNlIFZhbHVlRXJyb3IoJ1J1biB0aGUgcmV2aWV3ZWQgaW5zdGFsbGVkLW1vZGVsIHRpbWluZyBleHBsaWNpdGx5JykKIGlmIG9zLm5hbWUhPSdudCc6cmFpc2UgUnVudGltZUVycm9yKCdXaW5kb3dzIGluc3RhbGxlZC1tb2RlbCBzcGVlZCB0ZXN0IHJlcXVpcmVkJykKIHJvb3Q9cGF0aGxpYi5QYXRoKHJvb3Qgb3IgZGF0YV9yb290KCkvJ21hbmFnZWQtbG9jYWwnKTttb2RlbHM9aW5zdGFsbGVkKHJvb3QpCiBpZiBub3QgbW9kZWxzOnJhaXNlIFZhbHVlRXJyb3IoJ05vIHZlcmlmaWVkIGluc3RhbGxlZCBtb2RlbC4gSW5zdGFsbCBhIG1vZGVsIGluIEpBUlZJUyBmaXJzdDsgdGhpcyB0ZXN0IGRvd25sb2FkcyBub3RoaW5nLicpCiBpZiBsZW4obW9kZWxzKSE9MTpyYWlzZSBWYWx1ZUVycm9yKCdNdWx0aXBsZSB2ZXJpZmllZCBtb2RlbHMgaW5zdGFsbGVkLiBTZWxlY3Qgb25lIGluIEpBUlZJUyBiZWZvcmUgYSBtb2RlbC1zcGVjaWZpYyBzcGVlZCB0ZXN0IGlzIHN1cHBvcnRlZC4nKQogb3V0PXBhdGhsaWIuUGF0aChvdXRwdXQgb3IgZGF0YV9yb290KCkvJ2RpYWdub3N0aWNzJy8ncmVhbC1zcGVlZC5qc29uJyk7b3V0LnBhcmVudC5ta2RpcihwYXJlbnRzPVRydWUsZXhpc3Rfb2s9VHJ1ZSkKIHJ1bnRpbWU9TWFuYWdlZFJ1bnRpbWUocm9vdCxzcGF3bj1JbWFnZVByb2ZpbGUoKSxsb2c9Tm9uZSkKICMgTmF0aXZlIHByb2Nlc3Mgb3V0cHV0IGNhbm5vdCB1c2UgU3RyaW5nSU8uIFRlbXBvcmFyeSBsb2NhbCBsb2cgaG9sZHMgb3duLXByb2Nlc3MgbWV0YWRhdGE7CiAjIGRpc2NhcmQgaXQgYWZ0ZXIgZXh0cmFjdGluZyBvbmx5IHNhZmUgb2ZmbG9hZC90aW1pbmcgbGluZXMuCiBpbXBvcnQgdGVtcGZpbGUscmUKIHJlcG9ydD17J3Njb3BlJzonRXhwbGljaXQgZml4ZWQgc3ludGhldGljIHRleHQtcGFuZWwgdGltaW5nLCBubyBwcml2YXRlIHNjcmVlbiwgbWljLCBjYW1lcmEsIGNsb3VkIG9yIGRvd25sb2FkLiBMZWdhY3kgdGV4dCBhbmQgZXhhY3QtaW1hZ2UgcmVwZWF0cyBhcmUgbGFiZWxlZCBzZXBhcmF0ZWx5OyBjaGFuZ2VkIGZyYW1lcyBmb2xsb3cgYSB3YXJtZWQgcnVudGltZS4gQ29sZCBtb2RlbCBsb2FkIGlzIHNlcGFyYXRlLiBJbmNsdWRlcyB0cmFuc3BvcnQvcHJlZmlsbC9nZW5lcmF0aW9uLiBOb3QgY29udmVyc2F0aW9uLWNvbnRyb2wgY29uY3VycmVuY3kuJywnaGFyZHdhcmUnOmRldGVjdF9oYXJkd2FyZShyb290KSwnbG9naWNhbF9jcHVzJzpvcy5jcHVfY291bnQoKSwncGxhdGZvcm0nOnBsYXRmb3JtLnN5c3RlbSgpLCdtb2RlbCc6bW9kZWxzWzBdWydpZCddLCdpbWFnZV9taW5fdG9rZW5zJzoxMDI0LCdpbWFnZV9tYXhfdG9rZW5zJzoyMDQ4LCdyZXN1bHQnOidpbmNvbXBsZXRlJ30KIHRlbXA9Tm9uZQogdHJ5OgogIHRlbXA9dGVtcGZpbGUuVGVtcG9yYXJ5RmlsZShtb2RlPSd3KycsZW5jb2Rpbmc9J3V0Zi04Jyk7cnVudGltZS5sb2c9dGVtcAogIHJ1bnRpbWUuc3RhcnQobW9kZWxzWzBdWydpZCddLFRydWUpO2RlYWRsaW5lPXRpbWUubW9ub3RvbmljKCkrMzAwCiAgd2hpbGUgdGltZS5tb25vdG9uaWMoKTxkZWFkbGluZToKICAgcz1ydW50aW1lLmNoZWNrKCkKICAgaWYgc1snc3RhdGUnXT09J2xvYWRlZCc6YnJlYWsKICAgaWYgc1snc3RhdGUnXT09J2ZhaWxlZCc6cmFpc2UgUnVudGltZUVycm9yKHNbJ2Vycm9yJ10pCiAgIHRpbWUuc2xlZXAoLjUpCiAgZWxzZTpyYWlzZSBSdW50aW1lRXJyb3IoJ0luc3RhbGxlZCBtb2RlbCBoZWFsdGggdGltZW91dCcpCiAgZnJvbSAubW9kZWxfbGF0ZW5jeSBpbXBvcnQgTW9kZWxMYXRlbmN5CiAgcmVwb3J0WydzeW50aGV0aWNfdGV4dF9leGFjdF9pbWFnZV9yb3dzJ109TW9kZWxMYXRlbmN5KHJ1bnRpbWUpLnJ1bihUcnVlKQogIHJlcG9ydFsnY2hhbmdlZF9pbWFnZV9yb3dzJ109cnVuX2NoYW5nZWQocnVudGltZSkKICByZXBvcnRbJ2FsbF9maXh0dXJlX3F1YWxpdHlfcGFzcyddPWFsbChyWydxdWFsaXR5X3Bhc3MnXWZvciByIGluIHJlcG9ydFsnY2hhbmdlZF9pbWFnZV9yb3dzJ10pO3JlcG9ydFsncmVzdWx0J109J21lYXN1cmVkJwogZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOnJlcG9ydFsncmVzdWx0J109J2ZhaWxlZCc7cmVwb3J0WydlcnJvciddPXR5cGUoZSkuX19uYW1lX18rJzogJytzdHIoZSk7cmFpc2UKIGZpbmFsbHk6CiAgcmVwb3J0WydzdG9wX3N0YXRlJ109cnVudGltZS5zdG9wKCkKICBpZiB0ZW1wOgogICB0ZW1wLnNlZWsoMCk7cmF3PXRlbXAucmVhZCgpO3RlbXAuY2xvc2UoKQogICAjIFByZXNlcnZlIG51bWVyaWMgbWVhc3VyZW1lbnRzIGFuZCBhY3R1YWwgR1BVIG9mZmxvYWQgY291bnQsIG5ldmVyIGVudGlyZSBsb2cgcGF0aHMuCiAgIHJlcG9ydFsnb2ZmbG9hZGVkX2xheWVycyddPXJlLmZpbmRhbGwocidvZmZsb2FkZWQgKFxkKy9cZCspIGxheWVycyB0byBHUFUnLHJhdykKICAgcmVwb3J0WydpbWFnZV9iYXRjaF90b2tlbnMnXT1yZS5maW5kYWxsKHInbl90b2tlbnNfYmF0Y2ggPSAoXGQrKScscmF3KQogICByZXBvcnRbJ3J1bnRpbWVfdGltaW5nc19tcyddPXJlLmZpbmRhbGwocicocHJvbXB0IGV2YWx8ZXZhbCkgdGltZVxzKj1ccyooW1xkLl0rKSBtcycscmF3KQogIHJlcG9ydFsnaGFyZHdhcmUnXS5wb3AoJ2Vycm9yJyxOb25lKQogIG91dC53cml0ZV90ZXh0KGpzb24uZHVtcHMocmVwb3J0LGluZGVudD0yKSxlbmNvZGluZz0ndXRmLTgnKTtwcmludCgnTG9jYWwgc3BlZWQgcmVwb3J0IHNhdmVkOicsb3V0LGZsdXNoPVRydWUpCiByZXR1cm4gcmVwb3J0Cg=='))
+          [IO.File]::WriteAllBytes('tests/test_owner_speed.py',[Convert]::FromBase64String('aW1wb3J0IHVuaXR0ZXN0CmZyb20gdW5pdHRlc3QubW9jayBpbXBvcnQgcGF0Y2gKZnJvbSBqYXJ2aXMub3duZXJfc3BlZWQgaW1wb3J0IGluc3RhbGxlZCxydW4KY2xhc3MgT3duZXJTcGVlZCh1bml0dGVzdC5UZXN0Q2FzZSk6CiBkZWYgdGVzdF9ub19jb25zZW50KHNlbGYpOgogIHdpdGggc2VsZi5hc3NlcnRSYWlzZXMoVmFsdWVFcnJvcik6cnVuKCkKIGRlZiB0ZXN0X21pc3Npbmdfbm9fZG93bmxvYWQoc2VsZik6CiAgd2l0aCBwYXRjaCgnamFydmlzLm93bmVyX3NwZWVkLnZlcmlmaWVkJyxyZXR1cm5fdmFsdWU9RmFsc2UpOnNlbGYuYXNzZXJ0RXF1YWwoaW5zdGFsbGVkKCcvdG1wL25vbmUnKSxbXSkKIGRlZiB0ZXN0X29ubHlfdmVyaWZpZWQoc2VsZik6CiAgd2l0aCBwYXRjaCgnamFydmlzLm93bmVyX3NwZWVkLnZlcmlmaWVkJyxyZXR1cm5fdmFsdWU9VHJ1ZSk6c2VsZi5hc3NlcnRHcmVhdGVyKGxlbihpbnN0YWxsZWQoJy90bXAvbm9uZScpKSwxKQo='))
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build pinned actual CPU speech runtime and native frontend
+        shell: pwsh
+        working-directory: modern-ui
+        run: |
+          ./build-speech-native.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Actual native speech build failed' }
+          python -m pip install scipy==1.16.2 certifi==2026.7.22 tzdata==2025.2 Pillow==11.3.0
+          if ($LASTEXITCODE -ne 0) { throw 'Diagnostic fixture dependencies failed' }
+      - name: Device capture attempt and Tamil English Auto actual engines
+        shell: pwsh
+        working-directory: modern-ui
+        run: |
+          python voice-device-proof.py
+          if ($LASTEXITCODE -ne 0) { throw 'Actual voice engine diagnostic failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: JARVIS-voice-device-diagnostic-evidence
+          path: modern-ui/voice-device-evidence
+          retention-days: 7
+          if-no-files-found: error
