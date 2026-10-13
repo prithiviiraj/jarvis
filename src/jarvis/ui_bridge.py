@@ -438,11 +438,22 @@ class Bridge:
   self.shared_action(request['command_text'])
   return {'parallel_question':request['question'],'command_status':'submitted or awaiting review; consult actual browser state, not model output'}
  def pending_voice_reviews(self):
-  # Include unsupported external review domains in ambiguity checks. Never
-  # silently confirm one local action while another external review is pending.
+  # Count every effect review, including connector ledgers whose key is plan.
+  # A completed draft/result is not pending; an uncertain effect stays blocking.
   reviews={'browser':self.browser_pending,'app':self.desktop_pending}
-  for key,service in [('focus',self.focus_session),('brain',self.brain_switch),('invoice',self.invoice),('design',self.design),('source',self.source_answer),('github',self.github_issue),('notion',self.notion_text),('drive',self.drive_text),('sheets',self.sheets_write),('mail',self.google_mail),('calendar',self.google_calendar),('telegram',self.telegram_output)]:
+  for key,service in [('focus',self.focus_session),('brain',self.brain_switch),('invoice',self.invoice),('design',self.design),('source',self.source_answer),('model-download',self.model_manager),('model-start',self.managed_session),('phone-transport',self.phone_transport),('phone-pair',self.phone),('news',self.news),('local-calendar',self.calendar)]:
    reviews[key]=service.snapshot().get('pending')
+  for key,service in [('github',self.github_issue),('notion',self.notion_text),('drive',self.drive_text),('sheets',self.sheets_write),('mail',self.google_mail),('calendar',self.google_calendar),('telegram',self.telegram_output)]:
+   row=service.snapshot()
+   if row.get('state')in ('review','submitting','uncertain','blocked'):
+    reviews[key]=row.get('plan')if row.get('state')=='review'else {'state':row['state'],'scope':'Unresolved connector effect blocks unrelated voice approval'}
+  reviews['telegram-pair']=self.telegram.snapshot().get('pending')
+  reviews['phone-handoff']=self.phone.snapshot().get('handoff')
+  reviews['phone-delivery']=self.phone_endpoints.snapshot().get('pending')
+  if self.calendar_telegram.snapshot().get('busy'):reviews['calendar-telegram']={'state':'preparing','scope':'Connector draft handoff in progress'}
+  reviews['desktop-task']=self.desktop_control.snapshot().get('task',{}).get('pending')
+  reviews['planning-open']=self.plan_pending
+  if self.calendar_open_pending:reviews['calendar-open']={'pending':True}
   return {k:v for k,v in reviews.items()if v is not None}
  def voice_approval_action(self,text):
   binding=self.voice_review.binding
@@ -455,9 +466,9 @@ class Bridge:
   if choice['choice']=='cancel':
    if choice['kind']=='browser':self.browser_pending=None
    elif choice['kind']=='app':self.desktop_pending=None
-   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop'}[choice['kind']]})
+   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop','github':'github-issue-stop','notion':'notion-text-stop','drive':'drive-text-stop','sheets':'sheets-write-stop','mail':'gmail-stop','calendar':'gcal-stop','telegram':'telegram-output-stop'}[choice['kind']]})
    self.voice.notify('status','Exact '+choice['kind']+' action cancelled. Nothing submitted.');return {'speech_feedback':'Cancelled. Nothing was submitted.'}
-  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save'}[choice['kind']]
+  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save','github':'github-issue-submit','notion':'notion-text-submit','drive':'drive-text-submit','sheets':'sheets-write-submit','mail':'gmail-submit','calendar':'gcal-submit','telegram':'telegram-output-submit'}[choice['kind']]
   runtime=self.voice.runtime if choice['kind']=='brain'else None
   if runtime is not None:
    # Announce before the route-change boundary closes this same speaker.
@@ -668,6 +679,7 @@ class Bridge:
   if cmd in ('chat','select','team-dialogue','team-round','voice-on','history-new','history-open'):self.voice.pause()if getattr(self.voice,'dialogue_origin','user')=='idle'and self.voice.busy else None
   if cmd=='voice-review-bind':
    kind=request.get('kind');reviews=self.pending_voice_reviews();current=reviews.get(kind);other=len(reviews)>1
+   if isinstance(current,dict)and current.get('state')in ('submitting','uncertain','blocked'):raise ValueError('Unresolved effect is not a confirmable review. Reconcile first')
    self.voice_review.bind(kind,request.get('reviewed'),current,extra_pending=other)
   elif cmd=='voice-review-clear':self.voice_review.clear()
   elif cmd=='profile-save':

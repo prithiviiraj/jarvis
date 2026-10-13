@@ -4,7 +4,8 @@ from .local_models import CATALOG,detect_hardware
 from .paths import data_root
 from .local_model_files import verified
 from .managed_runtime import ManagedRuntime
-from .changed_image_latency import ImageProfile,run_changed
+from .changed_image_latency import run_changed
+from .runtime_diagnostics import MeasuredImageProfile
 
 def installed(root):
  return [m for m in CATALOG['models']if all(verified(pathlib.Path(root)/'models'/m['id']/f['name'],f)for f in m['files'])]
@@ -15,11 +16,11 @@ def run(confirm=False,root=None,output=None):
  if not models:raise ValueError('No verified installed model. Install a model in JARVIS first; this test downloads nothing.')
  if len(models)!=1:raise ValueError('Multiple verified models installed. Select one in JARVIS before a model-specific speed test is supported.')
  out=pathlib.Path(output or data_root()/'diagnostics'/'real-speed.json');out.parent.mkdir(parents=True,exist_ok=True)
- runtime=ManagedRuntime(root,spawn=ImageProfile(),log=None)
+ runtime=ManagedRuntime(root,spawn=MeasuredImageProfile(),log=None)
  # Native process output cannot use StringIO. Temporary local log holds own-process metadata;
  # discard it after extracting only safe offload/timing lines.
  import tempfile,re
- report={'scope':'Explicit fixed synthetic text-panel timing, no private screen, mic, camera, cloud or download. Legacy text and exact-image repeats are labeled separately; changed frames follow a warmed runtime. Cold model load is separate. Includes transport/prefill/generation. Not conversation-control concurrency.','hardware':detect_hardware(root),'logical_cpus':os.cpu_count(),'platform':platform.system(),'model':models[0]['id'],'image_min_tokens':1024,'image_max_tokens':2048,'result':'incomplete'}
+ report={'scope':'Explicit fixed synthetic text-panel timing, no private screen, mic, camera, cloud or download. Legacy text and exact-image repeats are labeled separately; changed frames follow a warmed runtime. Cold model load is separate. Includes transport/prefill/generation. Not conversation-control concurrency.','hardware':detect_hardware(root),'logical_cpus':os.cpu_count(),'platform':platform.system(),'model':models[0]['id'],'image_min_tokens':1024,'image_max_tokens':2048,'diagnostic_log_verbosity':5,'result':'incomplete'}
  temp=None
  try:
   temp=tempfile.TemporaryFile(mode='w+',encoding='utf-8');runtime.log=temp
@@ -43,6 +44,8 @@ def run(confirm=False,root=None,output=None):
    report['offloaded_layers']=re.findall(r'offloaded (\d+/\d+) layers to GPU',raw)
    report['image_batch_tokens']=re.findall(r'n_tokens_batch = (\d+)',raw)
    report['runtime_timings_ms']=re.findall(r'(prompt eval|eval) time\s*=\s*([\d.]+) ms',raw)
+   from .runtime_diagnostics import measurements
+   report['runtime_diagnostics']=measurements(raw)
   report['hardware'].pop('error',None)
   out.write_text(json.dumps(report,indent=2),encoding='utf-8');print('Local speed report saved:',out,flush=True)
  return report

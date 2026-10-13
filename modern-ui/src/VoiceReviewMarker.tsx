@@ -1,7 +1,26 @@
 import{useEffect,useRef,useState}from'react';
+// A visible outer box is insufficient if a nested text area or ancestor clips it.
+function fullyVisible(card:HTMLElement|null|undefined){
+ if(!card||document.visibilityState!=='visible'||!document.hasFocus())return false;
+ const r=card.getBoundingClientRect();
+ if(r.width<=0||r.height<=0||r.top<0||r.bottom>innerHeight||r.left<0||r.right>innerWidth)return false;
+ for(let el:HTMLElement|null=card;el;el=el.parentElement){
+  const style=getComputedStyle(el);if(style.display==='none'||style.visibility!=='visible'||Number(style.opacity)===0)return false;
+  const box=el.getBoundingClientRect();
+  if(/hidden|auto|scroll|clip/.test(style.overflowY)&&(r.top<box.top||r.bottom>box.bottom))return false;
+  if(/hidden|auto|scroll|clip/.test(style.overflowX)&&(r.left<box.left||r.right>box.right))return false;
+ }
+ for(const el of card.querySelectorAll<HTMLElement>('*')){
+  const style=getComputedStyle(el);
+  if(/hidden|auto|scroll|clip/.test(style.overflowY)&&el.scrollHeight>el.clientHeight+1)return false;
+  if(/hidden|auto|scroll|clip/.test(style.overflowX)&&el.scrollWidth>el.clientWidth+1)return false;
+ }
+ const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+ return !!hit&&(card.contains(hit)||hit.contains(card));
+}
 // Display acknowledgement only. This never invokes submit/confirm.
 export function VoiceReviewMarker({kind,reviewed,command}:{kind:string,reviewed:unknown,command:(name:string,payload?:Record<string,unknown>)=>unknown}){
  const ref=useRef<HTMLDivElement>(null),[message,setMessage]=useState('Voice review not active');const payload=JSON.stringify(reviewed);
- useEffect(()=>{let bound=false,live=true,deadline=0;const check=async()=>{const el=ref.current,card=el?.parentElement,r=card?.getBoundingClientRect();const visible=!!r&&r.width>0&&r.height>0&&r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth&&document.visibilityState==='visible'&&document.hasFocus();if(visible&&bound&&deadline&&performance.now()>deadline){if(live)setMessage('Voice review expired. Hide and show this exact card again.');return}if(visible===bound)return;bound=visible;if(visible){try{const result=await command('voice-review-bind',{kind,reviewed:JSON.parse(payload)});if(result===false)throw Error('The core rejected this current review');deadline=performance.now()+60000;if(live)setMessage('With Mic on, say confirm '+kind+' or cancel '+kind+'. One exact review,60seconds; not approved.')}catch(e){if(live)setMessage('Voice review unavailable: '+String(e))}}else{await command('voice-review-clear');if(live)setMessage('Voice review cleared while this card is not fully visible')}};const timer=setInterval(()=>void check(),300);void check();return()=>{live=false;clearInterval(timer);void command('voice-review-clear')};},[kind,payload]);
+ useEffect(()=>{let bound=false,live=true,deadline=0;const check=async()=>{const visible=fullyVisible(ref.current?.parentElement);if(visible&&bound&&deadline&&performance.now()>deadline){if(live)setMessage('Voice review expired. Hide and show this exact card again.');return}if(visible===bound)return;bound=visible;if(visible){try{const result=await command('voice-review-bind',{kind,reviewed:JSON.parse(payload)});if(result===false)throw Error('The core rejected this current review');deadline=performance.now()+60000;if(live)setMessage('With Mic on, say confirm '+kind+' or cancel '+kind+'. One exact review,60seconds; not approved.')}catch(e){if(live)setMessage('Voice review unavailable: '+String(e))}}else{await command('voice-review-clear');if(live)setMessage('Voice review cleared while this card is not fully visible')}};const timer=setInterval(()=>void check(),300);void check();return()=>{live=false;clearInterval(timer);void command('voice-review-clear')};},[kind,payload]);
  return <div ref={ref} role="status" className="voice-review-marker">{message}</div>
 }

@@ -85,3 +85,102 @@ class BrainReviewSpeechBoundary(unittest.TestCase):
     if not stopped:b.brain_switch.apply.assert_called_once_with(p,True)
     else:b.brain_switch.apply.assert_not_called()
    finally:b.close()
+
+class CrossDomainAmbiguity(unittest.TestCase):
+ def test_connector_plan_blocks_bind_and_late_confirm_without_any_effect(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for attr in ('github_issue','notion_text','drive_text','sheets_write','google_mail','google_calendar','telegram_output'):
+   for state in ('review','submitting','uncertain','blocked'):
+    with self.subTest(service=attr,state=state):
+     b=Bridge(WorkspaceVoice());service=getattr(b,attr)
+     try:
+      p=b.focus_session.prepare('Read chapter',25);b.execute({'command':'voice-review-bind','kind':'focus','reviewed':p})
+      service.snapshot=Mock(return_value={'state':state,'plan':{'payload':{'recipient':'fixture'},'review_id':'exact'}})
+      self.assertIn('speech_feedback',b.voice_action('confirm focus'));self.assertEqual(b.focus_session.state,'review');self.assertIsNone(b.voice_review.snapshot())
+      with self.assertRaises(ValueError):b.execute({'command':'voice-review-bind','kind':'focus','reviewed':p})
+     finally:b.close()
+ def test_completed_connector_plan_does_not_block_unrelated_review(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  b=Bridge(WorkspaceVoice())
+  try:
+   b.github_issue.snapshot=Mock(return_value={'state':'completed','plan':{'payload':{'body':'old'}},'result':{'verified':True}})
+   p=b.focus_session.prepare('Read chapter',25);b.execute({'command':'voice-review-bind','kind':'focus','reviewed':p});b.voice_action('confirm focus');self.assertEqual(b.focus_session.state,'running')
+  finally:b.close()
+ def test_model_start_download_and_phone_transport_pending_block(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for attr in ('model_manager','managed_session','phone_transport','phone','news','calendar'):
+   with self.subTest(service=attr):
+    b=Bridge(WorkspaceVoice());service=getattr(b,attr)
+    try:
+     p=b.focus_session.prepare('Read chapter',25);service.snapshot=Mock(return_value={'pending':{'id':'different-permission'}})
+     with self.assertRaises(ValueError):b.execute({'command':'voice-review-bind','kind':'focus','reviewed':p})
+     self.assertEqual(b.focus_session.state,'review')
+    finally:b.close()
+
+class ExternalExactVoiceDomains(unittest.TestCase):
+ def test_external_confirm_and_cancel_routes_exact_review_once_mocked_only(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for kind,attr in [('github','github_issue'),('notion','notion_text'),('drive','drive_text'),('sheets','sheets_write'),('mail','google_mail'),('calendar','google_calendar'),('telegram','telegram_output')]:
+   for action in ('confirm','cancel'):
+    with self.subTest(kind=kind,action=action):
+     b=Bridge(WorkspaceVoice());service=getattr(b,attr);p={'review_id':'fixture','sha256':'fixture','payload':{'kind':'fixture','format':'text','identity':'fixture','words':'exact'}}
+     original_snapshot=service.snapshot;original_submit=service.submit;original_stop=service.stop
+     try:
+      service.snapshot=Mock(return_value={'state':'review','plan':p});service.submit=Mock();service.stop=Mock()
+      b.execute({'command':'voice-review-bind','kind':kind,'reviewed':p});result=b.voice_action(action+' '+kind)
+      self.assertIn('speech_feedback',result);self.assertIsNone(b.voice_review.snapshot())
+      if action=='confirm':service.submit.assert_called_once_with(p,True);service.stop.assert_not_called()
+      else:service.submit.assert_not_called();service.stop.assert_called_once()
+      b.voice_action('confirm '+kind);self.assertLessEqual(service.submit.call_count,1)
+     finally:service.snapshot=original_snapshot;service.submit=original_submit;service.stop=original_stop;b.close()
+ def test_uncertain_and_changed_account_never_submit(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for change in ('account','uncertain'):
+   b=Bridge(WorkspaceVoice());service=b.google_mail;p={'review_id':'fixture','payload':{'account':'first@example.com','to':['recipient@example.com'],'body':'exact'}}
+   original_snapshot=service.snapshot;original_submit=service.submit
+   try:
+    service.snapshot=Mock(return_value={'state':'review','plan':p});service.submit=Mock()
+    b.execute({'command':'voice-review-bind','kind':'mail','reviewed':p})
+    service.snapshot.return_value={'state':'uncertain','plan':p}if change=='uncertain'else{'state':'review','plan':{**p,'payload':{**p['payload'],'account':'other@example.com'}}}
+    b.voice_action('confirm mail');service.submit.assert_not_called()
+   finally:service.snapshot=original_snapshot;service.submit=original_submit;b.close()
+ def test_telegram_audio_requires_exact_listening_review_not_spoken_yes(self):
+  v=VoiceReview();p={'payload':{'format':'voice','audio':{'audio_sha256':'fixture'}}}
+  with self.assertRaises(ValueError):v.bind('telegram',p,p)
+  self.assertIsNone(v.snapshot())
+
+class AdditionalPendingBoundaries(unittest.TestCase):
+ def test_phone_handoff_delivery_and_calendar_draft_worker_block_unrelated_binding(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  for attr,row in [('phone',{'handoff':{'text':'private exact notes'}}),('phone_endpoints',{'pending':{'request_id':'fixture'}}),('calendar_telegram',{'busy':True})]:
+   b=Bridge(WorkspaceVoice());service=getattr(b,attr);original=service.snapshot
+   try:
+    service.snapshot=Mock(return_value=row);p=b.focus_session.prepare('Read chapter',25)
+    with self.assertRaises(ValueError):b.execute({'command':'voice-review-bind','kind':'focus','reviewed':p})
+    self.assertEqual(b.focus_session.state,'review')
+   finally:service.snapshot=original;b.close()
+
+class UnresolvedNotConfirmable(unittest.TestCase):
+ def test_placeholder_blocker_itself_cannot_bind(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from unittest.mock import Mock
+  b=Bridge(WorkspaceVoice());original=b.google_mail.snapshot
+  try:
+   b.google_mail.snapshot=Mock(return_value={'state':'uncertain','plan':{'payload':{'body':'fixture'}}})
+   p=b.pending_voice_reviews()['mail']
+   with self.assertRaises(ValueError):b.execute({'command':'voice-review-bind','kind':'mail','reviewed':p})
+   self.assertIsNone(b.voice_review.snapshot())
+  finally:b.google_mail.snapshot=original;b.close()
