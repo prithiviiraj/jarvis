@@ -4,7 +4,8 @@ No monitoring, download, mic or playback on creation. Pause cancels queued/activ
 import threading
 class KokoroSpeaker:
  def __init__(self,synth,output_factory=None):
-  self.synth=synth;self.output_factory=output_factory;self.lock=threading.RLock();self.generation=0;self.output=None;self.profiles=None;self.profile=None;self.playback_event=lambda *a:None;self.output_event=lambda *a:None
+  from ..voice_meter import VoiceMeter
+  self.meter=VoiceMeter();self.synth=synth;self.output_factory=output_factory;self.lock=threading.RLock();self.generation=0;self.output=None;self.profiles=None;self.profile=None;self.playback_event=lambda *a:None;self.output_event=lambda *a:None
  def select_profile(self,name):
   with self.lock:
    if self.profiles is None or name not in self.profiles:raise ValueError('Voice profile unavailable')
@@ -68,6 +69,8 @@ class KokoroSpeaker:
     with self.lock:
      if ticket!=self.generation:return
     output.write(audio[offset:offset+512])
+    with self.lock:
+     if ticket==self.generation:self.meter.feed(audio[offset:offset+512])
     if offset==0:
      with self.lock:
       if ticket==self.generation:self.output_event('first-write',ticket,sr)
@@ -77,11 +80,11 @@ class KokoroSpeaker:
    try:output.close()
    finally:
     with self.lock:
-     if self.output is output:self.output=None
+     if self.output is output:self.output=None;self.meter.clear()
      self.playback_event('finish','',self.profile,sr,0)
  def stop(self):
   with self.lock:
-   self.generation+=1;output=self.output;self.output=None
+   self.meter.clear();self.generation+=1;output=self.output;self.output=None
   self.playback_event('finish','',self.profile,0,0)
   if output:
    try:output.abort()

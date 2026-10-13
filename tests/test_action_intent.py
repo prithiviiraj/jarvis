@@ -65,3 +65,8 @@ class OneReviewSetup(unittest.TestCase):
   try:
    worker=b.enable_control(True);entered.wait(1);b.stop_laya();release.set();worker.join(2);self.assertFalse(b.browser_enabled);self.assertFalse(b.laya_enabled);b.laya_engine.load.assert_not_called()
   finally:b.close()
+
+class Tanglish(unittest.TestCase):
+ def test_bounded_owner_phrases(self):
+  for t in ('Brave open pannu','Jarvis brave browser open pannu','Dex browser thira'):self.assertEqual(parse(t),{'command':'open-window','value':''})
+  for t in ('brave open pannadha','brave open pannu nu sonna enna aagum','do not brave open pannu','can you explain brave open pannu'):self.assertIsNone(parse(t))

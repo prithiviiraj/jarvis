@@ -13,10 +13,10 @@ from PIL import ImageGrab
 spec=importlib.util.spec_from_file_location('native_input',pathlib.Path(__file__).with_name('native-input.py'));helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper)
 if os.name!='nt':raise RuntimeError('Actual copied-shell diagnostic requires Windows')
 exe=pathlib.Path(os.environ['JARVIS_UI_EXE']).resolve();out=pathlib.Path('ui-evidence');out.mkdir(exist_ok=True)
-env=dict(os.environ,JARVIS_BIGFOOT_DIAGNOSTIC='1',JARVIS_DATA_DIR=str((out/'bigfoot-native-isolated-data').resolve()))
+env=dict(os.environ,JARVIS_LEGACY_WORKSPACE_DIAGNOSTIC='0',JARVIS_DATA_DIR=str((out/'bigfoot-native-isolated-data').resolve()))
 child=subprocess.Popen([str(exe)],env=env);checks=[];target_child=None
 try:
- window=Desktop(backend='uia').window(title='JARVIS / Modern workspace preview',process=child.pid);window.wait('visible',timeout=30)
+ window=Desktop(backend='uia').window(title='JARVIS',process=child.pid);window.wait('visible',timeout=30)
  def button(name):
   control=window.child_window(title=name,control_type='Button',visible_only=True);control.wait('exists enabled',timeout=15);return control
  def visible_text(text):
@@ -25,9 +25,23 @@ try:
    if any(text in c.window_text()for c in window.descendants(control_type='Text')):return
    time.sleep(.2)
   raise AssertionError('Copied native text absent: '+text)
- visible_text('Voice');visible_text('Local speech assets');checks.append('actual first-open Voice offer')
+ visible_text('Make JARVIS yours');checks.append('actual first-open profile prompt')
+ profile=window.child_window(title='Your name',control_type='Edit');profile.wait('exists',timeout=15);profile.wrapper_object().set_edit_text('Native Fixture')
+ address=window.child_window(title='Call me',control_type='Edit');address.wait('exists',timeout=15);address.wrapper_object().set_edit_text('Friend')
+ helper.activate(button('Save profile'));time.sleep(.5);helper.activate(button('Voice'));visible_text('Local speech assets');checks.append('actual profile save then Voice navigation')
  for name in ('Models','JARVIS','General','Voice'):
   helper.activate(button(name));time.sleep(.3);ImageGrab.grab().save(out/('native-bigfoot-'+name.lower()+'.png'));checks.append('actual native '+name+' navigation')
+ helper.activate(button('Home'));time.sleep(.3)
+ for label in ('Settings','Computer tools','Start voice','Stop','Activate Brave control'):
+  button(label).wait('exists enabled',timeout=15)
+ window.capture_as_image().save(out/'native-bigfoot-home-session-controls.png')
+ checks.append('actual default Home settings/mic/Stop/Brave controls visibly present, no audio/control started')
+ helper.activate(button('Settings'));visible_text('Edit your profile');helper.activate(button('Edit your profile'));visible_text('Make JARVIS yours')
+ name_control=window.child_window(title='Your name',control_type='Edit').wrapper_object();call_control=window.child_window(title='Call me',control_type='Edit').wrapper_object()
+ assert name_control.iface_value.CurrentValue=='Native Fixture','Profile name did not persist after navigation'
+ assert call_control.iface_value.CurrentValue=='Friend','Address preference did not persist after navigation'
+ helper.activate(button('Save profile'));helper.activate(button('Voice'));visible_text('Local speech assets')
+ checks.append('actual profile edit readback preserves owner-selected name/address')
  # Inspect existing local controls only. Never click model/speech downloads or capture.
  visible_text('Speech input')
  # Native select displays its chosen value via UIA Value/Selection patterns,
@@ -78,13 +92,26 @@ try:
  # First-open microphone test is below the voice list. Scroll actual pixels,
  # never activate microphone/download controls for this navigation diagnostic.
  def microphone_reachable(label):
-  area=helper.work_area()
-  for _ in range(8):
+  # UIA visibility and outer HWND bounds do not prove a WebView control is
+  # fully painted: require client-area inset and keep exact bounds evidence.
+  import ctypes
+  from ctypes import wintypes
+  hwnd=window.wrapper_object().handle;u=ctypes.windll.user32;u.GetClientRect.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.RECT)];u.ClientToScreen.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.POINT)]
+  client=wintypes.RECT();assert u.GetClientRect(hwnd,ctypes.byref(client))
+  origin=wintypes.POINT(0,0);assert u.ClientToScreen(hwnd,ctypes.byref(origin))
+  area=helper.work_area();left=max(origin.x,area.left);top=max(origin.y+40,area.top);right=min(origin.x+client.right,area.right)-20;bottom=min(origin.y+client.bottom,area.bottom)-8
+  bounds_rows=[]
+  for attempt in range(12):
    controls=[c for c in window.descendants(control_type='Button')if c.window_text()=='Test Microphone']
-   if controls and controls[0].is_visible()and controls[0].rectangle().top>window.rectangle().top and controls[0].rectangle().bottom<min(window.rectangle().bottom,area.bottom) and controls[0].rectangle().left>=area.left and controls[0].rectangle().right<=area.right:break
-   bounds=window.rectangle();mouse.scroll(coords=(min(bounds.right,area.right)-80,min(bounds.bottom,area.bottom)-180),wheel_dist=-3);time.sleep(.15)
-  else:raise AssertionError('First-open microphone control did not become visibly reachable')
-  ImageGrab.grab().save(out/('native-bigfoot-microphone-'+label+'.png'));checks.append('actual microphone control visibly reachable without activation '+label)
+   rect=controls[0].rectangle()if controls else None
+   full=bool(rect and controls[0].is_visible()and rect.top>=top and rect.bottom<=bottom and rect.left>=left and rect.right<=right)
+   bounds_rows.append({'attempt':attempt,'button':[rect.left,rect.top,rect.right,rect.bottom]if rect else None,'client_content_safe':[left,top,right,bottom],'fully_inside':full})
+   if full:break
+   mouse.scroll(coords=(right-60,bottom-150),wheel_dist=-3);time.sleep(.2)
+  (out/('native-bigfoot-microphone-'+label+'-bounds.json')).write_text(json.dumps(bounds_rows,indent=2))
+  ImageGrab.grab().save(out/('native-bigfoot-microphone-'+label+'.png'))
+  assert full,'Full Test Microphone button still outside client content area; inspect pixels and bounds, do not accept'
+  checks.append('full microphone button inside client/content inset without activation '+label)
  microphone_reachable('initial')
 
  for size in ((800,600),(1024,768)):

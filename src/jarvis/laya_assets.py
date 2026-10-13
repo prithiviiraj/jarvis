@@ -34,14 +34,18 @@ def download(root,consent=False,cancel=None,notify=lambda *a:None):
   finally:part.unlink(missing_ok=True)
 class LayaSetup:
  def __init__(self):
-  self.lock=threading.RLock();self.cancel=threading.Event();self.busy=False;self.checked=False;self.ready=False;self.status='Laya model not checked';self.error=''
+  self.lock=threading.RLock();self.cancel=threading.Event();self.busy=False;self.checked=False;self.ready=False;self.status='Laya model not checked';self.error='';self.worker=None
  def snapshot(self):
   with self.lock:return {'busy':self.busy,'checked':self.checked,'ready':self.ready,'status':self.status,'error':self.error,'model_bytes':TOTAL_BYTES}
  def stop(self):self.cancel.set()
  def start(self,consent=False,check=False):
+  with self.lock:return self._start(consent,check)
+ def _start(self,consent=False,check=False):
   if not check and consent is not True:raise ValueError('Review the Laya model download first')
   with self.lock:
-   if self.busy:raise ValueError('Laya model setup already running')
+   if self.busy:
+    if check:return self.worker
+    raise ValueError('Laya setup is in progress. Wait for it to finish or stop it before a new download.')
    self.busy=True;self.cancel.clear();self.ready=False;self.checked=False;self.error='';self.status='Checking verified Laya model assets'
   def run():
    try:
@@ -55,4 +59,6 @@ class LayaSetup:
     with self.lock:self.error=type(error).__name__+': '+str(error)[:200];self.status='Laya setup stopped; existing verified files preserved'
    finally:
     with self.lock:self.busy=False
-  thread=threading.Thread(target=run,daemon=True);thread.start();return thread
+  thread=threading.Thread(target=run,daemon=True)
+  with self.lock:self.worker=thread
+  thread.start();return thread

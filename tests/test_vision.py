@@ -73,7 +73,7 @@ class VisionWiringTests(unittest.TestCase):
     v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock()
     bad=Mock();bad.attach.side_effect=RuntimeError('model changed');v.vision=bad
     v.enable(True);v.turn([0],v.generation,False,[])
-    router.ask.assert_not_called();speaker.speak.assert_not_called();v.mic.resume.assert_called_once()
+    router.ask.assert_not_called();speaker.speak.assert_called_once();self.assertIn('Vision did not complete',speaker.speak.call_args.args[0]);v.mic.resume.assert_called_once()
 
 class LoadedVisionContractTests(unittest.TestCase):
  def test_downloaded_vision_is_not_loaded(self):

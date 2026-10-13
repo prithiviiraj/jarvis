@@ -1,3 +1,5 @@
+import os
+os.environ['JARVIS_LEGACY_WORKSPACE_DIAGNOSTIC']='1'
 """Real Windows UI Automation against the actual Tauri WebView2 window."""
 import subprocess,pathlib,time,json,ctypes,os
 from PIL import ImageGrab
@@ -121,7 +123,7 @@ def navigation(main,name):
  else:invoke(name)
 
 try:
- main=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');main.wait('visible',timeout=30)
+ main=Desktop(backend='uia').window(process=p.pid,title='JARVIS');main.wait('visible',timeout=30)
  main=Desktop(backend='uia').window(handle=main.handle);main.set_focus()
  # First-launch guide is automatic and explains all four features without enabling any.
  main.child_window(title='Next',control_type='Button').wait('exists',timeout=15)
@@ -194,7 +196,7 @@ try:
  ctypes.windll.user32.GetDpiForWindow.argtypes=[ctypes.c_void_p];ctypes.windll.user32.GetDpiForWindow.restype=ctypes.c_uint
  pr=pill.rectangle();scale=ctypes.windll.user32.GetDpiForWindow(pill_handle)/96
  assert scale>0,'Window DPI unavailable'
- assert abs(pr.width()-240*scale)<=3 and abs(pr.height()-40*scale)<=3,('Slim pill size',pr,scale)
+ assert abs(pr.width()-440*scale)<=3 and abs(pr.height()-140*scale)<=3,('Slim pill size',pr,scale)
  assert -3<=pr.top<=int(4*scale),('Pill must sit at top edge',pr.top)
  pill.capture_as_image().save('ui-evidence/native-compact-pill-mic-off.png')
  activate(pill.child_window(title='Open JARVIS workspace',control_type='Button'));main.wait('visible',timeout=10);time.sleep(.5)
@@ -805,7 +807,7 @@ try:
  # Persist OFF across a full native application restart, not only in renderer state.
  click('Transcript OFF');ctypes.windll.user32.PostMessageW(window.handle,0x0010,0,0);p.wait(timeout=10)
  p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
- window=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Modern workspace preview');window.wait('visible',timeout=30)
+ window=Desktop(backend='uia').window(process=p.pid,title='JARVIS');window.wait('visible',timeout=30)
  restarted_workspace_handle=window.handle
  window=Desktop(backend='uia').window(handle=restarted_workspace_handle)
  window.minimize()

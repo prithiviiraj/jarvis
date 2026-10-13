@@ -23,60 +23,12 @@ class FastAckTests(unittest.TestCase):
    def abort(self):pass
    def close(self):pass
   synth=Mock();synth.synthesize.return_value=(np.ones(1024,dtype='float32')*.01,24000);s=KokoroSpeaker(synth,lambda sr:Output());s.profiles={'JARVIS':synth};s.select_profile('JARVIS');ack=FastAck(s);ack.prepare('JARVIS');synth.synthesize.reset_mock();self.assertTrue(ack.acknowledge('JARVIS',0,threading.Event()));ack.wait(threading.Event());self.assertEqual(writes,[512,512]);synth.synthesize.assert_not_called()
- def test_real_runtime_model_runs_during_ack_and_reply_waits(self):
-  import numpy as np
+ def test_live_runtime_never_uses_legacy_ack(self):
   from jarvis.runtime import VoiceRuntime
-  from jarvis.experimental.kokoro_speaker import KokoroSpeaker
-  entered=threading.Event();release=threading.Event();events=[]
-  class Output:
-   def start(self):pass
-   def write(self,audio):events.append('output');entered.set();release.wait(1)
-   def stop(self):pass
-   def abort(self):release.set()
-   def close(self):pass
-  synth=Mock();synth.synthesize.return_value=(np.ones(512,dtype='float32'),24000);s=KokoroSpeaker(synth,lambda sr:Output());s.profiles={'JARVIS':synth};s.select_profile('JARVIS');ack=FastAck(s);ack.prepare('JARVIS')
-  stt=Mock();stt.transcribe.return_value='hello';router=Mock()
-  def answer(*a,**k):self.assertTrue(entered.wait(1));events.append('model');release.set();return {'text':'Hello'}
-  router.ask.side_effect=answer;v=VoiceRuntime(Mock(),stt,router,s);v.mic=Mock();v.fast_ack=ack;v.enable(True);v.turn([0],v.generation,False,[]);self.assertEqual(events,['output','model','output']);v.close()
- def test_real_runtime_streaming_generates_before_ack_finishes(self):
-  import numpy as np
+  for streaming in (False,True):
+   with self.subTest(streaming=streaming):
+    events=[];speaker=Mock();stt=Mock();stt.transcribe.return_value='hello';router=Mock();router.ask.return_value={'text':'Useful reply'};router.stream.return_value=iter([{'text':'Useful reply.','provider':'local'}]);v=VoiceRuntime(Mock(),stt,router,speaker,lambda *e:events.append(e));v.mic=Mock();v.fast_ack=Mock();v.streaming=streaming
+    v.enable(True);v.turn([0],v.generation,False,[]);v.fast_ack.acknowledge.assert_not_called();v.fast_ack.wait.assert_not_called();self.assertTrue(v.history);self.assertFalse(any(k=='metrics'and x.get('output_includes_ack')for k,x in events));v.close()
+ def test_pause_before_reply_still_discards_output(self):
   from jarvis.runtime import VoiceRuntime
-  from jarvis.experimental.kokoro_speaker import KokoroSpeaker
-  entered=threading.Event();release=threading.Event();events=[]
-  class Output:
-   def start(self):pass
-   def write(self,audio):events.append('output');entered.set();release.wait(1)
-   def stop(self):pass
-   def abort(self):release.set()
-   def close(self):pass
-  synth=Mock();synth.synthesize.return_value=(np.ones(512,dtype='float32'),24000);s=KokoroSpeaker(synth,lambda sr:Output());s.profiles={'JARVIS':synth};s.select_profile('JARVIS');ack=FastAck(s);ack.prepare('JARVIS');stt=Mock();stt.transcribe.return_value='hello';router=Mock()
-  def chunks(*a,**k):self.assertTrue(entered.wait(1));events.append('model');release.set();yield {'text':'Hello.','provider':'local'}
-  router.stream.side_effect=chunks;v=VoiceRuntime(Mock(),stt,router,s);v.mic=Mock();v.fast_ack=ack;v.streaming=True;v.enable(True);v.turn([0],v.generation,False,[]);self.assertEqual(events,['output','model','output']);v.close()
- def test_real_team_runtime_one_ack_and_actual_persona_voices(self):
-  import numpy as np
-  from jarvis.runtime import VoiceRuntime
-  from jarvis.experimental.kokoro_speaker import KokoroSpeaker
-  outputs=[]
-  class Output:
-   def start(self):pass
-   def write(self,audio):outputs.append('output')
-   def stop(self):pass
-   def abort(self):pass
-   def close(self):pass
-  synth=Mock();synth.synthesize.return_value=(np.ones(512,dtype='float32'),24000);s=KokoroSpeaker(synth,lambda sr:Output());s.profiles={p:synth for p in ('JARVIS','LYRA','DEX')};s.select_profile('JARVIS');ack=FastAck(s)
-  for p in s.profiles:ack.prepare(p)
-  s.select_profile('JARVIS');stt=Mock();stt.transcribe.return_value='Discuss among yourselves how to help me study';router=Mock();router.ask.return_value={'text':'One useful reply'};v=VoiceRuntime(Mock(),stt,router,s);v.mic=Mock();v.fast_ack=ack;v.enable(True);v.turn([0],v.generation,False,[]);self.assertEqual(len(outputs),5);self.assertEqual(router.ask.call_count,4);self.assertEqual(v.persona,'JARVIS');v.close()
- def test_real_runtime_pause_during_ack_clears_output_and_drops_reply(self):
-  import numpy as np
-  from jarvis.runtime import VoiceRuntime
-  from jarvis.experimental.kokoro_speaker import KokoroSpeaker
-  entered=threading.Event();release=threading.Event();outputs=[]
-  class Output:
-   def start(self):pass
-   def write(self,audio):outputs.append(True);entered.set();release.wait(1)
-   def stop(self):pass
-   def abort(self):release.set()
-   def close(self):pass
-  synth=Mock();synth.synthesize.return_value=(np.ones(512,dtype='float32'),24000);s=KokoroSpeaker(synth,lambda sr:Output());s.profiles={'JARVIS':synth};s.select_profile('JARVIS');ack=FastAck(s);ack.prepare('JARVIS');stt=Mock();stt.transcribe.return_value='hello';router=Mock();v=VoiceRuntime(Mock(),stt,router,s);v.mic=Mock();v.fast_ack=ack
-  def answer(*a,**k):self.assertTrue(entered.wait(1));v.pause();return {'text':'Late answer'}
-  router.ask.side_effect=answer;v.enable(True);v.turn([0],v.generation,False,[]);ack.worker.join(1);self.assertEqual(len(outputs),1);self.assertEqual(v.history,[]);self.assertIsNone(s.output);v.close()
+  v=VoiceRuntime(Mock(),Mock(),Mock(),Mock());v.mic=Mock();v.stt.transcribe.return_value='hello';v.fast_ack=Mock();v.router.ask.side_effect=lambda *a,**kw:(v.pause()or{'text':'late'});v.enable(True);v.turn([0],v.generation,False,[]);self.assertEqual(v.history,[]);v.speaker.speak.assert_not_called();v.fast_ack.acknowledge.assert_not_called();v.close()

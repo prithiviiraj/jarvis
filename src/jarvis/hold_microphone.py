@@ -6,7 +6,8 @@ Release submits audio once; stop discards it. No automatic capture after reply.
 import threading
 class HoldMic:
  def __init__(self,vad,on_utterance,on_state=lambda *a:None,stream_factory=None,max_frames=625):
-  self.vad=vad;self.on_utterance=on_utterance;self.on_state=on_state;self.factory=stream_factory;self.max_frames=max_frames;self.lock=threading.RLock();self.frames=[];self.stream=None;self.accepting=False;self.enabled=False;self.on_onset=None;self.generation=0;self.endpointer=None;self.overflow=False
+  from .voice_meter import VoiceMeter
+  self.meter=VoiceMeter();self.vad=vad;self.on_utterance=on_utterance;self.on_state=on_state;self.factory=stream_factory;self.max_frames=max_frames;self.lock=threading.RLock();self.frames=[];self.stream=None;self.accepting=False;self.enabled=False;self.on_onset=None;self.generation=0;self.endpointer=None;self.overflow=False
  def start(self,consent=False):
   if consent is not True:raise ValueError('Hold microphone needs session consent')
   with self.lock:self.enabled=True;self.accepting=False
@@ -25,7 +26,7 @@ class HoldMic:
       if status or len(self.frames)>=self.max_frames or count!=512:raise ValueError('Capture buffer failed')
       frame=np.asarray(data)
       if frame.shape!=(512,1)or not np.isfinite(frame).all():raise ValueError('Capture samples failed')
-      self.frames.append(frame[:,0].copy())
+      self.frames.append(frame[:,0].copy());self.meter.feed(frame[:,0])
      except Exception:
       self.overflow=True;self.accepting=False;threading.Thread(target=self._fail_close,args=(ticket,),daemon=True).start()
     finally:self.lock.release()
@@ -39,7 +40,7 @@ class HoldMic:
     self._close_locked();self.frames=[];self.accepting=False;raise RuntimeError('Hold microphone could not open. Check Windows input permission and device.')from None
   self.on_state('state','capturing while Ctrl+Alt held');return True
  def _close_locked(self):
-  stream=self.stream;self.stream=None
+  self.meter.clear();stream=self.stream;self.stream=None
   if stream:
    try:stream.abort();stream.close()
    except Exception:pass

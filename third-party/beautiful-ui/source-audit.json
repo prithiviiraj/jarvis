@@ -1,0 +1,211 @@
+[
+  {
+    "file": "AgentScreen.tsx",
+    "lines": 357,
+    "timed_demo": 0,
+    "imports": [
+      "import { useEffect, useState } from \"react\";",
+      "import { createPortal } from \"react-dom\";",
+      "import { Button } from \"@/components/atoms/Button\";"
+    ]
+  },
+  {
+    "file": "ApprovalCard.tsx",
+    "lines": 419,
+    "timed_demo": 3,
+    "imports": [
+      "import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from \"react\";",
+      "import { Button } from \"@/components/atoms/Button\";",
+      "import GlideMenu from \"@/components/primitives/GlideMenu\";"
+    ]
+  },
+  {
+    "file": "ChatComposer.tsx",
+    "lines": 242,
+    "timed_demo": 4,
+    "imports": [
+      "import { useEffect, useRef, useState } from \"react\";"
+    ]
+  },
+  {
+    "file": "CodeBlock.tsx",
+    "lines": 233,
+    "timed_demo": 1,
+    "imports": [
+      "import { useCallback, useState, type ReactNode } from \"react\";"
+    ]
+  },
+  {
+    "file": "ContextCards.tsx",
+    "lines": 120,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useState } from \"react\";"
+    ]
+  },
+  {
+    "file": "DiffTable.tsx",
+    "lines": 250,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useState } from \"react\";",
+      "import { Button } from \"@/components/atoms/Button\";"
+    ]
+  },
+  {
+    "file": "FilterTable.tsx",
+    "lines": 144,
+    "timed_demo": 0,
+    "imports": [
+      "import { useState } from \"react\";"
+    ]
+  },
+  {
+    "file": "FineTuneCard.tsx",
+    "lines": 341,
+    "timed_demo": 0,
+    "imports": [
+      "import { useRef, useState } from \"react\";",
+      "import GlideMenu from \"@/components/primitives/GlideMenu\";"
+    ]
+  },
+  {
+    "file": "Flowchart.tsx",
+    "lines": 538,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useRef, useState } from \"react\";",
+      "import { useLayoutEffect } from \"react\";"
+    ]
+  },
+  {
+    "file": "GlideMenu.tsx",
+    "lines": 59,
+    "timed_demo": 0,
+    "imports": [
+      "import { useRef, useState, type ReactNode } from \"react\";"
+    ]
+  },
+  {
+    "file": "InsightCards.tsx",
+    "lines": 542,
+    "timed_demo": 0,
+    "imports": [
+      "import { Liveline, type LivelinePoint, type LivelineSeries } from \"liveline\";",
+      "import { useEffect, useMemo, useState } from \"react\";"
+    ]
+  },
+  {
+    "file": "LoadingState.tsx",
+    "lines": 154,
+    "timed_demo": 0,
+    "imports": [
+      "import { useEffect, useState } from \"react\";"
+    ]
+  },
+  {
+    "file": "PromptBar.tsx",
+    "lines": 712,
+    "timed_demo": 2,
+    "imports": [
+      "import { useEffect, useLayoutEffect, useRef, useState } from \"react\";",
+      "import { createShader, playSweep, accentChain, ACCENTS } from \"glimm\";"
+    ]
+  },
+  {
+    "file": "RecommendationCard.tsx",
+    "lines": 194,
+    "timed_demo": 0,
+    "imports": [
+      "import { useState } from \"react\";",
+      "import { Button, type ButtonVariant } from \"@/components/atoms/Button\";",
+      "import { EntityChip } from \"@/components/atoms/EntityChip\";",
+      "import { ValuePill } from \"@/components/atoms/ValuePill\";"
+    ]
+  },
+  {
+    "file": "RecordsTable.tsx",
+    "lines": 1052,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useLayoutEffect, useMemo, useRef, useState } from \"react\";",
+      "import GlideMenu from \"@/components/primitives/GlideMenu\";"
+    ]
+  },
+  {
+    "file": "SearchList.tsx",
+    "lines": 116,
+    "timed_demo": 0,
+    "imports": [
+      "import { useState } from \"react\";",
+      "import GlideMenu from \"@/components/primitives/GlideMenu\";"
+    ]
+  },
+  {
+    "file": "SelectionActions.tsx",
+    "lines": 554,
+    "timed_demo": 2,
+    "imports": [
+      "import {",
+      "import {",
+      "import { Button } from \"@/components/atoms/Button\";",
+      "import { Shimmer } from \"@/components/atoms/Shimmer\";",
+      "import { StreamText } from \"@/components/atoms/StreamText\";"
+    ]
+  },
+  {
+    "file": "SidebarNav.tsx",
+    "lines": 449,
+    "timed_demo": 0,
+    "imports": [
+      "import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from \"react\";",
+      "import { createPortal } from \"react-dom\";",
+      "import { IconArrowBoxLeft } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconArrowBoxLeft\";",
+      "import { IconCheckmark1Small } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconCheckmark1Small\";",
+      "import { IconChevronDownSmall } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconChevronDownSmall\";",
+      "import { IconCrossSmall } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconCrossSmall\";",
+      "import { IconEditBig } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconEditBig\";",
+      "import { IconHome } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconHome\";",
+      "import { IconMagnifyingGlass } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconMagnifyingGlass\";",
+      "import { IconPlusMedium } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconPlusMedium\";",
+      "import { IconPopsicle2 } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconPopsicle2\";",
+      "import { IconSettingsGear1 } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconSettingsGear1\";",
+      "import { IconSidebarLeftArrow } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconSidebarLeftArrow\";",
+      "import { IconUserAdd } from \"@central-icons-react/round-outlined-radius-2-stroke-2/IconUserAdd\";",
+      "import GlideMenu from \"@/components/primitives/GlideMenu\";"
+    ]
+  },
+  {
+    "file": "StreamingText.tsx",
+    "lines": 252,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useState } from \"react\";"
+    ]
+  },
+  {
+    "file": "TaskRows.tsx",
+    "lines": 274,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useState } from \"react\";"
+    ]
+  },
+  {
+    "file": "ThinkingState.tsx",
+    "lines": 301,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from \"react\";"
+    ]
+  },
+  {
+    "file": "ToolChips.tsx",
+    "lines": 336,
+    "timed_demo": 1,
+    "imports": [
+      "import { useEffect, useState } from \"react\";",
+      "import { createPortal } from \"react-dom\";"
+    ]
+  }
+]

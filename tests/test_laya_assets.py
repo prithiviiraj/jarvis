@@ -27,3 +27,9 @@ class LayaAssets(unittest.TestCase):
   with tempfile.TemporaryDirectory()as t,patch.object(a.urllib.request,'urlopen')as net:
    with self.assertRaises(ValueError):a.download(pathlib.Path(t),consent=True,cancel=c)
    net.assert_not_called()
+
+ def test_repeated_check_reports_same_worker_not_failure(self):
+  entered=threading.Event();release=threading.Event()
+  def verifying(*a):entered.set();release.wait(2);return True
+  with patch.object(a,'ready',side_effect=verifying),patch.object(a,'download')as net:
+   s=a.LayaSetup();worker=s.start(check=True);self.assertTrue(entered.wait(1));self.assertIs(s.start(check=True),worker);self.assertTrue(s.snapshot()['busy']);self.assertEqual(s.snapshot()['error'],'');net.assert_not_called();release.set();worker.join(2);self.assertTrue(s.ready)

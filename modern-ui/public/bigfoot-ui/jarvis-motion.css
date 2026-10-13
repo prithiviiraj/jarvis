@@ -1,0 +1,9 @@
+/* Motion follows real controls and content changes, never simulated audio. */
+button,input,textarea,select,.row,.voice-card,.card,.status{transition:background-color 160ms ease,color 160ms ease,border-color 160ms ease,box-shadow 160ms ease,transform 160ms ease,opacity 160ms ease}
+button:not(:disabled):hover{transform:translateY(-1px)}button:not(:disabled):active{transform:translateY(1px) scale(.97)}input:focus,textarea:focus,select:focus{box-shadow:0 0 0 3px #3380ff22}
+[data-pane]:not([hidden]){animation:jarvis-pane-in 210ms ease-out}.turn{animation:jarvis-pane-in 170ms ease-out}.jarvis-session-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.jarvis-session-toolbar select{width:105px}.chat-head{gap:8px;flex-wrap:wrap}.chat-head select{max-width:170px}
+.jarvis-profile{max-width:430px;width:calc(100% - 50px);border:1px solid #d1d5db;border-radius:18px;padding:25px;background:var(--bg,#f8fafc);color:var(--text,#e7ece9);box-shadow:0 20px 90px #0005;animation:jarvis-pane-in 220ms ease-out}.jarvis-profile::backdrop{background:#0006;backdrop-filter:blur(4px)}.jarvis-profile label{display:grid;gap:7px;margin:18px 0}.jarvis-profile input{padding:10px;border:1px solid #aab2be;border-radius:8px}.jarvis-profile p{line-height:1.5}
+@keyframes jarvis-pane-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.jarvis-profile h2,.jarvis-profile p,.jarvis-profile label{color:#e7ece9}.jarvis-profile input{background:#171b1a;color:#e7ece9}.jarvis-profile{background:#111614}

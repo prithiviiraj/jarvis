@@ -1,8 +1,10 @@
 """Single-owner voice runtime. Headphone/half-duplex safety mode, not AEC/barge-in."""
-import threading,time
+import threading,time,uuid
 from .audio import ContinuousMic
 from .personas import prompt
 from .persona_text import strip_speaker_tag,spoken_text,spoken_chunks
+from .voice_feedback import safe_route,echo_reply,vision_unavailable
+from .voice_feedback import runtime_device_scope
 class VoiceRuntime:
     def __init__(self,vad,stt,router,speaker,notify=lambda *a:None):
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
@@ -54,9 +56,9 @@ class VoiceRuntime:
         threading.Thread(target=self.turn,args=(audio,generation,cloud,history),daemon=True).start()
     def valid(self,generation):return self.enabled and generation==self.generation
     def turn(self,audio,generation,cloud,history):
-        ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription';parallel_dispatched=False
+        ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription';parallel_dispatched=False;turn_id=uuid.uuid4().hex;route_meta={}
         with self.lock:self.turn_metrics={'ticket':ticket,'started':started,'generation':generation,'metrics':metrics}
-        self.notify('metrics',{})
+        self.notify('metrics',{});self.notify('turn-start',{'turn_id':turn_id,**runtime_device_scope(self.stt,self.speaker)})
         try:
             self.notify('response-diagnostics',[]);self.notify('error','');self.notify('state','transcribing');cancellable=getattr(type(self.stt),'transcribe_cancellable',None);text=cancellable(self.stt,audio,self.cancel)if callable(cancellable)else self.stt.transcribe(audio);metrics['stt_s']=time.monotonic()-started
             with self.lock:
@@ -94,7 +96,12 @@ class VoiceRuntime:
                 metrics['command_dispatch_s']=time.monotonic()-started
                 self.notify('status','Browser step dispatched independently; answer is not a browser-result claim')
                 text=handled['parallel_question']
-            elif handled:self.notify('action-handled',text);return
+            elif handled:
+                self.notify('action-handled',text)
+                feedback=handled.get('speech_feedback')if isinstance(handled,dict)else None
+                if isinstance(feedback,str)and feedback.strip():
+                    stage='action feedback playback';self.notify('state','speaking');self.speaker.speak(feedback,generation=ticket)
+                return
             from .persona_text import own_reply
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             from .multi_address import addressed,request as addressed_request
@@ -109,7 +116,6 @@ class VoiceRuntime:
                     select=getattr(self.speaker,'select_profile',None)
                     if callable(select):select(actor)
                     self.persona=actor;self.notify('voice-actor',actor);self.notify('state',actor+' thinking')
-                    if index==0 and getattr(self,'fast_ack',None) is not None and self.fast_ack.acknowledge(actor,ticket,self.cancel):metrics['ack_dispatched_s']=time.monotonic()-started;metrics['output_includes_ack']=True
                     request=addressed_request(actor,text,context)if direct else discussion_messages(actor,text,context,index)
                     if callable(getattr(self,'interface_context',None)):request[0]['content']+=self.interface_context(text)
                     discussion_router=self.router;discussion_cloud=cloud
@@ -129,20 +135,21 @@ class VoiceRuntime:
                                 pieces.append(delta['text']);partial=strip_speaker_tag(''.join(pieces));own_reply(partial,actor,context)
                                 if len(partial)>1500:raise ValueError('Team reply too long')
                                 last=delta;metrics.setdefault('first_text_s',time.monotonic()-started)
-                                self.notify('answer',dict(delta,text=partial,profile=actor,stream_id=stream_id))
+                                route_meta.update(safe_route(delta))
+                                self.notify('answer',dict(delta,text=partial,profile=actor,stream_id=stream_id,turn_id=turn_id,partial=True))
                                 yield delta['text']
                         def clause(part):
                             metrics.setdefault('first_clause_s',time.monotonic()-started);self.notify('state',actor+' speaking')
-                        SpeechQueue(self.speaker,self.cancel,before_output=self.fast_ack.wait if getattr(self,'fast_ack',None) is not None else None).play_stream(spoken_chunks(chunks()),ticket,clause)
+                        SpeechQueue(self.speaker,self.cancel,before_output=None).play_stream(spoken_chunks(chunks()),ticket,clause)
                         if not self.valid(generation)or self.cancel.is_set():return
                         answer_text=clean_reply(strip_speaker_tag(''.join(pieces)));own_reply(answer_text,actor,context)
+                        self.notify('answer',dict(last,text=answer_text,profile=actor,stream_id=stream_id,turn_id=turn_id,partial=False))
                     else:
                         reply=discussion_router.ask(request,cloud_consent=discussion_cloud,cancel=self.cancel)
                         answer_text=clean_reply(reply.get('text'));own_reply(answer_text,actor,context)
                         if len(answer_text)>1500:raise ValueError('Team reply too long')
                         if not self.valid(generation)or self.cancel.is_set():return
-                        self.notify('answer',dict(reply,text=answer_text,profile=actor));self.notify('state',actor+' speaking');spoken=spoken_text(answer_text)
-                        if getattr(self,'fast_ack',None) is not None and not self.fast_ack.wait(self.cancel):return
+                        route_meta.update(safe_route(reply));self.notify('answer',dict(reply,text=answer_text,profile=actor,turn_id=turn_id,partial=False));self.notify('state',actor+' speaking');spoken=spoken_text(answer_text)
                         if spoken.strip():self.speaker.speak(spoken,generation=ticket)
                     if not self.valid(generation)or self.cancel.is_set():return
                     context.append({'role':'assistant','content':'['+actor+'] '+answer_text});answers.append(answer_text)
@@ -160,10 +167,12 @@ class VoiceRuntime:
                 select=getattr(self.speaker,'select_profile',None)
                 if callable(select):select(actor);self.persona=actor
             self.notify('voice-actor',self.persona)
-            if getattr(self,'fast_ack',None) is not None and self.fast_ack.acknowledge(self.persona,ticket,self.cancel):metrics['ack_dispatched_s']=time.monotonic()-started;metrics['output_includes_ack']=True
             choose=getattr(self.router,'select_persona',None)
             if callable(choose):choose(self.persona)
             if hasattr(self.router,'reasoning_off'):self.router.reasoning_off=self.reasoning_off
+            unavailable=vision_unavailable(self.vision,text)
+            if unavailable:
+                self.notify('answer',{'text':unavailable,'profile':self.persona,'provider':'verified-app-state','turn_id':turn_id,'partial':False});self.notify('state','speaking');self.speaker.speak(unavailable,generation=ticket);return
             stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
             messages=[{'role':'system','content':prompt(self.persona)+(self.interface_context(text)if callable(getattr(self,'interface_context',None))else'')}]+context+[{'role':'user','content':text}]
@@ -180,6 +189,7 @@ class VoiceRuntime:
                 turn_router=route(self.vision,turn_router,messages)
                 from .router import image_turn
                 if image_turn(messages):cloud=False
+            stage='local model response'
             if self.streaming:
                 from .speech_queue import SpeechQueue
                 pieces=[];provider=[]
@@ -193,11 +203,16 @@ class VoiceRuntime:
                         with self.lock:
                             if not self.valid(generation):return
                             if 'first_text_s' not in metrics:metrics['first_text_s']=time.monotonic()-started
-                            pieces.append(delta['text']);provider[:]=[delta]
+                            pieces.append(delta['text']);provider[:]=[delta];route_meta.update(safe_route(delta))
                             own_reply(strip_speaker_tag(''.join(pieces)),self.persona,context)
-                            self.notify('answer',{'text':strip_speaker_tag(''.join(pieces)),**{k:delta[k]for k in ('provider','model','cloud','slot')if k in delta},'profile':self.persona})
+                            self.notify('answer',{'text':strip_speaker_tag(''.join(pieces)),**{k:delta[k]for k in ('provider','model','cloud','slot')if k in delta},'profile':self.persona,'turn_id':turn_id,'stream_id':turn_id,'partial':True})
                             if delta.get('model'):self.notify('status',delta['provider']+' model '+delta['model'])
                         yield delta['text']
+                def guarded_speech():
+                    from .streaming import sentences
+                    for part in sentences(spoken_chunks(chunks())):
+                        if echo_reply(part,text):raise RuntimeError('Model repeated the question instead of answering')
+                        yield part+'\n'
                 def clause(part):
                     nonlocal stage
                     stage='speech synthesis/playback'
@@ -205,9 +220,11 @@ class VoiceRuntime:
                         if self.valid(generation):
                             if 'first_clause_s' not in metrics:metrics['first_clause_s']=time.monotonic()-started
                             self.notify('state','speaking')
-                SpeechQueue(self.speaker,self.cancel,before_output=self.fast_ack.wait if getattr(self,'fast_ack',None) is not None else None).play_stream(spoken_chunks(chunks()),ticket,clause)
+                SpeechQueue(self.speaker,self.cancel,before_output=None).play_stream(guarded_speech(),ticket,clause)
                 answer={**(provider[0]if provider else {}),'text':strip_speaker_tag(''.join(pieces))}
-                if not answer['text']:raise RuntimeError('Empty reply')
+                if not answer['text'].strip():raise RuntimeError('Empty reply')
+                if echo_reply(answer['text'],text):raise RuntimeError('Model repeated the question instead of answering')
+                if self.valid(generation)and not self.cancel.is_set():self.notify('answer',{**answer,'profile':self.persona,'turn_id':turn_id,'stream_id':turn_id,'partial':False})
                 warnings=getattr(self.router,'last_warnings',[])
                 if isinstance(warnings,list):
                     for warning in warnings:self.notify('error',warning)
@@ -216,19 +233,21 @@ class VoiceRuntime:
             else:
                 answer=turn_router.ask(messages,cloud_consent=cloud,**({'local_only':True}if state_local else({'configured_chat':True}if getattr(type(turn_router),'supports_configured_chat',False)is True else{})))
                 answer['text']=strip_speaker_tag(answer['text'])
+                if echo_reply(answer['text'],text):raise RuntimeError('Model repeated the question instead of answering')
                 with self.lock:
                     if not self.valid(generation):return
                     metrics['first_text_s']=time.monotonic()-started
-                    self.notify('answer',answer);self.notify('state','speaking')
+                    route_meta.update(safe_route(answer));self.notify('answer',{**answer,'turn_id':turn_id,'partial':False});self.notify('state','speaking')
                 stage='speech synthesis/playback'
                 spoken=spoken_text(answer['text'])
-                if getattr(self,'fast_ack',None) is not None and not self.fast_ack.wait(self.cancel):return
                 if spoken.strip():self.speaker.speak(spoken,generation=ticket)
             with self.lock:
                 if not self.valid(generation):return
                 if callable(self.record_turn):self.record_turn(text,answer['text'])
                 self.history=(history+[{'role':'user','content':text},{'role':'assistant','content':answer['text']}])[-6:]
+                self.notify('turn-result',{'turn_id':turn_id,'result':'completed',**route_meta,**runtime_device_scope(self.stt,self.speaker)})
         except Exception as exc:
+            if self.valid(generation):self.notify('turn-result',{'turn_id':turn_id,**runtime_device_scope(self.stt,self.speaker),'result':'failed','category':'empty-final'if str(exc)=='Empty reply'else'provider-or-runtime-failure','stage':stage,**route_meta})
             records=getattr(self.router,'last_diagnostics',[])
             if stage=='local model response' and isinstance(records,list):self.notify('response-diagnostics',records)
             from .router import RouterError
@@ -240,8 +259,12 @@ class VoiceRuntime:
                 if self.valid(generation):
                     if isinstance(exc,UnclearSpeech):self.notify('error','Speech was unclear. Please repeat closer to the microphone. Nothing was sent to a model for this turn.')
                     else:self.notify('error','Voice turn failed at '+stage+': '+detail+('. Microphone can listen again; the independent browser step may already be submitted. Check its actual status.'if parallel_dispatched else'. Microphone can listen again; no action was taken.'))
+            if self.valid(generation)and not self.cancel.is_set()and (stage.startswith('local vision')or str(exc)=='Model repeated the question instead of answering'):
+                feedback='I could not get a usable camera image or vision reply. Vision did not complete; no sight is claimed.'if stage.startswith('local vision')else'The model repeated your question instead of answering. That reply was not accepted.'
+                self.notify('answer',{'text':feedback,'profile':self.persona,'provider':'verified-app-state','turn_id':turn_id,'partial':False});self.notify('state','speaking')
+                try:self.speaker.speak(feedback,generation=ticket)
+                except Exception:self.notify('error','Local failure feedback could not play. '+feedback)
         finally:
-            if getattr(self,'fast_ack',None) is not None:self.fast_ack.wait(self.cancel)
             with self.lock:
                 self.busy=False;self.popup_active=False
                 if self.valid(generation):

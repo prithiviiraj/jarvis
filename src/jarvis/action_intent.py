@@ -12,6 +12,10 @@ def parse(text):
  if not isinstance(text,str):return None
  text=normalize(text)
  t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|sila|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
+ # Exact Tanglish commands only; no substring stripping or negation removal.
+ if re.fullmatch(r'(?:brave(?: browser)?|browser) (?:open pannu|thirandhu|thira)',t,re.I):return {'command':'open-window','value':''}
+ if re.fullmatch(r'scroll (?:down|keela)(?: pannu)?',t,re.I):return {'command':'scroll-down','value':''}
+ if re.fullmatch(r'scroll (?:up|mela)(?: pannu)?',t,re.I):return {'command':'scroll-up','value':''}
  t=re.sub(r'^(?:(?:can|could|would)\s+you\s+|please\s+)','',t,flags=re.I)
  t=t.strip().rstrip('.!?')
  # Only bounded launch verbs, never remove question/negation clauses.

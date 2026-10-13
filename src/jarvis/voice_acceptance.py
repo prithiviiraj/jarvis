@@ -1,16 +1,16 @@
 """CI-only explicit frozen software test. Real engines, simulated mic/output/brain."""
 def validate_turn_evidence(metrics,caption_events,output_events,persona):
- """Ack and reply have separate partial orders: ack may precede model text."""
+ """No canned ack. Every output must follow real model text and match reply captions."""
  import math
  required=('stt_s','first_text_s','first_output_write_s','turn_s')
  assert all(isinstance(metrics.get(k),(int,float))and not isinstance(metrics[k],bool)and math.isfinite(metrics[k])and metrics[k]>=0 for k in required),metrics
  assert metrics['stt_s']<=metrics['first_text_s']<=metrics['turn_s'],metrics
- assert metrics['stt_s']<=metrics['first_output_write_s']<=metrics['turn_s'],metrics
+ assert metrics['first_text_s']<=metrics['first_output_write_s']<=metrics['turn_s'],metrics
  assert 'not sound heard'in metrics['scope'],metrics
  starts=[e for e in caption_events if e['event']=='start']
  assert starts and all(e['persona']==persona for e in starts),caption_events
- assert starts[0]['text']=='On it.',caption_events
- assert ' '.join(e['text']for e in starts[1:])=='Hello. I am ready when you are.',caption_events
+ assert not any(e['text']=='On it.'for e in starts),caption_events
+ assert ' '.join(e['text']for e in starts)=='Hello. I am ready when you are.',caption_events
  assert len(output_events)==len(starts)and all(e['event']=='first-write'for e in output_events),output_events
  # Every actual adapter write belongs inside its corresponding caption lifetime.
  assert len(caption_events)==2*len(starts),caption_events
@@ -19,7 +19,7 @@ def validate_turn_evidence(metrics,caption_events,output_events,persona):
   assert opening==start and closing['event']=='finish',caption_events
   assert opening['at']<=output_events[index]['at']<=closing['at'],(caption_events,output_events)
   assert metrics['stt_s']<=output_events[index]['elapsed_s']<=metrics['turn_s'],(metrics,output_events)
-  if index:assert metrics['first_text_s']<=output_events[index]['elapsed_s'],(metrics,output_events)
+  assert metrics['first_text_s']<=output_events[index]['elapsed_s'],(metrics,output_events)
   if index:assert caption_events[2*index-1]['at']<=opening['at'],caption_events
  assert caption_events[-1]['event']=='finish',caption_events
 

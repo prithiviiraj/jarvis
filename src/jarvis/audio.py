@@ -59,7 +59,8 @@ class Endpointer:
 class ContinuousMic:
     """Capture -> bounded queue -> VAD worker. Overflow fails closed, no callback inference."""
     def __init__(self,vad,on_utterance,on_state=lambda *a:None):
-        self.vad=vad;self.on_utterance=on_utterance;self.on_state=on_state
+        from .voice_meter import VoiceMeter
+        self.meter=VoiceMeter();self.vad=vad;self.on_utterance=on_utterance;self.on_state=on_state
         self.frames=queue.Queue(maxsize=100);self.stop_event=threading.Event();self.stream=None;self.thread=None
         self.accepting=False;self.endpointer=Endpointer();self.generation=0;self.lock=threading.RLock();self.on_onset=None
     def start(self,consent=False):
@@ -81,6 +82,7 @@ class ContinuousMic:
         except Exception:
             self.close();raise AudioError('Cannot open the microphone. Check Windows permission and input device.') from None
     def suspend(self):
+        self.meter.clear()
         with self.lock:self.accepting=False;self.generation+=1;self.endpointer.reset();self.vad.reset()
     def resume(self):
         with self.lock:self.generation+=1;self.endpointer.reset();self.vad.reset();self.accepting=True
@@ -92,7 +94,7 @@ class ContinuousMic:
                 except queue.Empty:continue
                 with self.lock:
                     if not self.accepting or generation!=self.generation:continue
-                    result=self.endpointer.feed(frame,self.vad.score(frame))
+                    self.meter.feed(frame);result=self.endpointer.feed(frame,self.vad.score(frame))
                 if result:
                     if result[0]=='start':
                         self.on_state('state','capturing')
@@ -111,9 +113,9 @@ class ContinuousMic:
             if stream:
                 try:stream.abort();stream.close()
                 except Exception:pass
-            self.stream=None;self.accepting=False
+            self.stream=None;self.accepting=False;self.meter.clear()
     def close(self):
-        self.accepting=False;self.generation+=1;self.stop_event.set()
+        self.meter.clear();self.accepting=False;self.generation+=1;self.stop_event.set()
         stream=self.stream
         if stream:
             try:stream.abort();stream.close()

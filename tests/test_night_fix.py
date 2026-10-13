@@ -43,7 +43,7 @@ class Broker(unittest.TestCase):
   self.assertEqual(validate('{"kind":"app","app":"notepad"}','bring up notepad')['app'],'notepad')
   for raw,t in [('{"kind":"app","app":"paint"}','bring up notepad'),('{"kind":"browser","target":"https://evil.example"}','open browser'),('{"kind":"app","app":"cmd"}','open cmd'),('{"kind":"app","app":"notepad","arguments":"secret"}','open notepad')]:
    with self.assertRaises(ValueError):validate(raw,t)
-  self.assertEqual(validate('{"kind":"browser","target":""}','laya brave browser')['kind'],'clarify')
+  self.assertEqual(validate('{"kind":"browser","target":""}','laya brave browser')['kind'],'browser')
   self.assertEqual(validate('{"kind":"browser","target":""}','do not open browser')['kind'],'clarify')
  def test_broker_no_execution(self):
   import time

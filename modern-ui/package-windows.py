@@ -26,6 +26,7 @@ shutil.copy2(root/'node_modules/3d-force-graph/LICENSE',licenses/'FORCE-GRAPH-MI
 shutil.copytree(root/'mp3-notices',licenses/'mp3',dirs_exist_ok=True)
 shutil.copy2(root.parent/'LICENSE',licenses/'JARVIS-GPL-3.0.txt')
 shutil.copytree(root.parent/'third-party/bigfoot',licenses/'bigfoot',dirs_exist_ok=True)
+shutil.copytree(root.parent/'third-party/beautiful-ui',licenses/'beautiful-ui',dirs_exist_ok=True)
 # Corresponding application code/build scripts let recipients relink or replace LGPL modules.
 import tarfile
 with tarfile.open(licenses/'JARVIS-corresponding-application-source.tar.gz','w:gz')as archive:

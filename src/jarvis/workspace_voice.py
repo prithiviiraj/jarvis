@@ -94,6 +94,10 @@ class WorkspaceVoice:
         def run():
             try:
                 from .personas import prompt
+                from .voice_feedback import vision_unavailable
+                unavailable=vision_unavailable(self.vision,text)
+                if unavailable:
+                    self.notify('answer-complete',{'text':unavailable,'profile':name,'provider':'verified-app-state','cloud':False,'stream_id':ticket});return
                 router=self.text_factory()
                 choose=getattr(router,'select_persona',None)
                 if callable(choose):choose(name)
@@ -120,10 +124,11 @@ class WorkspaceVoice:
                             retry=router.ask(messages+[{'role':'user','content':'Reply only as '+name+'. Do not attribute speech, thoughts or arguments to another profile. One short direct answer.'}],cloud_consent=False,cancel=cancel,**scope)
                             answer={**retry,'text':strip_speaker_tag(retry.get('text'))};own_reply(answer['text'],name,context)
                             pieces[:]=[answer['text']]
-                            self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
+                            self.notify('answer',{**answer,'profile':name,'stream_id':ticket,'partial':True})
                             break
-                        self.notify('answer',{**answer,'profile':name,'stream_id':ticket})
-                if not pieces:raise RuntimeError('Empty local stream')
+                        self.notify('answer',{**answer,'profile':name,'stream_id':ticket,'partial':True})
+                if not pieces or not answer.get('text','').strip():raise RuntimeError('Empty local stream')
+                self.notify('answer-complete',{**answer,'profile':name,'stream_id':ticket})
                 warnings=getattr(router,'last_warnings',[])
                 if isinstance(warnings,list):
                     for warning in warnings:self.notify('error',warning)
@@ -212,7 +217,7 @@ class WorkspaceVoice:
                                     if len(text)>3000:raise ValueError('Team reply too long')
                                     own_reply(text,name,context)
                                     answer={**delta,'text':text}
-                                    self.notify('answer',{**answer,'profile':name,'stream_id':stream_id})
+                                    self.notify('answer',{**answer,'profile':name,'stream_id':stream_id,'partial':True})
                                 yield piece
                             generation_done=time.monotonic()-started
                             if speaker and not image_request and index+1<len(actors)and not cancel.is_set():
@@ -458,9 +463,6 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         speaker.profiles={actor:KokoroSynth(assets/'model.onnx',assets/(voice+'.bin'),assets/'config.json',g2p)for actor,voice in VOICES.items()}
         speaker.select_profile(name)
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language=None),router,speaker,notify)
-        from .fast_ack import FastAck
-        runtime.fast_ack=FastAck(speaker)
-        for actor in VOICES:runtime.fast_ack.prepare(actor)
         speaker.select_profile(name)
         runtime.streaming=True;runtime.persona=name
         # No closure over runtime.close: that cycle delays native engine disposal.
