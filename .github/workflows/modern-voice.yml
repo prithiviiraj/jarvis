@@ -274,6 +274,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Polish pixels failed' }
           node presence-pixels.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Polish pixels failed' }
+          node bigfoot-morning-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Morning default profile/session fixture failed' }
+          node beautiful-real-state-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Beautiful actual-state fixture failed' }
+          node voice-review-marker-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Exact visible voice-review fixture failed' }
           node narrow-pixels.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Front Laya/app/support/voice checks failed' }
           node conductor-handoff.mjs
