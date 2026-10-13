@@ -1146,7 +1146,7 @@ class Bridge:
    if request['route']=='groq':
     if request.get('consent')is not True or request.get('free_confirmed')is not True:raise ValueError('Review Groq audio sharing and confirm your Free-tier account')
     from .security import WindowsCredentials
-    if not WindowsCredentials().get('groq'):raise ValueError('Save a Groq key in the API settings first')
+    if not WindowsCredentials().get('groq/slot1'):raise ValueError('Save a Groq key in API slot1 first')
    self.voice.stt_route=request['route'];self.voice.groq_audio_consent=request['route']=='groq';self.voice.groq_free_confirmed=request['route']=='groq'
   elif cmd=='voice-input-language':
    if request.get('language')not in ('auto','en','ta'):raise ValueError('Choose automatic, English or Tamil input')

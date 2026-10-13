@@ -5,6 +5,9 @@ if __name__ == '__main__':
     if len(sys.argv)==2 and sys.argv[1]=='--real-speed-test':
         from jarvis.owner_speed import run
         run(confirm=True)
+    elif len(sys.argv)==2 and sys.argv[1]=='--groq-stt-self-test':
+        from jarvis.groq_stt_acceptance import run
+        run()
     elif len(sys.argv)==2 and sys.argv[1]=='--bundle-self-test':
         from jarvis.bundle_acceptance import run
         run()

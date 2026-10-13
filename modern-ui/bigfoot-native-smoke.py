@@ -38,6 +38,9 @@ try:
  (out/'native-bigfoot-combobox-values.json').write_text(json.dumps(choices,indent=2))
  assert any('Automatic (multilingual)'in str(values)for values in choices),'Native speech input default value absent'
  checks.append('actual native speech input Automatic (multilingual) value pattern')
+ assert any('Local - offline default'in str(values)for values in choices),'Default speech recognition route absent'
+ visible_text('Groq')
+ checks.append('actual native local-default/Groq opt-in route control visible; no upload')
  # First-open microphone test is below the voice list. Scroll actual pixels,
  # never activate microphone/download controls for this navigation diagnostic.
  def microphone_reachable(label):

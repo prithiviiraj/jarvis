@@ -5,7 +5,9 @@ except ImportError:np=None
 from jarvis.groq_stt import GroqSTT
 from jarvis.speech import SpeechCancelled,UnclearSpeech
 class Keys:
- def get(self,name):return 'test-only-not-a-real-key'
+ def get(self,name):
+  assert name=='groq/slot1'
+  return 'test-only-not-a-real-key'
 class Response(io.BytesIO):pass
 class Http:
  def __init__(self,result=b'{"text":"test words"}'):self.result=result;self.calls=[]

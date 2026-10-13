@@ -9,7 +9,7 @@ class GroqSTT:
         if consent is not True:raise ValueError('Groq microphone audio sharing consent required')
         if free_confirmed is not True:raise ValueError('Confirm your Groq Free-tier account first')
         self.key_store=key_store;self.language=language
-        if not key_store.get('groq'):raise ValueError('Save your Groq key in Windows Credentials first')
+        if not key_store.get('groq/slot1'):raise ValueError('Save your Groq key in Windows Credentials first')
         self.http=http or cloud_http()
     def transcribe(self,audio):return self.transcribe_cancellable(audio)
     def transcribe_cancellable(self,audio,cancel=None):
@@ -20,7 +20,7 @@ class GroqSTT:
         pcm=np.asarray(audio,dtype=np.float32)
         if pcm.ndim!=1 or not 0<len(pcm)<=16000*30 or not np.all(np.isfinite(pcm)):raise ValueError('Groq STT accepts one finite mono segment up to30seconds')
         if self.language not in (None,'en','ta'):raise ValueError('Unsupported speech language')
-        key=self.key_store.get('groq')
+        key=self.key_store.get('groq/slot1')
         if not key:raise ValueError('Groq key is missing')
         wav=io.BytesIO()
         with wave.open(wav,'wb')as w:
