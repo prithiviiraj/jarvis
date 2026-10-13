@@ -749,8 +749,16 @@ jobs:
         run: |
           python -m pip install Pillow==11.3.0 pywinauto==0.6.9 numpy==2.2.6 opencv-python==4.12.0.88 playwright==1.56.0 certifi==2026.7.22 tzdata==2025.2
           if ($LASTEXITCODE -ne 0) { throw 'Fixture dependencies failed' }
-          choco install brave --version=1.88.134 --yes --no-progress --limit-output
-          if ($LASTEXITCODE -notin @(0,3010)) { throw 'Brave host prerequisite failed' }
+          Invoke-WebRequest 'https://github.com/brave/brave-browser/releases/download/v1.88.134/BraveBrowserStandaloneSilentSetup.exe' -OutFile 'brave-host-setup.exe'
+          if ((Get-FileHash 'brave-host-setup.exe' -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'cfc5aacc652d85138d51572a7914253b17cea055da26ab51b844255cd38f2d68') { throw 'Pinned Brave host installer hash mismatch' }
+          $sig = Get-AuthenticodeSignature 'brave-host-setup.exe'
+          if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Brave Software') { throw 'Brave host installer signature invalid' }
+          $install = Start-Process (Resolve-Path 'brave-host-setup.exe').Path -Wait -PassThru
+          if ($install.ExitCode -notin @(0,3010)) { throw 'Pinned Brave host install failed' }
+          $env:PYTHONPATH = (Resolve-Path '../src').Path
+          python -c "from jarvis.brave_path import find_brave; print('Verified Brave executable:', find_brave())"
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Brave host not found' }
+          $env:PYTHONPATH = ''
           python obsidian-host-smoke.py
           if ($LASTEXITCODE -ne 0) { throw 'Obsidian host prerequisite failed' }
       - name: Correct only the UIA proof fixture, not candidate files
