@@ -13,7 +13,7 @@ class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
-        self.input_language='auto';self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
+        self.stt_route='local';self.groq_audio_consent=False;self.groq_free_confirmed=False;self.input_language='auto';self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None;self.dialogue_origin='user'
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
@@ -30,10 +30,11 @@ class WorkspaceVoice:
         self.dialogue_origin='user'
         if not consent:raise ValueError('Microphone session consent required.')
         if cloud and not verified_free:raise ValueError('Groq needs a confirmed Free-tier account.')
+        if self.stt_route=='groq' and (not self.groq_audio_consent or not self.groq_free_confirmed):raise ValueError('Review Groq speech sharing for this session first')
         if self.name not in VOICES:raise ValueError(self.name+' is a silent text specialist with no voice. Type to this profile in chat, or select a voiced profile for the microphone.')
         with self.lock:
             if self.closed or self.busy:raise RuntimeError('Voice setup is busy or closed.')
-            self.busy=True;self.generation+=1;ticket=self.generation;name=self.name;input_language=self.input_language
+            self.busy=True;self.generation+=1;ticket=self.generation;name=self.name;input_language=self.input_language;stt_route=self.stt_route;groq_audio_consent=self.groq_audio_consent;groq_free_confirmed=self.groq_free_confirmed
         self.notify('state','loading voice')
         def run():
             runtime=None
@@ -47,6 +48,11 @@ class WorkspaceVoice:
                 else:runtime=self.factory(name,notify,cloud,model,verified_free)
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
+                    if stt_route=='groq':
+                        from .groq_stt import GroqSTT
+                        from .security import WindowsCredentials
+                        runtime.stt=GroqSTT(WindowsCredentials(),consent=groq_audio_consent,free_confirmed=groq_free_confirmed,language=None if input_language=='auto' else input_language)
+                    elif stt_route!='local':raise ValueError('Unknown speech input route')
                     if hasattr(runtime,'stt'):runtime.stt.language=None if input_language=='auto' else input_language
                     from .audio import Endpointer,ENDPOINT_FRAMES
                     detector=None
