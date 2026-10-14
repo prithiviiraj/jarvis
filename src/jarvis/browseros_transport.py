@@ -1,7 +1,7 @@
 """Independent bounded MCP discovery client for separately installed BrowserOS neo.
 No browser actions, account import, script execution or automatic installer.
 """
-import json,threading,urllib.request
+import json,re,threading,urllib.request
 from urllib.parse import urlsplit
 PINNED_BROWSER_VERSION='0.51.1.2'
 PROTOCOL='2025-06-18'
@@ -91,11 +91,34 @@ class BrowserOSNavigation(BrowserOSDiscovery):
   result=self._rpc('tools/call',{'name':name,'arguments':args})
   if not isinstance(result,dict)or result.get('isError'):raise RuntimeError('BrowserOS operation failed; no success claimed')
   return result
+ def _page_result(self,result,opening=False):
+  data=result.get('structuredContent')
+  if isinstance(data,dict):return data
+  # Pinned neo intentionally strips structured fields for granular tools.
+  # Decode only its exact first status block and matching snapshot marker,
+  # never page text, tool instructions, or arbitrary trailing content.
+  blocks=result.get('content',[])
+  if not blocks or not isinstance(blocks[0],dict)or blocks[0].get('type')!='text':raise RuntimeError('BrowserOS result shape is unverified')
+  first=blocks[0].get('text','')
+  if opening:
+   match=re.fullmatch(r'opened page ([1-9][0-9]{0,9})',first)
+   if not match:raise RuntimeError('BrowserOS owned page receipt is unverified')
+   page=int(match.group(1));url='about:blank'
+  else:
+   match=re.fullmatch(r'navigated \(url\) -> (https://[^\s]+)',first)
+   if not match:raise RuntimeError('BrowserOS destination receipt is unverified')
+   page=self.owned_page;url=match.group(1)
+  marker='[Page '+str(page)+' snapshot]\n'
+  snapshots=[b.get('text','')for b in blocks[1:]if isinstance(b,dict)and b.get('type')=='text'and isinstance(b.get('text'),str)and b['text'].startswith(marker)]
+  if len(snapshots)!=1:raise RuntimeError('BrowserOS page snapshot receipt is unverified')
+  origin=re.match(r'\[UNTRUSTED_PAGE_CONTENT nonce=[0-9a-f]+ origin=([^\s\]]+)\]',snapshots[0][len(marker):])
+  if not origin or origin.group(1)!=url:raise RuntimeError('BrowserOS snapshot destination disagrees with receipt')
+  return {'page':page,'url':url}
  def open_blank(self,confirmed=False):
   if confirmed is not True:raise ValueError('Review opening the BrowserOS tab first')
   if self.owned_page is not None:raise ValueError('An owned BrowserOS tab already exists')
   result=self._tool('tabs',{'action':'new','url':'about:blank'})
-  data=result.get('structuredContent',{});page=data.get('page')
+  data=self._page_result(result,True);page=data.get('page')
   if type(page)is not int or page<1:raise RuntimeError('BrowserOS did not return an owned page id')
   with self.lock:
    if self.stopped:raise RuntimeError('BrowserOS tab opening was cancelled')
@@ -107,7 +130,7 @@ class BrowserOSNavigation(BrowserOSDiscovery):
   if confirmed is not True:raise ValueError('Review exact BrowserOS destination first')
   if self.owned_page is None:raise RuntimeError('Open an isolated owned BrowserOS tab first')
   result=self._tool('navigate',{'page':self.owned_page,'action':'url','url':url})
-  data=result.get('structuredContent',{})
+  data=self._page_result(result)
   if data.get('page')!=self.owned_page or not isinstance(data.get('url'),str):raise RuntimeError('BrowserOS navigation result is unverified')
   return {'page':self.owned_page,'url':data['url'],'requested_url':url,'result':result}
  def snapshot(self):

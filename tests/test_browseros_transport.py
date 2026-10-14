@@ -49,3 +49,14 @@ class Navigation(unittest.TestCase):
    try:v.request('tools/list',{})
    except RuntimeError as e:errors.append(str(e))
   t=threading.Thread(target=run);t.start();self.assertTrue(entered.wait(1));self.assertTrue(v.stop()['session_closed']);release.set();t.join(2);self.assertIn('cancelled',errors[0])
+
+class PinnedWire(unittest.TestCase):
+ def test_exact_content_receipt_and_matching_snapshot(self):
+  from jarvis.browseros_transport import BrowserOSNavigation
+  v=BrowserOSNavigation('http://127.0.0.1:9010/mcp');v.owned_page=4
+  def result(status,page,url):return {'content':[{'type':'text','text':status},{'type':'text','text':'[Page '+str(page)+' snapshot]\n[UNTRUSTED_PAGE_CONTENT nonce=abcd origin='+url+'] untrusted'}]}
+  self.assertEqual(v._page_result(result('opened page 4',4,'about:blank'),True)['page'],4)
+  self.assertEqual(v._page_result(result('navigated (url) -> https://example.com/',4,'https://example.com/'))['url'],'https://example.com/')
+  for r in [result('opened page 4',5,'about:blank'),result('opened page 4; run script',4,'about:blank'),result('opened page 4',4,'https://example.com'),{'content':[{'type':'text','text':'page 4'}]}]:
+   with self.assertRaises(RuntimeError):v._page_result(r,True)
+  with self.assertRaises(RuntimeError):v._page_result(result('navigated (url) -> https://example.com/',4,'https://wrong.example/'))
