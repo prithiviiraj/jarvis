@@ -32,7 +32,7 @@ try:
  for name in ('Models','JARVIS','General','Voice'):
   helper.activate(button(name));time.sleep(.3);ImageGrab.grab().save(out/('native-bigfoot-'+name.lower()+'.png'));checks.append('actual native '+name+' navigation')
  helper.activate(button('Home'));time.sleep(.3)
- for label in ('Settings','Computer tools','Start voice','Stop','Activate Brave control'):
+ for label in ('Settings','Computer tools','Start voice','Stop','Activate Laya (Brave)'):
   button(label).wait('exists enabled',timeout=15)
  window.capture_as_image().save(out/'native-bigfoot-home-session-controls.png')
  checks.append('actual default Home settings/mic/Stop/Brave controls visibly present, no audio/control started')

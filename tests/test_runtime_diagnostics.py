@@ -22,3 +22,13 @@ class RuntimeDiagnostics(unittest.TestCase):
   with self.assertRaises(ValueError):MeasuredImageProfile(spawn)(original+['--verbosity','3'])
  def test_nonfinite_log_number_not_reported(self):
   self.assertEqual(measurements('image slice encoded in '+('9'*400)+' ms')['image_encoding_ms'],[])
+ def test_malformed_timing_rows_do_not_break_closeout(self):
+  raw='image slice encoded in 1.2.3 ms\nimage processed in .. ms\nimage decoded (batch 1/2) in 9.1.0 ms\nprompt eval time = 3.4.5 ms\neval time = 12.5 ms'
+  x=measurements(raw);self.assertEqual(x['image_encoding_ms'],[]);self.assertEqual(x['image_processing_ms'],[]);self.assertEqual(x['image_decoding_ms'],[]);self.assertEqual(x['text_timings'],[{'stage':'eval','ms':12.5}])
+ def test_all_logging_and_image_policy_aliases_refused(self):
+  from jarvis.runtime_diagnostics import MeasuredImageProfile
+  from unittest.mock import Mock
+  for flag in ('--verbose','--log-verbose','-v','--verbosity','--log-verbosity','-lv','--image-min-tokens','--image-max-tokens','--mtmd-batch-max-tokens'):
+   spawn=Mock()
+   with self.subTest(flag=flag),self.assertRaises(ValueError):MeasuredImageProfile(spawn)(['llama-server.exe',flag,'1'])
+   spawn.assert_not_called()

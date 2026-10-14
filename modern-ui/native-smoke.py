@@ -134,6 +134,17 @@ try:
   if index<3:activate(main.child_window(title='Next',control_type='Button'))
  activate(main.child_window(title='Skip setup guide',control_type='Button'));main.child_window(title='Skip setup guide',control_type='Button').wait_not('exists',timeout=10)
  navigation(main,'Settings')
+ # Always-visible Settings return, including the three-card landing.
+ return_team=main.child_window(title='Back to Team room',control_type='Button',visible_only=True)
+ return_team.wait('exists enabled',timeout=10)
+ main.capture_as_image().save('ui-evidence/native-settings-return-detail.png')
+ activate(main.child_window(title='Previous view',control_type='Button',visible_only=True))
+ main.child_window(title='Explore tools',control_type='Button').wait('visible',timeout=10)
+ main.capture_as_image().save('ui-evidence/native-settings-return-landing.png')
+ return_team.wait('exists enabled',timeout=10);activate(return_team)
+ main.child_window(title='Message draft',control_type='Edit').wait('visible',timeout=10)
+ checks.append('native Settings detail and landing explicit Team return visible and enabled; composer reached')
+ navigation(main,'Settings')
  # Real work-area readback, including decorated borders and taskbar exclusion.
  from ctypes import wintypes
  class MonitorInfo(ctypes.Structure):
