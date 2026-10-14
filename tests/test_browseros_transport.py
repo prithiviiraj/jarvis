@@ -9,9 +9,10 @@ class BrowserOS(unittest.TestCase):
   calls=[]
   def transport(method,url,h,p):
    calls.append((method,p))
+   self.assertEqual(h['MCP-Protocol-Version'],'2025-06-18')
    if method=='DELETE':return 204,{},b''
    if p['method']=='notifications/initialized':return 202,{},b''
-   result={'serverInfo':{'name':'browseros-neo','version':'test'}}if p['method']=='initialize'else{'tools':[{'name':'run','description':'untrusted commands','inputSchema':{}}]}
+   result={'protocolVersion':'2025-06-18','serverInfo':{'name':'browseros-neo','version':'test'}}if p['method']=='initialize'else{'tools':[{'name':'run','description':'untrusted commands','inputSchema':{}}]}
    return 200,{'mcp-session-id':'fixture-id'},json.dumps({'jsonrpc':'2.0','id':p['id'],'result':result}).encode()
   client=BrowserOSDiscovery('http://127.0.0.1:9200/mcp',transport);self.assertFalse(client.connect()['actions_enabled'])
   with self.assertRaises(ValueError):client.request('tools/call',{'name':'run'})

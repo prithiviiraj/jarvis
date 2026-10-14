@@ -4,7 +4,7 @@ No browser actions, account import, script execution or automatic installer.
 import json,threading,urllib.request
 from urllib.parse import urlsplit
 PINNED_BROWSER_VERSION='0.51.1.2'
-PROTOCOL='2025-03-26'
+PROTOCOL='2025-06-18'
 MAX_BYTES=1024*1024
 
 def endpoint(value):
@@ -44,7 +44,7 @@ class BrowserOSDiscovery:
  def __init__(self,url,transport=None):
   self.url=endpoint(url);self.transport=transport or http;self.session=None;self.counter=0;self.lock=threading.RLock();self.stopped=False;self.generation=0
  def headers(self):
-  h={'Content-Type':'application/json','Accept':'application/json, text/event-stream'}
+  h={'Content-Type':'application/json','Accept':'application/json, text/event-stream','MCP-Protocol-Version':PROTOCOL}
   if self.session:h['mcp-session-id']=self.session
   return h
  def request(self,method,params):
@@ -66,7 +66,8 @@ class BrowserOSDiscovery:
    return rpc_body(h,raw,n)
  def connect(self):
   result=self.request('initialize',{'protocolVersion':PROTOCOL,'capabilities':{},'clientInfo':{'name':'jarvis','version':'0.1'}})
-  if not isinstance(result,dict)or result.get('serverInfo',{}).get('name')!='browseros-neo':raise RuntimeError('Endpoint is not BrowserOS neo')
+  if not isinstance(result,dict)or result.get('protocolVersion')!=PROTOCOL:raise RuntimeError('BrowserOS did not negotiate structured-output protocol')
+  if result.get('serverInfo',{}).get('name')!='browseros-neo':raise RuntimeError('Endpoint is not BrowserOS neo')
   if not self.session:raise RuntimeError('BrowserOS did not establish an isolated transport session')
   status,_,_=self.transport('POST',self.url,self.headers(),{'jsonrpc':'2.0','method':'notifications/initialized'})
   if status not in (200,202,204):raise RuntimeError('BrowserOS initialization failed')
