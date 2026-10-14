@@ -452,7 +452,8 @@ class Bridge:
   delivery=self.phone_endpoints.snapshot().get('pending')
   if delivery is not None and delivery!=reviews.get('phone-pair'):reviews['phone-delivery']=delivery
   if self.calendar_telegram.snapshot().get('busy'):reviews['calendar-telegram']={'state':'preparing','scope':'Connector draft handoff in progress'}
-  reviews['desktop-task']=self.desktop_control.snapshot().get('task',{}).get('pending')
+  desktop=self.desktop_control.snapshot();task=desktop.get('task',{})
+  reviews['desktop-task']={'state':'submitting','scope':'Desktop input in progress blocks unrelated voice approval'}if desktop.get('busy')or task.get('state')=='running'else task.get('pending')
   reviews['planning-open']=self.plan_pending
   if self.calendar_open_pending:reviews['calendar-open']={'pending':True}
   return {k:v for k,v in reviews.items()if v is not None}
@@ -467,9 +468,9 @@ class Bridge:
   if choice['choice']=='cancel':
    if choice['kind']=='browser':self.browser_pending=None
    elif choice['kind']=='app':self.desktop_pending=None
-   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop','github':'github-issue-stop','notion':'notion-text-stop','drive':'drive-text-stop','sheets':'sheets-write-stop','mail':'gmail-stop','calendar':'gcal-stop','telegram':'telegram-output-stop','source':'source-answer-stop','model-download':'models-stop','model-start':'model-session-stop','phone-pair':'phone-stop','news':'news-cancel','local-calendar':'calendar-cancel'}[choice['kind']]})
+   else:self.execute({'command':{'focus':'focus-stop','brain':'brain-switch-stop','invoice':'invoice-stop','design':'design-stop','github':'github-issue-stop','notion':'notion-text-stop','drive':'drive-text-stop','sheets':'sheets-write-stop','mail':'gmail-stop','calendar':'gcal-stop','telegram':'telegram-output-stop','source':'source-answer-stop','model-download':'models-stop','model-start':'model-session-stop','phone-pair':'phone-stop','news':'news-cancel','local-calendar':'calendar-cancel','desktop-task':'desktop-task-stop'}[choice['kind']]})
    self.voice.notify('status','Exact '+choice['kind']+' action cancelled. Nothing submitted.');return {'speech_feedback':'Cancelled. Nothing was submitted.'}
-  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save','github':'github-issue-submit','notion':'notion-text-submit','drive':'drive-text-submit','sheets':'sheets-write-submit','mail':'gmail-submit','calendar':'gcal-submit','telegram':'telegram-output-submit','source':'source-answer-start','model-download':'models-download','model-start':'model-session-start','phone-pair':'phone-pair-approve','news':'news-open','local-calendar':'calendar-save'}[choice['kind']]
+  command={'browser':'browser-run','app':'desktop-run','focus':'focus-start','brain':'brain-switch-apply','invoice':'invoice-save','design':'design-save','github':'github-issue-submit','notion':'notion-text-submit','drive':'drive-text-submit','sheets':'sheets-write-submit','mail':'gmail-submit','calendar':'gcal-submit','telegram':'telegram-output-submit','source':'source-answer-start','model-download':'models-download','model-start':'model-session-start','phone-pair':'phone-pair-approve','news':'news-open','local-calendar':'calendar-save','desktop-task':'desktop-task-run'}[choice['kind']]
   runtime=self.voice.runtime if choice['kind']in ('brain','source','model-start')else None
   if runtime is not None:
    # Announce before the route-change boundary closes this same speaker.
@@ -481,7 +482,7 @@ class Bridge:
    except Exception as error:
     self.voice.notify('error','Exact '+choice['kind']+' review acknowledgement failed. Nothing was submitted.');return True
   if runtime is not None and choice['kind']in ('source','model-start'):self.interrupt_conversation()
-  try:self.execute({'command':command,'confirm':True,'reviewed':choice['payload']});self.voice.notify('status','Exact '+choice['kind']+' action submitted. Check actual result, not completion yet.')
+  try:self.execute({'command':command,'confirm':True,'reviewed':choice['payload'],**({'effect_approved':True}if choice['kind']=='desktop-task'else {})});self.voice.notify('status','Exact '+choice['kind']+' action submitted. Check actual result, not completion yet.')
   except Exception as error:
    self.voice.notify('error','Voice-approved action stopped: '+str(error)[:200]);return {'speech_feedback':'The reviewed action stopped. Check the visible error; nothing is claimed complete.'}
   if runtime is not None:return True

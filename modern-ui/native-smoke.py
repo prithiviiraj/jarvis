@@ -501,15 +501,36 @@ try:
  assert not window.child_window(title='Last voice turn timing',control_type='Text').exists(),'Removed voice timing remains'
  from pywinauto import mouse
  def choose_native_option(name,label,key):
+  observed=[]
   for attempt in range(3):
    control=window.child_window(title=name,control_type='ComboBox');control.wait('exists',timeout=10)
-   try:control.wrapper_object().select(label)
+   window.set_focus();wrapper=control.wrapper_object();wrapper.set_focus()
+   try:wrapper.select(label)
+   except Exception:pass
+   deadline=time.monotonic()+2
+   while time.monotonic()<deadline:
+    value=control.wrapper_object().selected_text()
+    if value==label:return
+    time.sleep(.2)
+   # WebView2 UIA select may leave the native popup open without committing.
+   # Use real input on the exact visible option, then retain selected-text proof.
+   try:
+    item=window.child_window(title=label,control_type='ListItem')
+    if not item.exists() or not item.is_visible():
+     activate(control);item.wait('visible',timeout=3)
+    rect=item.wrapper_object().rectangle();bounds=window.rectangle()
+    if rect.width()<=0 or rect.height()<=0 or rect.left<bounds.left or rect.right>bounds.right or rect.top<bounds.top or rect.bottom>bounds.bottom:raise AssertionError('Native option not visibly inside workspace')
+    window.capture_as_image().save('ui-evidence/native-option-'+str(attempt)+'-before-click.png')
+    mouse.click(coords=(rect.mid_point().x,rect.mid_point().y))
    except Exception:
-    control.wrapper_object().set_focus();window.type_keys('{HOME}'+key+'{ENTER}')
+    wrapper.set_focus();wrapper.type_keys('{ESC}{HOME}'+key+'{ENTER}',pause=.15)
    deadline=time.monotonic()+4
    while time.monotonic()<deadline:
-    if control.wrapper_object().selected_text()==label:return
+    value=control.wrapper_object().selected_text()
+    if value==label:return
     time.sleep(.2)
+   observed.append(value)
+  pathlib.Path('ui-evidence/native-option-readback.json').write_text(json.dumps({'control':name,'expected':label,'observed':observed},indent=2))
   raise AssertionError('Native option readback failed: '+name+' -> '+label)
  choose_native_option('Listening pause','Fast - 480ms (default)','{DOWN}')
  choose_native_option('Listening pause','Balanced - 800ms','')

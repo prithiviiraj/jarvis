@@ -295,3 +295,44 @@ class NewsCalendarVoiceReview(unittest.TestCase):
     else:b.calendar.save.assert_not_called();b.calendar.cancel.assert_called_once()
     b.voice_action('confirm local-calendar');self.assertLessEqual(b.calendar.save.call_count,1)
    finally:b.calendar.snapshot=original_snapshot;b.calendar.save=original_save;b.calendar.cancel=original_cancel;b.close()
+
+class DesktopTaskVoiceReview(unittest.TestCase):
+ def test_exact_desktop_steps_confirm_cancel_once_in_process_only(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from jarvis.desktop_controller import DesktopController
+  from test_desktop_engine import Adapter
+  for action in ('confirm','cancel'):
+   b=Bridge(WorkspaceVoice());a=Adapter();a.windows=lambda:[dict(a.target)];b.desktop_control=DesktopController(a)
+   try:
+    b.desktop_control.discover(True);p=b.desktop_control.prepare(a.target,[{'action':'type','text':'Literal +^%{}'}],'Isolated adapter fixture only')
+    b.execute({'command':'voice-review-bind','kind':'desktop-task','reviewed':p});result=b.voice_action(action+' desktop-task');self.assertIn('speech_feedback',result)
+    if b.desktop_control.worker:b.desktop_control.worker.join(2)
+    self.assertEqual(''.join(x['text']for x in a.inputs),'Literal +^%{}'if action=='confirm'else'')
+    before=len(a.inputs);b.voice_action('confirm desktop-task');self.assertEqual(len(a.inputs),before);self.assertIsNone(b.voice_review.snapshot())
+   finally:b.close()
+ def test_desktop_changed_expired_and_busy_reviews_never_input(self):
+  from jarvis.ui_bridge import Bridge
+  from jarvis.workspace_voice import WorkspaceVoice
+  from jarvis.desktop_controller import DesktopController
+  from test_desktop_engine import Adapter
+  from unittest.mock import Mock
+  for mode in ('changed','expired','busy','window-changed','engine-expired'):
+   b=Bridge(WorkspaceVoice());a=Adapter();a.windows=lambda:[dict(a.target)];b.desktop_control=DesktopController(a)
+   try:
+    b.desktop_control.discover(True);p=b.desktop_control.prepare(a.target,[{'action':'move','x':1,'y':1}],'Isolated adapter fixture only')
+    b.execute({'command':'voice-review-bind','kind':'desktop-task','reviewed':p})
+    if mode=='changed':b.desktop_control.engine.pending['payload']['scope']='Changed purpose'
+    elif mode=='expired':b.voice_review.clock=lambda:1e30
+    elif mode=='window-changed':a.target.update(pid=99)
+    elif mode=='engine-expired':b.desktop_control.engine.clock=lambda:1e30
+    else:b.desktop_control.worker=Mock();b.desktop_control.worker.is_alive.return_value=True
+    b.voice_action('confirm desktop-task')
+    if b.desktop_control.worker and mode!='busy':b.desktop_control.worker.join(2)
+    self.assertFalse(a.inputs)
+    if mode=='busy':
+     blocker=b.pending_voice_reviews()['desktop-task'];self.assertEqual(blocker['state'],'submitting')
+     with self.assertRaises(ValueError):b.execute({'command':'voice-review-bind','kind':'desktop-task','reviewed':blocker})
+   finally:
+    if mode=='busy':b.desktop_control.worker=None
+    b.close()
