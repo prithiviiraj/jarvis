@@ -93,6 +93,14 @@ class WorkspaceVoice:
         self.notify('transcript',text.strip());self.notify('state','thinking')
         def run():
             try:
+                from .local_arithmetic import answer as arithmetic_answer
+                exact_answer=arithmetic_answer(text)
+                if exact_answer is not None:
+                    with self.lock:
+                        if self.closed or ticket!=self.generation or cancel.is_set():return
+                        self.notify('answer-complete',{'text':exact_answer,'profile':name,'provider':'local-arithmetic','cloud':False,'stream_id':ticket})
+                        self.memory.append(name,text.strip(),exact_answer);self.notify('team-updated',name)
+                    return
                 from .personas import prompt
                 from .voice_feedback import vision_unavailable
                 unavailable=vision_unavailable(self.vision,text)

@@ -102,6 +102,21 @@ class VoiceRuntime:
                 if isinstance(feedback,str)and feedback.strip():
                     stage='action feedback playback';self.notify('state','speaking');self.speaker.speak(feedback,generation=ticket)
                 return
+            from .local_arithmetic import answer as arithmetic_answer
+            exact_answer=arithmetic_answer(text)
+            if exact_answer is not None:
+                with self.lock:
+                    if not self.valid(generation)or self.cancel.is_set():return
+                    metrics['first_text_s']=time.monotonic()-started
+                    self.notify('answer',{'text':exact_answer,'profile':self.persona,'provider':'local-arithmetic','cloud':False,'turn_id':turn_id,'partial':False})
+                    self.notify('state','speaking')
+                stage='speech synthesis/playback';self.speaker.speak(exact_answer,generation=ticket)
+                with self.lock:
+                    if not self.valid(generation)or self.cancel.is_set():return
+                    if callable(self.record_turn):self.record_turn(text,exact_answer)
+                    self.history=(history+[{'role':'user','content':text},{'role':'assistant','content':exact_answer}])[-6:]
+                    self.notify('turn-result',{'turn_id':turn_id,'result':'completed','provider':'local-arithmetic','cloud':False,**runtime_device_scope(self.stt,self.speaker)})
+                return
             from .persona_text import own_reply
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             from .multi_address import addressed,request as addressed_request

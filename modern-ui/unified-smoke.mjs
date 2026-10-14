@@ -1,0 +1,16 @@
+import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';
+fs.mkdirSync('ui-evidence',{recursive:true});const b=await chromium.launch();const p=await b.newPage({viewport:{width:1044,height:740}});
+await p.route('http://jarvis.fixture/**',r=>{const f=path.join('dist',new URL(r.request().url()).pathname==='/'?'index.html':new URL(r.request().url()).pathname);return fs.existsSync(f)?r.fulfill({body:fs.readFileSync(f),contentType:f.endsWith('.js')?'application/javascript':f.endsWith('.css')?'text/css':'text/html'}):r.fulfill({status:404,body:''})});
+await p.addInitScript(()=>{localStorage.setItem('jarvis-welcome-v1','done');localStorage.setItem('jarvis-intro-v1','done');window.calls=[];window.state={selected:'JARVIS',messages:[],expression:{persona:'JARVIS',state:'idle'},busy:false,voice_active:false,brains:{slots:[],assignments:{},checks:{},busy:[]},awareness:{camera:'off'},judgment:{enabled:false}};window.__TAURI_INTERNALS__={invoke:async(n,a)=>{if(a?.request)window.calls.push(a.request);return{ok:true,data:window.state}}}});
+await p.goto('http://jarvis.fixture/');await p.getByRole('heading',{name:'Home',exact:true}).waitFor();
+for(const name of ['Start listening','Camera off','Screen share off','Activate Laya (Brave)','Stop']){const button=p.getByRole('button',{name,exact:true});if(!await button.isVisible()||!await button.isEnabled())throw Error('Missing Home control: '+name)}
+if(await p.getByText('Computer tools',{exact:true}).count())throw Error('Second-interface escape remains');
+await p.getByRole('button',{name:'Settings',exact:true}).click();await p.getByRole('heading',{name:'API accounts',exact:true}).waitFor();await p.getByRole('button',{name:'All settings',exact:true}).count();await p.locator('.settings-nav summary').click();
+for(const pane of ['Connections','Voice','Privacy','Tools','More','Appearance','Memory','Team options','Live screen share','Search engine','Chats','Advanced']){await p.locator('.settings-nav').getByRole('button',{name:pane,exact:true}).click();if(!await p.getByRole('button',{name:'Back to Home',exact:true}).isVisible())throw Error('Settings trapped: '+pane)}
+await p.getByRole('button',{name:'Back to Home',exact:true}).click();await p.getByRole('button',{name:'My notes',exact:true}).click();await p.getByRole('button',{name:'Connect or manage my notes',exact:true}).click();await p.getByRole('heading',{name:'Settings',exact:true}).waitFor();
+if((await p.evaluate(()=>window.calls)).some(r=>!['status','voice-check','laya-check','turn-check'].includes(r.command)))throw Error('Navigation started effect');
+await p.getByRole('button',{name:'Back to Home',exact:true}).click();p.on('dialog',d=>d.dismiss());
+for(const name of ['Start listening','Camera off','Screen share off','Activate Laya (Brave)'])await p.getByRole('button',{name,exact:true}).click();
+if((await p.evaluate(()=>window.calls)).some(r=>['voice-on','camera-master','screen-master','laya-session'].includes(r.command)))throw Error('Cancel consent started feature');
+await p.getByRole('button',{name:'Stop',exact:true}).click();if(!(await p.evaluate(()=>window.calls)).some(r=>r.command==='pause'))throw Error('Stop not sent');
+await b.close();console.log('Unified Home, 12 settings routes, notes connection, Cancel consent, Stop: passed');
