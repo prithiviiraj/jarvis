@@ -1,0 +1,787 @@
+name: JARVIS approved Bigfoot full fresh gate, no release
+'on':
+  push:
+    branches:
+    - jarvis-voice-feedback-next
+    paths:
+    - .github/workflows/3-bigfoot-full-fresh-gate.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: bigfoot-full-fresh-gate
+  cancel-in-progress: false
+jobs:
+  original-art:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: jarvis-voice-feedback-next
+    - name: Restore hash-pinned recovered product source, never private data
+      shell: python
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('1-jarvis-bigfoot-gate-source-final.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='ca9eebc72e4d90070ed82a8498a20f110635f5f561c753a6f2bfa7daa69463fd','Checkpoint\
+        \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
+        \  assert not path.is_absolute() and '..' not in path.parts and '.git' not in path.parts\n  if path.parts[0]=='.github':continue\n\
+        \  if member.isdir():continue\n  assert member.isfile(),'Non-regular source member rejected'\n  target=pathlib.Path(*path.parts);target.parent.mkdir(parents=True,exist_ok=True)\n\
+        \  target.write_bytes(tar.extractfile(member).read());target.chmod(member.mode)\n  paths.append(str(target))\nassert\
+        \ 'modern-ui/src/main.tsx'in paths and 'modern-ui/regression-renderers.py'in paths\npathlib.Path('.git/recovered-product-paths.json').write_text(json.dumps(paths))\n\
+        print('Exact product files restored:',len(paths),'workflows remain separate, no release assets changed')\n"
+    - name: Render original pinned transparent face artwork
+      run: bash modern-ui/art/render-faces.sh
+    - uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-original-3D-face-pack
+        path: modern-ui/public/faces
+        retention-days: 7
+        if-no-files-found: error
+  source-regression:
+    needs:
+    - original-art
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      tested_sha: ${{ steps.commit.outputs.tested_sha }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: jarvis-voice-feedback-next
+    - name: Require unchanged isolated branch
+      env:
+        EXPECTED_SHA: ${{ github.sha }}
+      run: 'test "$GITHUB_REPOSITORY" = prithiviiraj/jarvis
+
+        test "$GITHUB_REF" = refs/heads/jarvis-voice-feedback-next
+
+        test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"'
+    - name: Restore hash-pinned recovered product source, never private data
+      shell: python
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('1-jarvis-bigfoot-gate-source-final.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='ca9eebc72e4d90070ed82a8498a20f110635f5f561c753a6f2bfa7daa69463fd','Checkpoint\
+        \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
+        \  assert not path.is_absolute() and '..' not in path.parts and '.git' not in path.parts\n  if path.parts[0]=='.github':continue\n\
+        \  if member.isdir():continue\n  assert member.isfile(),'Non-regular source member rejected'\n  target=pathlib.Path(*path.parts);target.parent.mkdir(parents=True,exist_ok=True)\n\
+        \  target.write_bytes(tar.extractfile(member).read());target.chmod(member.mode)\n  paths.append(str(target))\nassert\
+        \ 'modern-ui/src/main.tsx'in paths and 'modern-ui/regression-renderers.py'in paths\npathlib.Path('.git/recovered-product-paths.json').write_text(json.dumps(paths))\n\
+        print('Exact product files restored:',len(paths),'workflows remain separate, no release assets changed')\n"
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Fresh entire backend regression
+      run: 'python -m pip install numpy==2.2.6 certifi==2026.7.22 tzdata==2025.2 Pillow==11.3.0 playwright==1.56.0
+
+        python -m playwright install --with-deps chromium
+
+        PYTHONPATH=src python -m unittest discover -s tests'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/download-artifact@v4
+      with:
+        name: JARVIS-original-3D-face-pack
+        path: modern-ui/public/faces
+    - name: Exact build and every retained renderer with actual bundled artwork
+      run: 'cd modern-ui
+
+        npm ci
+
+        npm install --no-save playwright@1.56.0
+
+        npx playwright install --with-deps chromium
+
+        npm run build
+
+        python regression-renderers.py'
+    - name: Commit tested product source only, no release or accepted artifact changes
+      id: commit
+      env:
+        EXPECTED_SHA: ${{ github.sha }}
+      run: 'test "$(git ls-remote origin refs/heads/jarvis-voice-feedback-next | cut -f1)" = "$EXPECTED_SHA"
+
+        git config user.name ''github-actions[bot]''
+
+        git config user.email ''41898282+github-actions[bot]@users.noreply.github.com''
+
+        python - <<''PYCODE''
+
+        import pathlib,json,subprocess
+
+        paths=json.loads(pathlib.Path(''.git/recovered-product-paths.json'').read_text())
+
+        for i in range(0,len(paths),100):subprocess.run([''git'',''add'',''--'',*paths[i:i+100]],check=True)
+
+        PYCODE
+
+        git diff --cached --stat
+
+        git commit -m ''Integrate owner-approved recovered Bigfoot source after full fresh source regression''
+
+        git push origin HEAD:refs/heads/jarvis-voice-feedback-next
+
+        echo "tested_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: JARVIS-Bigfoot-Fresh-Source-Evidence
+        path: modern-ui/ui-evidence
+        retention-days: 7
+        if-no-files-found: warn
+  embedding-runtime:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: optional-embedding
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.source-regression.outputs.tested_sha }}
+    - name: Record exact tested product revision
+      shell: bash
+      run: 'git rev-parse HEAD | tee SOURCE-COMMIT.txt
+
+        printf "Exact product source: %s\n" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Build isolated EmbeddingGemma runtime, not working Laya interpreter
+      shell: pwsh
+      run: ./build-windows.ps1
+    - uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-Optional-EmbeddingGemma-Runtime
+        path: optional-embedding/embedding-runtime
+        if-no-files-found: error
+        retention-days: 7
+    needs:
+    - source-regression
+  embedding-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      JARVIS_DATA_DIR: /tmp/jarvis-embedding-acceptance
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      USE_TF: '0'
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.source-regression.outputs.tested_sha }}
+    - name: Record exact tested product revision
+      shell: bash
+      run: 'git rev-parse HEAD | tee SOURCE-COMMIT.txt
+
+        printf "Exact product source: %s\n" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Pinned isolated CPU inference dependencies
+      run: 'python -m pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+
+        python -m pip install -r optional-embedding/requirements.txt
+
+        python -m pip check
+
+        '
+    - name: Real pinned model, synthetic text/code/image/video/audio candidates
+      run: python optional-embedding/acceptance.py
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: JARVIS-EmbeddingGemma-Real-CPU-Evidence
+        path: embedding-evidence
+        if-no-files-found: error
+        retention-days: 7
+    needs:
+    - source-regression
+  native-windows:
+    runs-on: windows-latest
+    timeout-minutes: 70
+    defaults:
+      run:
+        working-directory: modern-ui
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.source-regression.outputs.tested_sha }}
+    - name: Record exact tested product revision
+      shell: bash
+      run: 'git rev-parse HEAD | tee SOURCE-COMMIT.txt
+
+        printf "Exact product source: %s\n" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: pip
+        cache-dependency-path: modern-ui/package-native-diagnostic.py
+    - name: Cache native shell compilation
+      uses: actions/cache@v4
+      with:
+        path: '~/.cargo/registry
+
+          ~/.cargo/git
+
+          '
+        key: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock') }}-${{ github.run_id }}
+        restore-keys: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock') }}-
+    - name: Build only actual native shell and diagnostic frozen core
+      shell: pwsh
+      run: 'if (Test-Path ''src-tauri/target'') { Remove-Item -Recurse -Force ''src-tauri/target'' }
+
+        python -m pip install pyinstaller==6.16.0 numpy==2.2.6 certifi==2026.7.22 tzdata==2025.2 Pillow==11.3.0 pywinauto==0.6.9
+        opencv-python==4.12.0.88 playwright==1.56.0
+
+        if ($LASTEXITCODE -ne 0) { throw ''Diagnostic dependencies failed'' }
+
+        npm ci
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frontend dependencies failed'' }
+
+        python make-icon.py
+
+        npm run tauri build -- --no-bundle
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual native shell failed'' }
+
+        ./build-mp3.ps1
+
+        if ($LASTEXITCODE -ne 0) { throw ''Pinned MP3 encoder source build failed'' }
+
+        python package-native-diagnostic.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Diagnostic core freeze failed'' }
+
+        '
+    - name: Install required Brave browser for real frozen navigation acceptance
+      shell: pwsh
+      run: 'choco install brave --version=1.88.134 --yes --no-progress --limit-output
+
+        if ($LASTEXITCODE -notin @(0, 3010)) { throw ''Brave installation failed'' }
+
+        $env:PYTHONPATH=''../src''
+
+        python -c "from jarvis.brave_path import find_brave; print(''Verified Brave executable:'', find_brave())"
+
+        if ($LASTEXITCODE -ne 0) { throw ''Required Brave executable not found'' }
+
+        '
+    - name: Match baseline installed Obsidian host prerequisite
+      shell: pwsh
+      run: 'New-Item -ItemType Directory -Force ui-evidence | Out-Null
+
+        python -m pip install playwright==1.56.0
+
+        if ($LASTEXITCODE -ne 0) { throw ''Obsidian host fixture dependency failed'' }
+
+        python obsidian-host-smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual installed Obsidian host prerequisite failed'' }
+
+        '
+    - name: ENTIRE actual unified Windows regression
+      shell: pwsh
+      run: 'New-Item -ItemType Directory -Force ui-evidence | Out-Null
+
+        $env:JARVIS_UI_EXE = (Resolve-Path ''native-diagnostic/JARVIS.exe'').Path
+
+        $env:JARVIS_DATA_DIR = Join-Path (Get-Location) ''ui-evidence/native-isolated-data''
+
+        $env:PYTHONPATH = ''''
+
+        $env:JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC = ''1''
+
+        python native-smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Full actual unified Windows regression failed'' }
+
+        python unified-native-smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual unified Home/Settings control regression failed'' }
+
+        '
+    - name: Actual pinned BrowserOS neo Windows isolated navigation
+      shell: pwsh
+      run: './install-browseros-native.ps1
+
+        '
+      if: always()
+    - name: Native iteration evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-Bigfoot-Native-BrowserOS-YouTube-Evidence
+        path: 'modern-ui/ui-evidence/*.png
+
+          modern-ui/ui-evidence/*.json
+
+          modern-ui/ui-evidence/*.txt
+
+          modern-ui/ui-evidence/browseros-isolated/*.png
+
+          modern-ui/ui-evidence/browseros-isolated/*.json
+
+          modern-ui/ui-evidence/browseros-isolated/*.log
+
+
+          modern-ui/ui-evidence/browseros-isolated/*.jpg
+
+          '
+        retention-days: 7
+        if-no-files-found: warn
+    needs:
+    - source-regression
+  frozen-full-acceptance:
+    needs:
+    - source-regression
+    - native-windows
+    - embedding-runtime
+    - embedding-model
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: modern-ui
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.source-regression.outputs.tested_sha }}
+    - name: Record exact tested product revision
+      shell: bash
+      run: 'git rev-parse HEAD | tee SOURCE-COMMIT.txt
+
+        printf "Exact product source: %s\n" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"'
+    - name: Download original rendered face pack
+      uses: actions/download-artifact@v4
+      with:
+        name: JARVIS-original-3D-face-pack
+        path: modern-ui/public/faces
+    - name: Install required Brave browser for real frozen navigation acceptance
+      shell: pwsh
+      run: 'Invoke-WebRequest ''https://github.com/brave/brave-browser/releases/download/v1.88.134/BraveBrowserStandaloneSilentSetup.exe''
+        -OutFile ''brave-host-setup.exe''
+
+        if ((Get-FileHash ''brave-host-setup.exe'' -Algorithm SHA256).Hash.ToLowerInvariant() -ne ''cfc5aacc652d85138d51572a7914253b17cea055da26ab51b844255cd38f2d68'')
+        { throw ''Pinned Brave host installer hash mismatch'' }
+
+        $sig = Get-AuthenticodeSignature ''brave-host-setup.exe''
+
+        if ($sig.Status -ne ''Valid'' -or $sig.SignerCertificate.Subject -notmatch ''Brave Software'') { throw ''Brave host
+        installer signature invalid'' }
+
+        $install = Start-Process (Resolve-Path ''brave-host-setup.exe'').Path -Wait -PassThru
+
+        if ($install.ExitCode -notin @(0,3010)) { throw ''Pinned Brave host install failed'' }
+
+        $env:PYTHONPATH = (Resolve-Path ''../src'').Path
+
+        python -c "from jarvis.brave_path import find_brave; print(''Verified Brave executable:'', find_brave())"
+
+        if ($LASTEXITCODE -ne 0) { throw ''Installed Brave host not found'' }
+
+        $env:PYTHONPATH = ''''
+
+        '
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - name: Backend tests
+      shell: pwsh
+      run: 'python -m pip install numpy==2.2.6 certifi==2026.7.22 tzdata==2025.2 Pillow==11.3.0
+
+        if ($LASTEXITCODE -ne 0) { throw "Test dependencies failed" }
+
+        $env:PYTHONPATH="../src"
+
+        python -m unittest discover -s ../tests
+
+        if ($LASTEXITCODE -ne 0) { throw "Backend tests failed" }
+
+        '
+    - name: Pinned frontend and real browser interactions
+      shell: pwsh
+      run: 'npm ci
+
+        if ($LASTEXITCODE -ne 0) { throw ''Install failed'' }
+
+        npm run build
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frontend build failed'' }
+
+        npm install --no-save playwright@1.56.0
+
+        npx playwright install chromium
+
+        node bigfoot-shell-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Faithful Bigfoot shell renderer failed'' }
+
+        node bigfoot-model-session-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Managed session review renderer failed'' }
+
+        node bigfoot-shortcut-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Reviewed hold shortcut renderer failed'' }
+
+        node bigfoot-microphone-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Copied microphone renderer failed'' }
+
+        node bigfoot-responsive-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Copied responsive renderer failed'' }
+
+        node bigfoot-speech-setup-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Copied speech-setup renderer failed'' }
+
+        node bigfoot-desktop-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Copied desktop renderer failed'' }
+
+        node bigfoot-live-voice-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Copied live voice renderer failed'' }
+
+        node companion-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Bigfoot companion renderer failed'' }
+
+        $server = Start-Process python -ArgumentList ''-m'',''http.server'',''8765'',''--bind'',''127.0.0.1'',''--directory'',''dist''
+        -PassThru
+
+        python night-fix-bridge-state.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Connection fixture bridge state failed'' }
+
+        try { node phone-handoff-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Phone unsent desktop handoff renderer failed''
+        }; node design-draft-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Local SVG draft renderer failed'' }; node calendar-telegram-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Calendar Telegram draft handoff renderer failed'' }; node drive-text-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Drive exact text upload review renderer failed'' }; node notion-text-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Notion exact paragraph review renderer failed'' }; node sheets-write-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Sheets exact text write review renderer failed'' }; node github-issue-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''GitHub issue review renderer failed'' }; node source-answer-smoke.mjs; if ($LASTEXITCODE
+        -ne 0) { throw ''Source answer review renderer failed'' }; node phone-transport-smoke.mjs; if ($LASTEXITCODE -ne 0)
+        { throw ''Phone TLS review renderer failed'' }; node brain-switch-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Brain
+        switch renderer failed'' }; node watch-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Watch renderer failed'' }; node
+        reflex-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Reflex evidence renderer failed'' }; node focus-smoke.mjs; if
+        ($LASTEXITCODE -ne 0) { throw ''Focus timer renderer failed'' }; node workspace-read-smoke.mjs; if ($LASTEXITCODE
+        -ne 0) { throw ''Workspace reviewed reads renderer failed'' }; node projects-smoke.mjs; if ($LASTEXITCODE -ne 0) {
+        throw ''Project reviewed reads renderer failed'' }; node semantic-source-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw
+        ''Semantic source selection renderer failed'' }; node invoice-draft-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Invoice
+        draft renderer failed'' }; node telegram-output-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Telegram reviewed output
+        renderer failed'' }; node telegram-control-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Telegram private pairing
+        renderer failed'' }; node gcal-review-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Calendar exact review renderer
+        failed'' }; node gmail-review-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Gmail exact review renderer failed'' };
+        node google-control-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Google account renderer failed'' }; node phone-control-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Phone local pairing renderer failed'' }; node phone-web-smoke.mjs; if ($LASTEXITCODE
+        -ne 0) { throw ''Phone unpaired renderer failed'' }; node phone-capture-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw
+        ''Phone fake-microphone capture/playback fixture failed'' }; node phone-stop-race-smoke.mjs; if ($LASTEXITCODE -ne
+        0) { throw ''Phone Stop race renderer failed'' }; node phone-permission-race-smoke.mjs; if ($LASTEXITCODE -ne 0) {
+        throw ''Phone delayed permission ownership failed'' }; node tools-launcher-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw
+        ''Four Tools launcher failed'' }; node ui-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''UI check failed'' }; node
+        account-scroll-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Account scroll check failed'' }; node semantic-search-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Semantic search renderer failed'' }; node agent-creator-smoke.mjs; if ($LASTEXITCODE
+        -ne 0) { throw ''Creator renderer check failed'' }; node code-proposal-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw
+        ''Reviewed code proposal renderer failed'' }; node tiny-specialist-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Tiny
+        reviewed manual task renderer failed'' }; node game-capture-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Game capture
+        consent renderer failed'' }; node strong-idle-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Strong idle consent renderer
+        failed'' }; node obsidian-auto-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Obsidian AUTO renderer failed'' }; node
+        pill-app-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Compact pill/app review renderer failed'' }; node team-dialogue-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Team dialogue UI check failed'' }; node laya-front-smoke.mjs; if ($LASTEXITCODE
+        -ne 0) { throw ''Front Laya and LYRA consent UI failed'' }; node team-browser-review-smoke.mjs; if ($LASTEXITCODE
+        -ne 0) { throw ''Team browser review failed'' }; node team-stream-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Team
+        stream UI failed'' }; node polish-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Startup/polish UI failed'' }; node
+        source-label-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Response provenance UI failed'' }; node model-status-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Model status UI failed'' }; node change-without-pause-smoke.mjs; if ($LASTEXITCODE
+        -ne 0) { throw ''Cloud setup/scoped interruption UI failed'' }; node local-speed-smoke.mjs; if ($LASTEXITCODE -ne
+        0) { throw ''Local speed UI check failed'' }; node laya-managed-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Managed
+        Laya renderer check failed'' }; node onboarding-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Onboarding check failed''
+        }; node expression-connected-smoke.mjs; if ($LASTEXITCODE -ne 0) { throw ''Expression check failed'' }; node caption-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''UI smoke failed'' }; if (Test-Path ''public/faces/manifest.json'') { node face-pack-smoke.mjs;
+        if ($LASTEXITCODE -ne 0) { throw ''Face persistence failed'' }; node motion-smoke.mjs; if ($LASTEXITCODE -ne 0) {
+        throw ''Motion check failed'' } } } finally { Stop-Process -Id $server.Id }
+
+
+        python regression-renderers.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Full final renderer regression failed'' }
+
+        '
+    - name: New conductor handoff acceptance
+      shell: pwsh
+      run: 'python night-fix-bridge-state.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual owner command bridge failed'' }
+
+        python polish-state.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Polish actual Bridge state failed'' }
+
+        node neural-live-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Neural live renderer failed'' }
+
+        node neural-native-audit-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Neural native audit lifecycle renderer failed'' }
+
+        node neural-native-viewport-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Native viewport Master visibility renderer failed'' }
+
+        if ($LASTEXITCODE -ne 0) { throw ''Neural live motion/popup/review renderer failed'' }
+
+        node universe-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Knowledge graph fixture failed'' }
+
+        node next-track-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Direct controls/selected screen/editable answer fixture failed'' }
+
+        node transcript-setting-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Transcript native-setting readback fixture failed'' }
+
+        node polish-pixels.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Polish pixels failed'' }
+
+        node presence-pixels.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Polish pixels failed'' }
+
+        node bigfoot-morning-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Morning default profile/session fixture failed'' }
+
+        node beautiful-real-state-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Beautiful actual-state fixture failed'' }
+
+        node voice-review-marker-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Exact visible voice-review fixture failed'' }
+
+        node model-voice-review-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Exact visible managed model voice-review fixture failed'' }
+
+        node narrow-pixels.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Front Laya/app/support/voice checks failed'' }
+
+        node conductor-handoff.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Front conductor review failed'' }
+
+        node owner-current-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Current shell ALL/BrowserOS preview failed'' }
+
+        node owner-speech-input-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Groq recognition consent fixture failed'' }
+
+        node owner-news-preview.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''BrowserOS news self-read fixture failed'' }
+
+        node unified-smoke.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Current shell full navigation fixture failed'' }
+
+        node news-handoff.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''News review/reading renderer failed'' }
+
+        node calendar-handoff.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Calendar draft handoff failed'' }
+
+        node orientation-handoff.mjs
+
+        if ($LASTEXITCODE -ne 0) { throw ''Obsidian orientation failed'' }
+
+        python -m pip install playwright==1.56.0
+
+        python -m playwright install chromium
+
+        $env:PYTHONPATH=''../src''
+
+        python actual-news-capture.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual browser news capture failed'' }
+
+        '
+    - name: Actual Obsidian native Canvas fixture
+      shell: pwsh
+      run: 'python -m pip install playwright==1.56.0
+
+        python obsidian-host-smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual Obsidian Canvas host failed'' }
+
+        '
+    - name: Build Tauri Windows executable
+      shell: pwsh
+      run: 'python -m pip install Pillow==11.3.0 pywinauto==0.6.9
+
+        Set-Location ..
+
+        python packaging/game_capture_smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Synthetic game-window capture failed'' }
+
+        Set-Location modern-ui
+
+        python make-icon.py
+
+        npm run tauri build -- --no-bundle
+
+        if ($LASTEXITCODE -ne 0) { throw ''Tauri shell failed'' }
+
+        python -m pip install Pillow==11.3.0 pywinauto==0.6.9
+
+        '
+    - name: CPU-only speech and native persona frontend
+      shell: pwsh
+      run: './build-mp3.ps1
+
+        if ($LASTEXITCODE -ne 0) { throw ''Pinned MP3 encoder source build failed'' }
+
+        ./build-speech-native.ps1
+
+        '
+    - name: Download isolated EmbeddingGemma runtime for bundled delivery
+      uses: actions/download-artifact@v4
+      with:
+        name: JARVIS-Optional-EmbeddingGemma-Runtime
+        path: modern-ui/embedding-runtime
+    - name: Package bundled local core and test the portable EXE
+      shell: pwsh
+      env:
+        JARVIS_PACKAGE_VOICE: '1'
+        JARVIS_BUNDLE_MODELS: '1'
+      run: 'python -m pip install pyinstaller==6.16.0 opencv-python==4.12.0.88 playwright==1.56.0
+
+        if ($LASTEXITCODE -ne 0) { throw ''Packaging dependencies failed'' }
+
+        python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+
+        if ($LASTEXITCODE -ne 0) { throw ''Inbuilt Laya CPU Torch failed'' }
+
+        python -m pip install -r ../optional-laya/requirements.txt
+
+        python -m pip install model2vec==0.9.0
+
+        if ($LASTEXITCODE -ne 0) { throw ''Inbuilt Laya runtime dependencies failed'' }
+
+        python prepare-bundled-models.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Pinned bundled weights failed integrity/license preparation'' }
+
+        python package-windows.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frozen core acceptance failed'' }
+
+        '
+    - name: Preserve full built package for diagnostic acceptance retries
+      uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-FULL-PACKAGE-DIAGNOSTIC-NOT-ACCEPTED
+        path: modern-ui/windows-portable/
+        retention-days: 2
+        if-no-files-found: error
+    - name: Accept actual portable native UI and frozen software runtimes
+      shell: pwsh
+      run: '$env:JARVIS_UI_EXE = (Resolve-Path ''windows-portable/JARVIS.exe'').Path
+
+        $env:PYTHONPATH = ''''
+
+        python native-smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Packaged Tauri launch failed'' }
+
+        python unified-native-smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Current-shell candidate UI failed'' }
+
+        python desktop-native-proof.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual desktop proof failed'' }
+
+        & ./windows-portable/backend/jarvis-local-core.exe --groq-stt-self-test
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frozen Groq keyless request contract failed'' }
+
+        & ./windows-portable/backend/jarvis-local-core.exe --voice-self-test
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frozen speech software chain failed'' }
+
+        & ./windows-portable/backend/jarvis-local-core.exe --phone-self-test
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frozen private phone software chain failed'' }
+
+        & ./windows-portable/backend/jarvis-local-core.exe --laya-self-test
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frozen managed Laya acceptance failed'' }
+
+        & ./windows-portable/backend/jarvis-local-core.exe --turn-self-test
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frozen Smart Turn acceptance failed'' }
+
+        & ./windows-portable/backend/jarvis-local-core.exe --search-self-test
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frozen English search acceptance failed'' }
+
+        '
+    - name: Final full-candidate pinned BrowserOS JPEG actions and YouTube layout gate
+      shell: pwsh
+      run: './install-browseros-native.ps1
+
+        if ($LASTEXITCODE -ne 0) { throw ''Final BrowserOS page/YouTube gate failed'' }'
+    - name: Actual assembled-candidate managed model command, CPU runner not owner speed
+      shell: pwsh
+      run: '$env:JARVIS_CORE_EXE = (Resolve-Path ''windows-portable/backend/jarvis-local-core.exe'').Path
+
+        $env:JARVIS_DATA_DIR = (Join-Path (Get-Location) ''candidate-managed-proof-data'')
+
+        python owner-speed-proof.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Exact candidate owner speed command failed'' }
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-Candidate-Owned-Model-Speed-Evidence
+        path: modern-ui/owner-speed-evidence
+        retention-days: 7
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-Bigfoot-REVIEW-ONLY-FULL-GATES-PASSED
+        path: modern-ui/windows-portable/
+        retention-days: 7
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: JARVIS-modern-Voice-CI-acceptance
+        path: 'modern-ui/ui-evidence
+
+          modern-ui/dist
+
+          '
+        retention-days: 7
+        if-no-files-found: error
