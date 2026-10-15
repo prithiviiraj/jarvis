@@ -32,6 +32,7 @@ jobs:
         \ 'modern-ui/regression-renderers.py'in paths\npathlib.Path('.git/recovered-product-paths.json').write_text(json.dumps(paths))\n\
         print('Exact product files restored:',len(paths),'workflows remain separate,\
         \ no release assets changed')\n"
+      working-directory: .
     - name: Record exact tested product revision
       shell: bash
       run: 'git rev-parse HEAD | tee SOURCE-COMMIT.txt
