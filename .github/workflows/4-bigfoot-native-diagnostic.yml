@@ -20,8 +20,8 @@ jobs:
         ref: jarvis-voice-feedback-next
     - name: Restore hash-pinned recovered product source, never private data
       shell: python
-      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('2-jarvis-snapshot-fallback-0415.tar.gz')\n\
-        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='ecddf9dd8d7b246d2553b5655b2fe32f7f1331968e8401a8a33a8e7fa4a0db09','Checkpoint\
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('3-jarvis-esc-retry-0431.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='0f99dd744aea68b75555b253499bcfea8f11d1c587e50de17d12139d6d0148cd','Checkpoint\
         \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for\
         \ member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
         \  assert not path.is_absolute() and '..' not in path.parts and '.git' not\
@@ -118,6 +118,14 @@ jobs:
         failed'' }
 
         '
+    - name: Actual pinned BrowserOS neo Windows isolated navigation
+      shell: pwsh
+      run: './install-browseros-native.ps1
+
+        '
+      if: always()
+      env:
+        JARVIS_BROWSEROS_DIAGNOSTIC: '1'
     - name: ENTIRE actual unified Windows regression
       shell: pwsh
       run: 'New-Item -ItemType Directory -Force ui-evidence | Out-Null
@@ -142,14 +150,6 @@ jobs:
         assertions failed, no acceptance pass'' }
 
         '
-    - name: Actual pinned BrowserOS neo Windows isolated navigation
-      shell: pwsh
-      run: './install-browseros-native.ps1
-
-        '
-      if: always()
-      env:
-        JARVIS_BROWSEROS_DIAGNOSTIC: '1'
     - name: Native iteration evidence
       if: always()
       uses: actions/upload-artifact@v4
