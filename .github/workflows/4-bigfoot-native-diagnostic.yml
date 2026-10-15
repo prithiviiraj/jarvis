@@ -28,8 +28,8 @@ jobs:
         \ in path.parts\n  if path.parts[0]=='.github':continue\n  if member.isdir():continue\n\
         \  assert member.isfile(),'Non-regular source member rejected'\n  target=pathlib.Path(*path.parts);target.parent.mkdir(parents=True,exist_ok=True)\n\
         \  target.write_bytes(tar.extractfile(member).read());target.chmod(member.mode)\n\
-        \  paths.append(str(target))\nassert 'modern-ui/src/main.tsx'in paths and\
-        \ 'modern-ui/regression-renderers.py'in paths\npathlib.Path('.git/recovered-product-paths.json').write_text(json.dumps(paths))\n\
+        \  paths.append(path.as_posix())\nassert 'modern-ui/src/main.tsx'in paths\
+        \ and 'modern-ui/regression-renderers.py'in paths\npathlib.Path('.git/recovered-product-paths.json').write_text(json.dumps(paths))\n\
         print('Exact product files restored:',len(paths),'workflows remain separate,\
         \ no release assets changed')\n"
       working-directory: .
