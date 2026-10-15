@@ -1,7 +1,7 @@
 """Independent bounded MCP discovery client for separately installed BrowserOS neo.
 No browser actions, account import, script execution or automatic installer.
 """
-import json,re,threading,urllib.request
+import json,re,threading,time,urllib.request
 from urllib.parse import urlsplit
 PINNED_BROWSER_VERSION='0.51.1.2'
 PROTOCOL='2025-06-18'
@@ -21,8 +21,29 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def http(method,url,headers,payload):
  request=urllib.request.Request(url,data=json.dumps(payload).encode()if payload is not None else None,headers=headers,method=method)
  opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
- with opener.open(request,timeout=5)as response:
-  data=response.read(MAX_BYTES+1)
+ # Current images can take longer than catalog reads on a cold Windows GPU.
+ # Do not retry an uncertain operation. Stop still runs on its own connection.
+ timeout=30 if isinstance(payload,dict)and payload.get('params',{}).get('name')=='screenshot'else 5
+ with opener.open(request,timeout=timeout)as response:
+  kind=response.headers.get('Content-Type','')
+  if 'text/event-stream'in kind and isinstance(payload,dict)and 'id'in payload:
+   # MCP may keep its SSE connection open after a complete result. A whole
+   # response.read waits for EOF and turns a valid image into a timeout.
+   data=b'';deadline=time.monotonic()+timeout
+   while True:
+    if time.monotonic()>=deadline:raise TimeoutError('BrowserOS response deadline exceeded')
+    chunk=response.read1(min(65536,MAX_BYTES+1-len(data)))
+    data+=chunk
+    if len(data)>MAX_BYTES:raise RuntimeError('BrowserOS response too large')
+    frames=data.replace(b'\r\n',b'\n').split(b'\n\n')
+    for index,frame in enumerate(frames[:-1]):
+     value=b'\n'.join(line[5:].lstrip()for line in frame.splitlines()if line.startswith(b'data:'))
+     if not value:continue
+     body=json.loads(value)
+     if isinstance(body,dict)and body.get('id')==payload['id']:
+      return response.status,dict(response.headers),b'\n\n'.join(frames[:index+1])+b'\n\n'
+    if not chunk:break
+  else:data=response.read(MAX_BYTES+1)
   if len(data)>MAX_BYTES:raise RuntimeError('BrowserOS response too large')
   return response.status,dict(response.headers),data
 

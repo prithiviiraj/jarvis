@@ -96,6 +96,20 @@ def drawer_control(main,title):
   # to a target lookup. Scroll the visible drawer first, then resolve again.
   mouse.scroll(coords=(bounds.right-25,(bounds.top+bounds.bottom)//2),wheel_dist=-2);time.sleep(.25)
  raise RuntimeError('More drawer control remains clipped: '+title)
+def reveal_settings_control(main,title):
+ """Real wheel input, since UIA omits controls below the current pane."""
+ main.set_focus();bounds=main.rectangle()
+ coords=(bounds.right-65,min(bounds.bottom-130,bounds.top+440))
+ mouse.scroll(coords=coords,wheel_dist=40);time.sleep(.2)
+ for _ in range(48):
+  control=main.child_window(title=title,control_type='Button',visible_only=False)
+  try:
+   rect=control.rectangle()
+   if rect.width()>0 and bounds.top+175<rect.top and rect.bottom<bounds.bottom-65:
+    control.wait('visible enabled',timeout=5);return control
+  except Exception:pass
+  mouse.scroll(coords=coords,wheel_dist=-1);time.sleep(.15)
+ raise RuntimeError('Settings control remains outside viewport: '+title)
 def navigation(main,name):
  """Follow the real simplified product controls, not hidden/removed navigation."""
  def invoke(title):
@@ -217,9 +231,9 @@ try:
  main.restore();main.set_focus();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(pill_handle),'Duplicate pill should hide while workspace visible'
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'Duplicate transcript should hide while workspace visible'
- navigation(main,'Settings');navigation(main,'Appearance');activate(main.child_window(title='Transcript OFF',control_type='Button'));main.minimize();time.sleep(.8)
+ navigation(main,'Settings');navigation(main,'Appearance');activate(reveal_settings_control(main,'Transcript OFF'));main.minimize();time.sleep(.8)
  assert not ctypes.windll.user32.IsWindowVisible(caption_handle),'OFF must survive minimization'
- main.restore();main.set_focus();activate(main.child_window(title='Transcript ON',control_type='Button'));main.minimize();captions.wait('visible',timeout=10)
+ main.restore();main.set_focus();activate(reveal_settings_control(main,'Transcript ON'));main.minimize();captions.wait('visible',timeout=10)
  # Controlled background verifies transparent pixels outside text/hover controls.
  import tkinter as tk
  bg=tk.Tk();bg.overrideredirect(True);bg.geometry(f'{bg.winfo_screenwidth()}x{bg.winfo_screenheight()}+0+0');bg.configure(bg='#17232f');bg.attributes('-topmost',True);bg.update()
@@ -315,7 +329,7 @@ try:
   if name=='Voice setup':
    click('Settings');click('Voices');return
   if name in ('Transcript ON','Transcript OFF'):
-   navigation(window,'Settings');navigation(window,'Appearance')
+   navigation(window,'Settings');navigation(window,'Appearance');reveal_settings_control(window,name)
   # Re-entering Settings remounts the native <details> collapsed. Reveal it
   # only when the requested legacy review control is inside that panel.
   advanced_names={'Enable browser commands','Download Laya model','Load inbuilt Laya','Stop Laya setup / engine','Enable shared Laya','Stop Laya proposals','Prepare browser command','Review / run browser command','Read available links locally'}

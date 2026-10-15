@@ -60,3 +60,26 @@ class PinnedWire(unittest.TestCase):
   for r in [result('opened page 4',5,'about:blank'),result('opened page 4; run script',4,'about:blank'),result('opened page 4',4,'https://example.com'),{'content':[{'type':'text','text':'page 4'}]}]:
    with self.assertRaises(RuntimeError):v._page_result(r,True)
   with self.assertRaises(RuntimeError):v._page_result(result('navigated (url) -> https://example.com/',4,'https://wrong.example/'))
+
+class HttpStreaming(unittest.TestCase):
+ def test_complete_sse_result_does_not_wait_for_connection_eof(self):
+  from unittest.mock import Mock,patch
+  from jarvis.browseros_transport import http
+  response=Mock();response.status=200;response.headers={'Content-Type':'text/event-stream'}
+  response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+  response.read1.side_effect=[b'data: {"jsonrpc":"2.0","id":4,',b'"result":{"ok":true}}\n\n']
+  opener=Mock();opener.open.return_value=response
+  with patch('jarvis.browseros_transport.urllib.request.build_opener',return_value=opener):
+   status,headers,data=http('POST','http://127.0.0.1:9200/mcp',{}, {'id':4,'params':{'name':'screenshot'}})
+  self.assertTrue(rpc_body(headers,data,4)['ok']);self.assertEqual(status,200)
+  response.read.assert_not_called();self.assertEqual(opener.open.call_args.kwargs['timeout'],30)
+ def test_stream_size_stays_bounded_and_non_image_timeout_short(self):
+  from unittest.mock import Mock,patch
+  from jarvis.browseros_transport import http
+  response=Mock();response.status=200;response.headers={'Content-Type':'text/event-stream'}
+  response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
+  response.read1.return_value=b'x'*9
+  opener=Mock();opener.open.return_value=response
+  with patch('jarvis.browseros_transport.urllib.request.build_opener',return_value=opener),patch('jarvis.browseros_transport.MAX_BYTES',8):
+   with self.assertRaisesRegex(RuntimeError,'too large'):http('POST','http://127.0.0.1:9200/mcp',{}, {'id':4,'params':{'name':'snapshot'}})
+  self.assertEqual(opener.open.call_args.kwargs['timeout'],5)

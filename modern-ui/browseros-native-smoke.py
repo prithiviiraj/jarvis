@@ -12,7 +12,10 @@ rpc=[]
 def recording_transport(method,url,headers,payload):
  result=http(method,url,headers,payload)
  try:body=json.loads(result[2])
- except (ValueError,UnicodeError):body=result[2].decode('utf-8',errors='replace')[:20000]
+ except (ValueError,UnicodeError):body=result[2].decode('utf-8',errors='replace')
+ if isinstance(body,str)and payload and payload.get('method')=='initialize':
+  from jarvis.browseros_transport import rpc_body
+  parsed=rpc_body(result[1],result[2],payload['id']);parsed.pop('instructions',None);body={'server_metadata':parsed}
  rpc.append({'method':method,'request':payload,'status':result[0],'response':body})
  (root/'mcp-runtime.json').write_text(json.dumps(rpc,indent=2),encoding='utf-8')
  return result
