@@ -117,6 +117,8 @@ def navigation(main,name):
  if name=='Settings':
   if main.child_window(title='Living knowledge graph',visible_only=True).exists():invoke('Home')
   if main.child_window(title='Close more options',control_type='Button',visible_only=True).exists():invoke('Close more options')
+  # Home owns the Settings entry; the Settings detail pane does not.
+  if not main.child_window(title='Settings',control_type='Button',visible_only=True).exists():invoke('Home')
   invoke('Settings')
   simple=main.child_window(title='Choose connection',control_type='Button',visible_only=True)
   if simple.exists():activate(simple);time.sleep(.15)

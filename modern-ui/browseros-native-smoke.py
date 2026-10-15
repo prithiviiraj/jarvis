@@ -6,11 +6,16 @@ from jarvis.browseros_transport import BrowserOSNavigation,http
 root=pathlib.Path('ui-evidence/browseros-isolated').resolve();root.mkdir(parents=True,exist_ok=True)
 exe=pathlib.Path(os.environ['BROWSEROS_EXE']).resolve();assert exe.is_file()
 env=dict(os.environ);env['CLAW_ANALYTICS_ENABLED']='false'
-p=subprocess.Popen([str(exe),'--enable-logging','--log-file='+str(root/'browser-startup.log'),'--user-data-dir='+str(root/'profile'),'--no-first-run','--no-default-browser-check','about:blank'],env=env)
+# Hosted Windows runner has no video device and logs SharedImage/Skia GPU errors.
+# Use real BrowserOS software rendering, never synthetic screenshot substitution.
+p=subprocess.Popen([str(exe),'--disable-gpu','--enable-logging','--log-file='+str(root/'browser-startup.log'),'--user-data-dir='+str(root/'profile'),'--no-first-run','--no-default-browser-check','about:blank'],env=env)
 client=None
 rpc=[]
 def recording_transport(method,url,headers,payload):
- result=http(method,url,headers,payload)
+ try:result=http(method,url,headers,payload)
+ except Exception as error:
+  (root/'transport-failure.json').write_text(json.dumps({'method':method,'request':payload,'error_type':type(error).__name__,'error':str(error)},indent=2),encoding='utf-8')
+  raise
  try:body=json.loads(result[2])
  except (ValueError,UnicodeError):body=result[2].decode('utf-8',errors='replace')
  if isinstance(body,str)and payload and payload.get('method')=='initialize':
@@ -90,7 +95,7 @@ try:
  try:client.navigate('https://example.org',True)
  except RuntimeError:pass
  else:raise AssertionError('Stopped session allowed another navigation')
- (root/'result.json').write_text(json.dumps({'browser_exe':str(exe),'required_version':'0.51.1.2','server':meta['server'],'telemetry':telemetry,'opened_page':opened['page'],'observed_url':result['url'],'stop':closed,'scroll':scroll,'news':news,'owned_page_jpeg_bytes':len(picture),'scope':'Actual Windows neo isolated profile, harmless page, no accounts/model quality or owner speed claims'},indent=2))
+ (root/'result.json').write_text(json.dumps({'browser_exe':str(exe),'required_version':'0.51.1.2','server':meta['server'],'telemetry':telemetry,'opened_page':opened['page'],'observed_url':result['url'],'stop':closed,'scroll':scroll,'news':news,'owned_page_jpeg_bytes':len(picture),'software_rendering':True,'scope':'Actual Windows neo isolated profile, software rendering on GPU-less CI, harmless page, no accounts/model quality or owner speed claims'},indent=2))
  print('BrowserOS native isolated MCP, exact owned navigation, telemetry off, Stop: passed')
 except Exception:
  ImageGrab.grab().save(root/'browseros-operation-failure.png')
