@@ -2,7 +2,7 @@
 import queue
 import threading
 from pathlib import Path
-from .persona_text import strip_speaker_tag,spoken_text,own_reply
+from .persona_text import strip_speaker_tag,spoken_text,own_reply,speaker_context
 from .personas import ROLES
 
 def banter_wait(stop,interval):return stop.wait(interval)
@@ -13,7 +13,7 @@ class WorkspaceVoice:
     def __init__(self, factory=None, text_factory=None):
         self.events=queue.Queue();self.factory=factory or build_runtime
         self.text_factory=text_factory or build_text_router
-        self.stt_route='local';self.groq_audio_consent=False;self.groq_free_confirmed=False;self.input_language='auto';self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
+        self.team_mode=False;self.stt_route='local';self.groq_audio_consent=False;self.groq_free_confirmed=False;self.input_language='auto';self.turn_mode='vad';self.endpoint_mode='fast';self.tts_engine='kokoro';self.runtime=None;self.name='JARVIS';self.busy=False;self.closed=False
         self.generation=0;self.lock=threading.RLock();self.text_cancel=threading.Event();self.reply_actor='JARVIS';self.vision=None;self.dialogue_origin='user'
         from .team_memory import TeamMemory
         self.memory=TeamMemory();self.round_speaker=None;self.pool_config=None;self.banter_stop=threading.Event();self.banter_active=False
@@ -24,7 +24,7 @@ class WorkspaceVoice:
         while True:
             try:self.events.get_nowait()
             except queue.Empty:break
-        with self.lock:self.name=name
+        with self.lock:self.name=name;self.team_mode=False
         self.notify('state','off')
     def start(self,consent=False,cloud=False,model='',verified_free=False,reasoning_off=False,barge_in=False,hold_to_talk=False):
         self.dialogue_origin='user'
@@ -43,8 +43,8 @@ class WorkspaceVoice:
                     if kind=='answer' and isinstance(value,dict):value={**value,'profile':value.get('profile',name)}
                     with self.lock:
                         if not self.closed and ticket==self.generation:self.notify(kind,value)
-                if self.pool_config is not None and self.factory is build_runtime:
-                    runtime=build_runtime(name,notify,cloud,model,verified_free,pool_config=self.pool_config,tts_engine=self.tts_engine)
+                if self.factory is build_runtime:
+                    runtime=build_runtime(name,notify,cloud,model,verified_free,pool_config=self.pool_config,tts_engine=self.tts_engine,cancelled=lambda:self.closed or ticket!=self.generation)
                 else:runtime=self.factory(name,notify,cloud,model,verified_free)
                 with self.lock:
                     if self.closed or ticket!=self.generation:runtime.close();return
@@ -64,7 +64,7 @@ class WorkspaceVoice:
                     if hold_to_talk is True:
                         from .hold_microphone import HoldMic
                         runtime.mic=HoldMic(runtime.mic.vad,runtime.on_utterance,notify)
-                    runtime.teammate_awareness=getattr(self,'teammate_awareness',None);runtime.agent_nodes=getattr(self,'agent_nodes',None);runtime.vision=self.vision;runtime.barge_in=barge_in is True
+                    runtime.team_mode=self.team_mode;runtime.teammate_awareness=getattr(self,'teammate_awareness',None);runtime.agent_nodes=getattr(self,'agent_nodes',None);runtime.vision=self.vision;runtime.barge_in=barge_in is True
                     runtime.interface_context=getattr(self,'interface_context',None);runtime.action_handler=getattr(self,'action_handler',None);runtime.neural_handler=getattr(self,'neural_handler',None);self.runtime=runtime;runtime.reasoning_off=reasoning_off is True;runtime.shared_context=self.memory.messages;runtime.record_turn=lambda user,answer:self.memory.append(runtime.persona if isinstance(runtime.persona,str)and runtime.persona in VOICES else name,user,answer);runtime.enable(consent=True,cloud_consent=cloud)
                 self.notify('state','listening')
             except Exception as exc:
@@ -110,7 +110,7 @@ class WorkspaceVoice:
                 choose=getattr(router,'select_persona',None)
                 if callable(choose):choose(name)
                 pieces=[];answer={}
-                messages=[{'role':'system','content':prompt(name)+(self.interface_context(text)if callable(getattr(self,'interface_context',None))else'')}]+context+[{'role':'user','content':text.strip()}]
+                messages=[{'role':'system','content':prompt(name)+(self.interface_context(text)if callable(getattr(self,'interface_context',None))else'')}]+speaker_context(context,name)+[{'role':'user','content':text.strip()}]
                 awareness=getattr(self,'teammate_awareness',None);local_state=False
                 if awareness is not None:messages,local_state=awareness.attach(messages,name)
                 nodes=getattr(self,'agent_nodes',None)
@@ -428,7 +428,10 @@ class FreeSessionRouter:
     def ask(self,*args,**kw):return self.router.ask(*args,verified_free_providers=self.verified,**kw)
     def stream(self,*args,**kw):return self.router.stream(*args,verified_free_providers=self.verified,**kw)
 
-def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_config=None,tts_engine='kokoro'):
+def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_config=None,tts_engine='kokoro',cancelled=lambda:False):
+    import time
+    started=time.monotonic()
+    if cancelled():raise RuntimeError('Voice startup cancelled')
     from .paths import ensure_layout
     from . import models
     from .voice_assets import ready
@@ -473,6 +476,14 @@ def build_runtime(name,notify,cloud=False,model='',verified_free=False,pool_conf
         runtime=VoiceRuntime(SileroVad(cache/'silero.onnx'),WhisperSTT(cache/'whisper-base',vocabulary='JARVIS team leader. LYRA writer. DEX coder and action specialist.',language=None),router,speaker,notify)
         speaker.select_profile(name)
         runtime.streaming=True;runtime.persona=name
+        notify('status','Preparing local action feedback clips; no microphone or model request starts.')
+        feedback_assets=tuple((str(p.resolve()),p.stat().st_size,p.stat().st_mtime_ns)for p in [assets/'model.onnx',assets/'config.json']+[assets/(v+'.bin')for v in VOICES.values()])
+        for actor in VOICES:
+            speaker.select_profile(actor)
+            if not runtime.completion_feedback.prepare(speaker,speaker.generation,feedback_assets,cancelled=cancelled):raise RuntimeError('Action feedback preparation stopped')
+        runtime.startup_diagnostics={'total_seconds':time.monotonic()-started,'feedback':list(runtime.completion_feedback.preparation),'scope':'Local voice construction only, no microphone or physical playback latency measurement'}
+        notify('status','Local voice preparation finished in '+str(round(runtime.startup_diagnostics['total_seconds'],2))+' seconds. Starting the consented microphone next.')
+        speaker.select_profile(name)
         # No closure over runtime.close: that cycle delays native engine disposal.
         runtime.close_hook=g2p.close if g2p else lambda:None
         return runtime

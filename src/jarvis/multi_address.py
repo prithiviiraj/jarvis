@@ -16,4 +16,5 @@ def addressed(text):
  return tuple(names)if len(names)>=2 else ()
 def request(actor,topic,context):
  from .personas import prompt
- return [{'role':'system','content':prompt(actor)+' The user explicitly addressed several teammates. Reply as '+actor+' only, directly to master, in1or2short sentences. Follow the named order. Use the actual prior replies to avoid copying them; vary naturally, not at random facts. If only called by name, acknowledge warmly. Never fabricate another teammate reply or completed work. This is not a discussion or extra summary turn.'}]+context[-12:]+[{'role':'user','content':topic[:1000]}]
+ from .persona_text import speaker_context
+ return [{'role':'system','content':prompt(actor)+' The user explicitly addressed several teammates. Reply as '+actor+' only, directly to master, in1or2short sentences. Follow the named order. Use the actual prior replies to avoid copying them; vary naturally, not at random facts. If only called by name, acknowledge warmly. Never fabricate another teammate reply or completed work. This is not a discussion or extra summary turn.'}]+speaker_context(context[-12:],actor)+[{'role':'user','content':topic[:1000]}]

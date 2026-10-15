@@ -2,6 +2,8 @@
 import pathlib,sys,json,os,hashlib,urllib.request
 ROOT=pathlib.Path(sys._MEIPASS)if getattr(sys,'frozen',False)else pathlib.Path(__file__).resolve().parent
 CACHE=pathlib.Path(os.environ.get('JARVIS_DATA_DIR',str(pathlib.Path(os.environ.get('LOCALAPPDATA',pathlib.Path.home()))/'JARVIS')))/'models'/'embeddinggemma-2-914f7f8'
+from collections import OrderedDict
+VECTOR_CACHE=OrderedDict();CACHE_MODEL=None
 ASSETS=json.loads((ROOT/'assets.json').read_text());MODEL=None;MODE=None
 TYPES={'.md':'text','.txt':'text','.py':'code','.ts':'code','.tsx':'code','.js':'code','.json':'code','.jpg':'image','.jpeg':'image','.png':'image','.webp':'image','.mp4':'video','.mov':'video','.wav':'audio','.mp3':'audio','.flac':'audio'}
 def digest(p):
@@ -43,7 +45,7 @@ def setup():
  progress('complete','Search model ready. No personal files scanned.',100,total,total)
  return {'status':'Verified search model ready; no personal files scanned'}
 def load(mode):
- global MODEL,MODE
+ global MODEL,MODE,CACHE_MODEL
  if MODEL is not None and MODE==mode:return MODEL
  if mode not in ('text','vision','audio','all'):raise ValueError('Unsupported encoder set')
  if not verified():raise ValueError('Run the reviewed1.526GB model setup first')
@@ -53,7 +55,7 @@ def load(mode):
  configs={'text':{'vision_config':None,'audio_config':None},'vision':{'audio_config':None},'audio':{'vision_config':None},'all':{}}
  device='cuda'if torch.cuda.is_available()else'cpu';dtype=torch.bfloat16 if device=='cuda'and torch.cuda.is_bf16_supported()else torch.float32
  torch.set_num_threads(min(4,os.cpu_count()or 1))
- MODEL=None
+ MODEL=None;CACHE_MODEL=None;VECTOR_CACHE.clear()
  import gc;gc.collect()
  if torch.cuda.is_available():torch.cuda.empty_cache()
  progress('loading','Loading local search model. This can take a while; no files leave your laptop.')
@@ -107,16 +109,33 @@ def retrieve(request,model=None):
  if request['action']=='search'and(not isinstance(query,str)or not query.strip()or len(query)>1000):raise ValueError('Enter a short retrieval query')
  rows,truncated=records(request['folder'],mode)
  if not rows:return {'status':'No supported files in the selected scope','results':[],'links':[]}
- model=model or load(mode);vectors=[]
+ model=model or load(mode);vectors=[];hits=0;misses=0
+ global CACHE_MODEL
+ if CACHE_MODEL is not model:VECTOR_CACHE.clear();CACHE_MODEL=model
  if len(rows)>100:raise ValueError('Retrieval scope exceeded')
  for index,r in enumerate(rows):
   progress('searching','Reading selected file '+str(index+1)+' of '+str(len(rows)),round(index*100/len(rows),1))
   kwargs={'truncate_dim':dims,'normalize_embeddings':True,'convert_to_numpy':True}
   if r['kind']in ('text','code'):kwargs['prompt_name']='Document'
-  vector=np.asarray(model.encode(media_input(r)if r['kind']in ('audio','video')else r['input'],**kwargs),dtype='float32').reshape(-1)
-  if vector.shape!=(dims,)or not np.isfinite(vector).all()or np.linalg.norm(vector)==0:raise ValueError('Invalid document embedding')
-  vectors.append(vector/np.linalg.norm(vector))
- matrix=np.asarray(vectors);base={'status':'Local similarity candidates ready','truncated':truncated,'chunks':len(rows),'dimensions':dims,'model_revision':'914f7f89142e33e77833254d9c9b90c3cef7303b','scope':'Similarity is not truth. Text first24kchars in6kchunks; audio first30seconds mono16kHz; video first30seconds up to29frames; not full long-video coverage. No files changed or context sent.'}
+  # RAM-only cache. Text keys include exact current content, media keys include
+  # current path/stat and bytes digest. No personal vectors are written to disk.
+  source=r['input']
+  if r['kind']in ('image','audio','video'):
+   path=pathlib.Path(next(iter(source.values())));stat=path.stat()
+   fingerprint={'path':str(path.resolve()),'size':stat.st_size,'mtime':stat.st_mtime_ns,'sha256':digest(path)}
+  else:fingerprint=source
+  key=(mode,dims,r['kind'],hashlib.sha256(json.dumps(fingerprint,ensure_ascii=True,sort_keys=True).encode()).hexdigest())
+  vector=VECTOR_CACHE.pop(key,None)
+  if vector is None:
+   misses+=1
+   vector=np.asarray(model.encode(media_input(r)if r['kind']in ('audio','video')else source,**kwargs),dtype='float32').reshape(-1)
+   if vector.shape!=(dims,)or not np.isfinite(vector).all()or np.linalg.norm(vector)==0:raise ValueError('Invalid document embedding')
+   vector=vector/np.linalg.norm(vector)
+  else:hits+=1
+  VECTOR_CACHE[key]=vector
+  while len(VECTOR_CACHE)>256:VECTOR_CACHE.popitem(last=False)
+  vectors.append(vector)
+ matrix=np.asarray(vectors);base={'status':'Local similarity candidates ready','truncated':truncated,'chunks':len(rows),'cache':{'document_hits':hits,'document_encodes':misses,'scope':'RAM-only exact-content vector reuse; current query encoded on every search'},'dimensions':dims,'model_revision':'914f7f89142e33e77833254d9c9b90c3cef7303b','scope':'Similarity is not truth. Text first24kchars in6kchunks; audio first30seconds mono16kHz; video first30seconds up to29frames; not full long-video coverage. No files changed or context sent.'}
  if request['action']=='links':
   scores=matrix@matrix.T;links=[]
   for i,r in enumerate(rows):

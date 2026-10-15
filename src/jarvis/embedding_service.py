@@ -1,7 +1,7 @@
 """Local isolated EmbeddingGemma worker. Retrieval never authorizes tools or disclosure."""
 import pathlib,subprocess,json,threading,sys,os
 class EmbeddingService:
- def __init__(self):self.process=None;self.busy=False;self.status='Optional runtime not loaded';self.error='';self.results=[];self.links=[];self.details={};self.progress={};self.selected_root=None;self.lock=threading.Lock();self.generation=0
+ def __init__(self):self.process=None;self.busy=False;self.status='Optional runtime not loaded';self.error='';self.results=[];self.links=[];self.details={};self.progress={};self.selected_root=None;self.search_query='';self.operation=0;self.lock=threading.Lock();self.generation=0
  def executable(self):
   if getattr(sys,'frozen',False):
    p=pathlib.Path(sys.executable).parent.parent/'embedding-runtime'/'jarvis-embedding.exe'
@@ -17,6 +17,8 @@ class EmbeddingService:
   if action not in ('check','setup','search','links'):raise ValueError('Unsupported embedding action')
   import copy
   request=copy.deepcopy(request)
+  self.operation+=1
+  self.search_query=request.get('query','')if action=='search'else''
   self.selected_root=None;self.results=[];self.links=[]
   self.busy=True;self.error='';self.progress={'phase':'starting','percent':None};ticket=self.generation;self.status={'check':'Checking installed search model files','setup':'Starting verified model download','search':'Starting local file search','links':'Looking for similar local files'}[action]
   def run():
@@ -47,6 +49,13 @@ class EmbeddingService:
    finally:
     if ticket==self.generation:self.busy=False
   t=threading.Thread(target=run,daemon=True);t.start();return t
+ def search_notes(self,root,query):
+  """Explicit owner note query only. No download or silent cloud fallback."""
+  if root is None or self.busy:return False
+  try:self.executable()
+  except ValueError:return False
+  self.start('search',{'folder':str(root),'query':query,'encoders':'text','dimensions':256,'consent':True})
+  return True
  def stop(self):
   self.generation+=1;self.busy=False
   if self.process is not None:self.process.kill();self.process=None
@@ -57,4 +66,4 @@ class EmbeddingService:
   from .obsidian import Vault
   text=Vault(root).read(name)
   return {'name':name,'preview':text[:1200]}
- def snapshot(self):return {'busy':self.busy,'status':self.status,'error':self.error,'results':self.results,'links':self.links,'details':self.details,'progress':self.progress,'selected_folder':str(self.selected_root)if self.selected_root else None,'scope':'Local candidate similarity, not truth, permission, speech or action routing'}
+ def snapshot(self):return {'operation':self.operation,'query':self.search_query,'busy':self.busy,'status':self.status,'error':self.error,'results':self.results,'links':self.links,'details':self.details,'progress':self.progress,'selected_folder':str(self.selected_root)if self.selected_root else None,'scope':'Local candidate similarity, not truth, permission, speech or action routing'}

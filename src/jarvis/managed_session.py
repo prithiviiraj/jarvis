@@ -66,5 +66,8 @@ class ManagedSession:
    return self.runtime.route()
  def check(self):
   with self.lock:
+   if self.active:
+    try:self.runtime.route() # polls the owned process; snapshot alone can be stale
+    except ValueError:self.active=False;self.status='Owned model stopped; route unavailable'
    if self.active and self.runtime.snapshot()['state']!='loaded':self.active=False;self.status='Owned model stopped; route unavailable'
   return self.snapshot()

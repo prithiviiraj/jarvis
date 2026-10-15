@@ -68,7 +68,28 @@ def own_reply(text,actor,context=()):
     for name in ROLES:
         if name==actor:continue
         n=re.escape(name)
+        if re.search(r"\b(?:I am|I'm|I’m|my name is)\s+"+n+r"\b",text,re.I):
+            raise ValueError('Reply claimed another profile identity')
         if re.search(r'(?:^|\n)\s*'+n+r'\s*:|\['+n+r'(?:\]|[,! :])|\b'+n+r'\s+(?:says|said|replies|replied|argues|thinks|thought|feels)\b',text,re.I):
             # Quoting an actual prior line is allowed only when the same text is present.
             if text not in str(context):raise ValueError('Another profile reply must come from its own actual route')
     return text
+
+
+def speaker_context(rows,actor):
+    """Project shared history for one speaker without rewriting the stored archive.
+
+    Own replies remain assistant turns. Other speakers are explicitly quoted
+    conversation data, not demonstrations of the current assistant's identity.
+    """
+    if actor not in ROLES:raise ValueError('Unknown profile')
+    out=[]
+    for row in rows:
+        item=dict(row);content=item.get('content')
+        if item.get('role')=='assistant' and isinstance(content,str):
+            match=_TAG.match(content)
+            if match and match.group(1).upper()!=actor:
+                name=match.group(1).upper()
+                item={'role':'user','content':'Historical teammate reply, quoted context only (not a new request and not your identity): '+name+': '+content[match.end():]}
+        out.append(item)
+    return out

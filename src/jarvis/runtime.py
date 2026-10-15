@@ -2,7 +2,7 @@
 import threading,time,uuid
 from .audio import ContinuousMic
 from .personas import prompt
-from .persona_text import strip_speaker_tag,spoken_text,spoken_chunks
+from .persona_text import strip_speaker_tag,spoken_text,spoken_chunks,speaker_context
 from .voice_feedback import safe_route,echo_reply,vision_unavailable
 from .voice_feedback import runtime_device_scope
 class VoiceRuntime:
@@ -10,10 +10,34 @@ class VoiceRuntime:
         self.stt=stt;self.router=router;self.speaker=speaker;self.notify=notify
         self.cancel=threading.Event();self.streaming=False;self.reasoning_off=False;self.lock=threading.RLock();self.generation=0;self.enabled=False;self.busy=False;self.history=[];self.cloud=False;self.persona='JARVIS'
         self.turn_metrics=None;self.shared_context=None;self.record_turn=None;self.close_hook=None
-        self.vision=None;self.barge_in=False;self.fast_ack=None
+        self.team_mode=False;self.vision=None;self.barge_in=False;self.fast_ack=None
+        from .completion_feedback import CompletionFeedback
+        self.completion_feedback=CompletionFeedback();self.pending_utterance=None;self.interrupt_capture=False
         self.mic=ContinuousMic(vad,self.on_utterance,notify)
         self.speaker.playback_event=lambda event,text,actor,sr,n:self.notify('speech-caption',{'active':event=='start','name':actor or self.persona,'text':text,'duration_s':n/sr if sr else 0,'at':time.monotonic()})
         self.speaker.output_event=self.output_event
+    def poll_completion(self):
+        """Use the session's one speaker between turns. Never start a mic/session."""
+        with self.lock:
+            if not self.enabled or self.busy or self.cancel.is_set():return False
+            event=self.completion_feedback.take()
+            if event is None:return False
+            self.busy=True;generation=self.generation;ticket=self.speaker.generation
+            self.mic.suspend()
+        def work():
+            try:
+                if self.valid(generation)and not self.cancel.is_set():
+                    self.notify('state','speaking')
+                    played=self.completion_feedback.play(event,self.speaker,ticket)
+                    if not played and self.valid(generation):self.notify('status','Completion is shown on screen; prepared feedback unavailable for this voice.')
+            except Exception as error:
+                if self.valid(generation):self.notify('error','Completion voice failed: '+type(error).__name__+'. Check the result shown on screen.')
+            finally:
+                with self.lock:
+                    self.busy=False
+                    if self.valid(generation)and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
+                self._start_deferred()
+        self.feedback_worker=threading.Thread(target=work,daemon=True);self.feedback_worker.start();return True
     def output_event(self,event,ticket,sr):
         with self.lock:
             current=self.turn_metrics
@@ -29,8 +53,8 @@ class VoiceRuntime:
             except Exception:self.enabled=False;raise
     def pause(self):
         # Never wait on the turn worker under its state lock.
-        with self.lock:self.enabled=False;self.generation+=1;self.cancel.set()
-        self.mic.close();self.speaker.stop();self.notify('state','off')
+        with self.lock:self.enabled=False;self.generation+=1;self.cancel.set();self.pending_utterance=None;self.interrupt_capture=False
+        self.mic.close();self.speaker.stop();self.completion_feedback.clear();self.notify('state','off')
     def ask_popup(self,current,asked):
         """One local question between turns. No model request or extra player."""
         with self.lock:
@@ -48,12 +72,33 @@ class VoiceRuntime:
                 with self.lock:
                     self.busy=False;self.popup_active=False
                     if self.valid(generation) and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
+                self._start_deferred()
         self.popup_worker=threading.Thread(target=work,daemon=True);self.popup_worker.start();return True
     def on_utterance(self,audio):
         with self.lock:
-            if not self.enabled or self.busy:return
+            if not self.enabled:return
+            if self.busy:
+                if self.interrupt_capture and self.pending_utterance is None:self.pending_utterance=(self.generation,audio)
+                return
+            self.interrupt_capture=False
             self.busy=True;generation=self.generation;cloud=self.cloud;history=list(self.history)
         threading.Thread(target=self.turn,args=(audio,generation,cloud,history),daemon=True).start()
+    def _start_deferred(self):
+        with self.lock:
+            if self.busy:return
+            pending=getattr(self,'pending_utterance',None);self.pending_utterance=None
+            if pending and self.enabled and pending[0]==self.generation:self.on_utterance(pending[1])
+    def interrupt_and_listen(self):
+        """Explicit Ctrl+Alt edge: cancel output, reset echo frames, keep session."""
+        with self.lock:
+            if not self.enabled or self.cancel.is_set():return False
+            generation=self.generation
+        self.interrupt(generation)
+        with self.lock:
+            if not self.enabled:return False
+            self.interrupt_capture=True;self.pending_utterance=None
+            self.mic.suspend();self.mic.on_onset=None;self.mic.resume()
+        return True
     def valid(self,generation):return self.enabled and generation==self.generation
     def turn(self,audio,generation,cloud,history):
         ticket=self.speaker.generation;started=time.monotonic();metrics={};stage='transcription';parallel_dispatched=False;turn_id=uuid.uuid4().hex;route_meta={}
@@ -121,6 +166,10 @@ class VoiceRuntime:
             from .team_discussion import requested,order,clean_reply,messages as discussion_messages
             from .multi_address import addressed,request as addressed_request
             direct=addressed(text)if not requested(text)else()
+            if getattr(self,'team_mode',False) and not direct and not requested(text):
+                import re
+                # Explicit single-name address still reaches only that teammate.
+                if not re.match(r'^\s*(?:(?:hey|hi|hello)[,!.:]?\s+)?(?:JARVIS|LYRA|DEX)\b',text,re.I):direct=('JARVIS','LYRA','DEX')
             if direct or requested(text):
                 stage='team discussion';context=list((self.shared_context() if callable(self.shared_context) else history)[-12:]);answers=[]
                 actors=direct or order(text,self.persona)
@@ -161,6 +210,7 @@ class VoiceRuntime:
                         self.notify('answer',dict(last,text=answer_text,profile=actor,stream_id=stream_id,turn_id=turn_id,partial=False))
                     else:
                         reply=discussion_router.ask(request,cloud_consent=discussion_cloud,cancel=self.cancel)
+                        metrics.setdefault('first_text_s',time.monotonic()-started)
                         answer_text=clean_reply(reply.get('text'));own_reply(answer_text,actor,context)
                         if len(answer_text)>1500:raise ValueError('Team reply too long')
                         if not self.valid(generation)or self.cancel.is_set():return
@@ -170,6 +220,7 @@ class VoiceRuntime:
                     context.append({'role':'assistant','content':'['+actor+'] '+answer_text});answers.append(answer_text)
                     if callable(self.record_turn):self.record_turn(text,answer_text)
                 self.history=(history+[{'role':'user','content':text}]+context[-6:])[-12:]
+                self.notify('turn-result',{'turn_id':turn_id,'result':'completed',**route_meta,**runtime_device_scope(self.stt,self.speaker)})
                 return
             # Direct spoken address selects one actual persona and installed voice.
             import re
@@ -190,7 +241,7 @@ class VoiceRuntime:
                 self.notify('answer',{'text':unavailable,'profile':self.persona,'provider':'verified-app-state','turn_id':turn_id,'partial':False});self.notify('state','speaking');self.speaker.speak(unavailable,generation=ticket);return
             stage='local model response'
             context=self.shared_context() if callable(self.shared_context) else history[-6:]
-            messages=[{'role':'system','content':prompt(self.persona)+(self.interface_context(text)if callable(getattr(self,'interface_context',None))else'')}]+context+[{'role':'user','content':text}]
+            messages=[{'role':'system','content':prompt(self.persona)+(self.interface_context(text)if callable(getattr(self,'interface_context',None))else'')}]+speaker_context(context,self.persona)+[{'role':'user','content':text}]
             state_local=False
             for source in (getattr(self,'teammate_awareness',None),getattr(self,'agent_nodes',None)):
                 if source is not None:
@@ -248,6 +299,7 @@ class VoiceRuntime:
             else:
                 answer=turn_router.ask(messages,cloud_consent=cloud,**({'local_only':True}if state_local else({'configured_chat':True}if getattr(type(turn_router),'supports_configured_chat',False)is True else{})))
                 answer['text']=strip_speaker_tag(answer['text'])
+                own_reply(answer['text'],self.persona,context)
                 if echo_reply(answer['text'],text):raise RuntimeError('Model repeated the question instead of answering')
                 with self.lock:
                     if not self.valid(generation):return
@@ -288,6 +340,7 @@ class VoiceRuntime:
                 if self.valid(generation) and not self.cancel.is_set():self.mic.resume();self.notify('state','listening')
                 elif self.valid(generation):
                     self.enabled=False;self.mic.stop_event.set();self.speaker.stop();self.notify('state','off - voice failed, press Enable to retry')
+            self._start_deferred()
     def interrupt(self,generation):
         """User speech onset during our reply: stop output, keep their new utterance."""
         with self.lock:

@@ -10,7 +10,7 @@ class TextChatTests(unittest.TestCase):
   self.assertIsNone(c.runtime);c.factory.assert_not_called();self.assertFalse(r.stream.call_args.kwargs['cloud_consent']);self.assertEqual(c.memory.snapshot(),[('JARVIS','Hello','Local reply')]);self.assertFalse(c.busy)
  def test_shared_context_profile_identity(self):
   c,r=self.controller();c.memory.append('JARVIS','first','answer');c.select('DEX');c.send_text('What was said?').join(2)
-  m=r.stream.call_args.args[0];self.assertIn('You are DEX',m[0]['content']);self.assertEqual(m[2]['content'],'[JARVIS] answer');self.assertEqual(c.memory.snapshot()[-1][0],'DEX')
+  m=r.stream.call_args.args[0];self.assertIn('You are DEX',m[0]['content']);self.assertEqual(m[2]['role'],'user');self.assertIn('Historical teammate reply',m[2]['content']);self.assertTrue(m[2]['content'].endswith('JARVIS: answer'));self.assertEqual(c.memory.snapshot()[-1][0],'DEX')
  def test_blank_and_size(self):
   c,r=self.controller()
   for t in ['', '  ', 'a'*2001,None]:

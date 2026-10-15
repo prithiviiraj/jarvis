@@ -101,25 +101,30 @@ def navigation(main,name):
  def invoke(title):
   control=main.child_window(title=title,control_type='Button',visible_only=True);control.wait('exists enabled',timeout=20);activate(control);time.sleep(.15)
  if name=='Settings':
-  if main.child_window(title='Explore tools',control_type='Button').exists():invoke('Explore tools')
-  elif not main.child_window(title='Tools',control_type='Button').exists():
-   invoke('More');invoke('Settings');invoke('Explore tools')
-  more=main.child_window(title='More settings',control_type='Button')
-  if more.exists()and not main.child_window(title='Advanced',control_type='Button').exists():activate(more);time.sleep(.15)
+  if main.child_window(title='Living knowledge graph',visible_only=True).exists():invoke('Home')
+  if main.child_window(title='Close more options',control_type='Button',visible_only=True).exists():invoke('Close more options')
+  invoke('Settings')
+  simple=main.child_window(title='Choose connection',control_type='Button',visible_only=True)
+  if simple.exists():activate(simple);time.sleep(.15)
+  all_settings=main.child_window(title='All settings',control_type='Button')
+  if all_settings.exists()and not main.child_window(title='Advanced',control_type='Button',visible_only=True).exists():activate(all_settings);time.sleep(.15)
  elif name=='Team room':
-  composer=main.child_window(title='Message draft',control_type='Edit',visible_only=True)
-  for _ in range(2):
-   if composer.exists():break
-   invoke('Previous view')
-   try:composer.wait('visible',timeout=2);break
-   except Exception:
-    if not main.child_window(title='Explore tools',control_type='Button',visible_only=True).exists():raise
-  composer.wait('visible',timeout=10)
- elif name in ('Expand conversation','Collapse conversation','New chat'):
-  if not main.child_window(title='What would you like to do?',control_type='Text',visible_only=True).exists():invoke('More')
-  if name=='New chat':
-   activate(main.child_window(title='Notes and chats',control_type='Button'));time.sleep(.2);activate(drawer_control(main,name));time.sleep(.2)
-  else:invoke(name)
+  if main.child_window(title='Close more options',control_type='Button',visible_only=True).exists():invoke('Close more options')
+  invoke('Home');main.child_window(title='Message draft',control_type='Edit',visible_only=True).wait('visible',timeout=10)
+ elif name=='Brain & APIs':invoke('Connections')
+ elif name=='Voices':invoke('Voice')
+ elif name=='My notes':
+  invoke('Home');invoke('More');activate(drawer_control(main,'My notes'));time.sleep(.15)
+ elif name=='New chat':
+  # Side rail owns New chat; drawer may contain a second instance only while open.
+  if main.child_window(title='Close more options',control_type='Button',visible_only=True).exists():invoke('Close more options')
+  invoke('＋ New chat')
+ elif name in ('Expand conversation','Collapse conversation'):
+  drawer=main.child_window(title='More options',control_type='Window')
+  if drawer.exists():
+   activate(drawer_control(main,name));time.sleep(.15)
+  else:
+   invoke('More');activate(drawer_control(main,name));time.sleep(.15)
  else:invoke(name)
 
 try:
@@ -135,15 +140,10 @@ try:
  activate(main.child_window(title='Skip setup guide',control_type='Button'));main.child_window(title='Skip setup guide',control_type='Button').wait_not('exists',timeout=10)
  navigation(main,'Settings')
  # Always-visible Settings return, including the three-card landing.
- return_team=main.child_window(title='Back to Team room',control_type='Button',visible_only=True)
- return_team.wait('exists enabled',timeout=10)
- main.capture_as_image().save('ui-evidence/native-settings-return-detail.png')
- activate(main.child_window(title='Previous view',control_type='Button',visible_only=True))
- main.child_window(title='Explore tools',control_type='Button').wait('visible',timeout=10)
- main.capture_as_image().save('ui-evidence/native-settings-return-landing.png')
- return_team.wait('exists enabled',timeout=10);activate(return_team)
+ return_team=main.child_window(title='Back to Home',control_type='Button',visible_only=True)
+ return_team.wait('exists enabled',timeout=10);main.capture_as_image().save('ui-evidence/native-settings-return-detail.png');activate(return_team)
  main.child_window(title='Message draft',control_type='Edit').wait('visible',timeout=10)
- checks.append('native Settings detail and landing explicit Team return visible and enabled; composer reached')
+ checks.append('native unified Settings return visible and enabled; Home composer reached')
  navigation(main,'Settings')
  # Real work-area readback, including decorated borders and taskbar exclusion.
  from ctypes import wintypes
@@ -237,9 +237,16 @@ try:
   import re
   # UIA tree confirms exact tile names under the named Tools launcher Group.
   # Scope avoids the separate Live screen share navigation button.
-  tiles=('Laya activate','Camera','Live screen','Proactive')
-  pattern=('(?s).*DEX.*Coder' if name=='DEX Coder' else '^'+re.escape(name)+'$')
+  tiles=('Windows app controls','Camera','Live screen','Proactive')
+  name={'JARVIS Team leader':'Select JARVIS','LYRA Writer':'Select LYRA','DEX Coder':'Select DEX'}.get(name,name)
+  pattern='^'+re.escape(name)+'$'
   target=root or window
+  if name.startswith('Select ') and root is None:
+   if not window.child_window(title='More options',control_type='Window').exists():activate(window.child_window(title='More',control_type='Button'));time.sleep(.15)
+   target=window.child_window(title='More options',control_type='Window')
+  if name in ('Expand conversation','Collapse conversation','New chat') and root is None:
+   drawer=window.child_window(title='More options',control_type='Window')
+   if drawer.exists():target=drawer
   if name in tiles:
    target=target.child_window(title='Tools launcher',control_type='Group');target.wait('exists',timeout=20)
    pattern='^'+re.escape(name)+'$'
@@ -302,13 +309,13 @@ try:
  def click(name,root=None):
   # Navigation changed, effects/reviews remain real native controls.
   if name=='Add local draft':name='Send message'
-  if name in ('Settings','Team room','Expand conversation','Collapse conversation','New chat'):navigation(window,name);checks.append(name);return
+  if name in ('Settings','Team room','Brain & APIs','Voices','Expand conversation','Collapse conversation','New chat','My notes'):navigation(window,name);checks.append(name);return
   if name=='Agents':
    click('Settings');click('Team options');return
   if name=='Voice setup':
    click('Settings');click('Voices');return
   if name in ('Transcript ON','Transcript OFF'):
-   navigation(window,'Settings');activate(button('Appearance'))
+   navigation(window,'Settings');navigation(window,'Appearance')
   # Re-entering Settings remounts the native <details> collapsed. Reveal it
   # only when the requested legacy review control is inside that panel.
   advanced_names={'Enable browser commands','Download Laya model','Load inbuilt Laya','Stop Laya setup / engine','Enable shared Laya','Stop Laya proposals','Prepare browser command','Review / run browser command','Read available links locally'}
@@ -322,6 +329,11 @@ try:
   # does not wait for HTML enabled state and fails with COMError in that gap.
   button(name,root).wait('enabled',timeout=20)
   activate(button(name,root))
+  if name.startswith('Select ') or name in ('JARVIS Team leader','LYRA Writer','DEX Coder'):
+   closer=window.child_window(title='Close more options',control_type='Button',visible_only=True)
+   if closer.exists():activate(closer);time.sleep(.15)
+  if name=='Advanced browser controls':
+   legacy=window.child_window(title='Legacy Brave evaluation controls',control_type='Button');legacy.wait('exists',timeout=10);activate(legacy);time.sleep(.15)
   if name in ('Transcript ON','Transcript OFF'):
    # UIA invoke queues async IPC. Wait for actual native save/readback before close.
    confirmed='Transcript confirmed '+('ON'if name=='Transcript ON'else'OFF')
@@ -436,18 +448,19 @@ try:
  source=auto_root/'phase2-native-source.md';source.write_text('# Exact native source\n\nPhase2 retrieval sentinel. Notes never grant permissions.',encoding='utf-8')
  click('More');activate(window.child_window(title='Notes and chats',control_type='Button'));query=window.child_window(title='Find knowledge source',control_type='Edit');query.wait('exists',timeout=15);query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
  click('Search knowledge sources')
+ button('phase2-native-source.md').wait('exists',timeout=10);click('phase2-native-source.md')
  deadline=time.monotonic()+10
  while time.monotonic()<deadline:
   content=ui_text()
-  if 'Phase2 retrieval sentinel. Notes never grant permissions.' in content and 'phase2-native-source.md' in content:break
+  if 'Phase2 retrieval sentinel. Notes never grant permissions.' in content and 'phase2-native-source.md' in content and 'Full captured note.' in content:break
   time.sleep(.15)
  else:raise RuntimeError('Native knowledge retrieval/source IPC missing: '+content[-1500:])
  assert 'Full captured note.' in content,'Source capture completeness missing'
  assert not any('body'in row for row in requests),'Local source was disclosed to inference'
  button('Master, read this source aloud').wait('exists',timeout=10) # Never invoked: source capture must not start speech with or without cached assets.
  window.capture_as_image().save('ui-evidence/native-knowledge-retrieval.png')
- assert any(x.window_text()=='Living knowledge graph'for x in window.descendants()),'Real graph region missing';window.capture_as_image().save('ui-evidence/native-approved-3d-graph.png')
- click('Close knowledge note');source.unlink()
+ click('My notes');window.child_window(title='Living knowledge graph').wait('exists',timeout=15);assert any(x.window_text()=='Living knowledge graph'for x in window.descendants()),'Real notes graph region missing';window.capture_as_image().save('ui-evidence/native-approved-3d-graph.png')
+ click('Close knowledge note');source.unlink();click('Team room')
  checks.append('actual native source retrieval, capture and 3D graph region; no model disclosure or unapproved audio')
 
 
@@ -677,7 +690,7 @@ try:
 
 
  click('Enable browser commands');click('Confirm browser permission');click('Team room')
- button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Talk to Lyra').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('JARVIS Team leader');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
+ button('LYRA Writer').wait('exists',timeout=10);click('LYRA Writer');button('Start listening').wait('exists',timeout=10);window.capture_as_image().save('ui-evidence/native-lyra-explicit-voice-off.png');click('Select JARVIS');checks.append('profile switch visibly stops Mic; LYRA explicit start button; no microphone started')
  field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text('JARVIS. OPEN. BROWSER.');click('Add local draft')
  button('Confirm Team browser action').wait('exists',timeout=10)
  assert 'open-window'in ui_text()
@@ -706,7 +719,7 @@ try:
  checks.append('native compound YouTube exact Team review/cancel, no navigation');click('Settings');click('Advanced');click('Advanced browser controls');click('Stop browser control')
 
  # The owner's exact live-test sentence must invoke actual multi-round IPC, not solo chat.
- click('Team room');click('JARVIS Team leader');click('New chat');time.sleep(.5)
+ click('Team room');click('Select JARVIS');click('New chat');time.sleep(.5)
  phrase='Can you speak with DEX together? Speak about why politics is important?'
  before=len(requests);field=window.child_window(title='Message draft',control_type='Edit');field.wrapper_object().set_edit_text(phrase);click('Add local draft')
  deadline=time.monotonic()+20
@@ -757,7 +770,9 @@ try:
  # Live React polling may detach Invoke-pattern wrappers. Use native mouse
  # input with fresh bounds and confirm the state changed before source checks.
  focus_workspace()
- click('More');expand=button('Expand conversation');expand.wait('enabled',timeout=20)
+ click('More');collapse=window.child_window(title='More options',control_type='Window').child_window(title='Collapse conversation',control_type='Button')
+ if collapse.exists():activate(collapse);click('More')
+ expand=button('Expand conversation');expand.wait('enabled',timeout=20)
  expand.wrapper_object().click_input()
  click('More');button('Collapse conversation').wait('exists',timeout=10);click('More')
  text=ui_text()

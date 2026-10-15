@@ -169,7 +169,7 @@ class MultiAddress(unittest.TestCase):
    for _ in range(200):
     if not v.busy:break
     time.sleep(.001)
-   state=b.execute({'command':'status'});self.assertEqual([n for n,m in seen],['JARVIS','LYRA']);self.assertIn('[JARVIS] Yes, master.',str(seen[1][1]));self.assertEqual([m['name']for m in state['messages']if m['name']!='You'],['JARVIS','LYRA']);v.send_text.assert_not_called()
+   state=b.execute({'command':'status'});self.assertEqual([n for n,m in seen],['JARVIS','LYRA']);self.assertIn('JARVIS: Yes, master.',str(seen[1][1]));self.assertEqual([m['name']for m in state['messages']if m['name']!='You'],['JARVIS','LYRA']);v.send_text.assert_not_called()
   finally:b.close()
  def test_streaming_speech_before_rest_of_tokens(self):
   from jarvis.speech_queue import SpeechQueue
@@ -185,7 +185,7 @@ class MultiVoice(unittest.TestCase):
  def test_voice_two_list_order_and_prior_actual_reply(self):
   from jarvis.runtime import VoiceRuntime
   stt=Mock();stt.transcribe.return_value='Jarvis, Lyra';router=Mock();router.ask.side_effect=[{'text':'Yes, master.'},{'text':'Master, I am here.'}];speaker=Mock();speaker.generation=1;events=[];v=VoiceRuntime(Mock(),stt,router,speaker,lambda *a:events.append(a));v.mic=Mock();v.enable(True)
-  try:v.turn([0],v.generation,False,[]);self.assertEqual([x['profile']for k,x in events if k=='answer'],['JARVIS','LYRA']);self.assertEqual(router.ask.call_count,2);self.assertIn('[JARVIS] Yes, master.',str(router.ask.call_args.args[0]));self.assertEqual(speaker.speak.call_count,2)
+  try:v.turn([0],v.generation,False,[]);self.assertEqual([x['profile']for k,x in events if k=='answer'],['JARVIS','LYRA']);self.assertEqual(router.ask.call_count,2);self.assertIn('JARVIS: Yes, master.',str(router.ask.call_args.args[0]));self.assertEqual(speaker.speak.call_count,2)
   finally:v.close()
 
 class ContextProvenance(unittest.TestCase):

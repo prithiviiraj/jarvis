@@ -8,9 +8,9 @@ for(let i=0;i<40;i++){page=context.pages().find(p=>!/[?&](overlay|pill|caption)(
 if(!page)throw Error('No actual Tauri workspace');const errors=[];page.on('pageerror',e=>errors.push(e.message));
 if(!await page.evaluate(()=>!!window.__TAURI_INTERNALS__))throw Error('Not native Tauri');
 const intro=page.getByRole('button',{name:'Skip intro',exact:true});if(await intro.isVisible())await intro.click();
-await page.getByRole('button',{name:'DEX Coder',exact:true}).waitFor();
+await page.getByLabel('Speaking profile',{exact:true}).waitFor();
 const connect=page.getByRole('button',{name:'Connect bundled core',exact:true});if(await connect.isVisible())await connect.click();
-await page.getByRole('button',{name:'DEX Coder',exact:true}).click();
+await nav.profile(page,'DEX');
 await nav.settings(page);
 await page.getByRole('button',{name:'Appearance',exact:true}).click();
 await page.getByLabel('Font selector').selectOption('Verdana');

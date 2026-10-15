@@ -1,9 +1,9 @@
 import{useState}from'react';
 const pages=[
- {title:'Give your team a brain',label:'01 / BRAINS',body:'Connect your own API account for chat, including greetings. LM Studio handles private camera and screen questions. Optional cloud image fallback needs its own session permission. A loaded model still needs a real test reply.',art:'brain',action:'Brain & APIs'},
+ {title:'Give your team a brain',label:'01 / BRAINS',body:'Connect your own API account for chat, including greetings. The managed local brain handles private camera and screen questions first; LM Studio is the optional fallback. Optional cloud image fallback needs its own session permission. A loaded model still needs a real test reply.',art:'brain',action:'Brain & APIs'},
  {title:'Your notes, connected',label:'02 / MEMORY',body:'Connect your local Obsidian Brain of Brain to see notes, plans and your roadmap. Your edits stay yours. A note is not an executed task; opening and external changes still need review.',art:'notes',action:'Memory'},
  {title:'Presence, with your permission',label:'03 / CAMERA',body:'Camera starts off. Activate it to enable local face presence and available vision. Presence is not identity or attention. Model-generated greetings need a working local brain and the separate proactive permission.',art:'camera',action:'Tools'},
- {title:'Meet Laya',label:'04 / ACTIONS',body:'Laya supports browser navigation and fixed Windows apps. Activate its local session for direct supported commands, or keep exact review mode. No payments, sending, file changes or shell. Stop ends the session.',art:'browser',action:'Tools'}
+ {title:'Meet Laya',label:'04 / ACTIONS',body:'Connect BrowserOS for bounded own-tab browsing with a current page image. Fixed Windows apps have separate permission and exact action review. No payments, sending, file changes or shell. Stop ends the session.',art:'browser',action:'Tools'}
 ];
 export function Welcome({done}:{done:(destination?:string)=>void}){
  const[index,setIndex]=useState(0),page=pages[index];

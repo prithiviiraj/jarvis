@@ -72,3 +72,12 @@ class RetiredVoiceAddress(unittest.TestCase):
   for name in ('Nova','Sila','Reo'):
    stt=Mock();stt.transcribe.return_value='I want to talk with '+name;router=Mock();router.ask.return_value={'text':'A current reply'};speaker=Mock();v=VoiceRuntime(Mock(),stt,router,speaker);v.mic=Mock();v.persona='JARVIS';v.enable(True);v.turn([],v.generation,False,[])
    self.assertEqual(v.persona,'JARVIS');speaker.select_profile.assert_not_called();v.close()
+
+class StartupCancellation(unittest.TestCase):
+ def test_default_builder_receives_stop_state_without_ever_starting_stale_microphone(self):
+  from unittest.mock import patch
+  entered=threading.Event();release=threading.Event();runtime=Mock();seen=[]
+  def builder(*args,**kwargs):
+   entered.set();release.wait(2);seen.append(kwargs['cancelled']());return runtime
+  with patch('jarvis.workspace_voice.build_runtime',builder):
+   c=WorkspaceVoice();worker=c.start(True);self.assertTrue(entered.wait(1));c.pause();release.set();worker.join(2);self.assertEqual(seen,[True]);runtime.enable.assert_not_called();runtime.close.assert_called_once();c.close()

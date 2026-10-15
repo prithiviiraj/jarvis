@@ -87,6 +87,8 @@ def run():
     from .audio import ENDPOINT_FRAMES
     assert bridge.voice.endpoint_mode=='fast','Experimental session default must be480ms Fast'
     assert runtime.mic.endpointer.silence_frames==ENDPOINT_FRAMES['fast']==15,'Runtime must apply480ms Fast default'
+    startup=dict(getattr(runtime,'startup_diagnostics',{}));assert len(startup.get('feedback',[]))==3,startup
+    progress('voice-startup-diagnostics',persona=name,**startup)
     runtime.speaker.output_factory=Sink
     caption_events=[];output_events=[];original_playback=runtime.speaker.playback_event;original_output=runtime.speaker.output_event
     def playback(event,text,actor,sr,n):
@@ -118,6 +120,30 @@ def run():
     rows.append({'persona':name,'voice_metrics':metrics,'turn_s':time.monotonic()-started,'wav_s':len(pcm)/24000,'audio_sha256':hashlib.sha256(pcm.tobytes()).hexdigest(),'clean_caption_playback_events':caption_events,'transcript':runtime.history[-2]['content'],'reply':runtime.history[-1]['content']})
     # Keep initial reply measurements isolated, then exercise real popup question
     # and playback with the installed speaker, only STT input phrase controlled.
+    # Prepared real Kokoro completion PCM, one session speaker, no new synthesis
+    # or model request on this result path. Sink is still a simulated device.
+    samples.clear();before=len(calls);caption_before=len(caption_events)
+    from .completion_feedback import TEXT
+    from unittest.mock import patch as check_patch
+    runtime.completion_feedback.record('frozen-feedback-'+name,'browser-page-ready',True)
+    prepared=time.monotonic()
+    with check_patch.object(runtime.speaker,'prepare',side_effect=AssertionError('Result feedback synthesized instead of using prepared PCM')):
+     assert runtime.poll_completion();runtime.feedback_worker.join(30);assert not runtime.feedback_worker.is_alive(),'Prepared feedback playback hung'
+    assert len(calls)==before and samples,'Prepared receipt called model or produced no PCM'
+    assert any(e['event']=='start'and e['text']==TEXT['browser-page-ready']and e['persona']==name for e in caption_events[caption_before:]),caption_events[caption_before:]
+    rows[-1]['startup_diagnostics']=startup;rows[-1]['prepared_feedback']={'completion_seconds':time.monotonic()-prepared,'pcm_chunks':len(samples),'scope':'Prepared real PCM to simulated output. Not physical audibility/latency.'}
+    if name=='JARVIS':
+     # One transcribed utterance, actual sequential local voice syntheses and
+     # loopback model requests. This does not prove simultaneous full-duplex audio.
+     samples.clear();before=len(calls);captions_before=len(caption_events);runtime.team_mode=True
+     with patch.object(type(runtime.stt),'transcribe_cancellable',return_value='Describe this controlled test fixture'):
+      runtime.busy=True;runtime.turn(audio,runtime.generation,False,[])
+     runtime.team_mode=False
+     assert len(calls)==before+3,'ALL did not use three real model routes'
+     observed=[e['persona']for e in caption_events[captions_before:]if e['event']=='start'];ordered=[actor for index,actor in enumerate(observed)if index==0 or observed[index-1]!=actor]
+     assert ordered==['JARVIS','LYRA','DEX']and samples,observed
+     runtime.persona=name;runtime.speaker.select_profile(name);runtime.notify('voice-actor',name)
+     rows[-1]['all_voice_scope']='One controlled STT utterance, three actual loopback requests and distinct installed Kokoro profiles in order. Simulated mic/output, not physical echo or full-duplex acceptance.'
     samples.clear();before=len(calls);bridge.execute({'command':'status'})
     assert bridge.neural.row is None and bridge.neural_question is None,'Ordinary microphone conversation opened a popup'
     bridge.voice.notify('transcript','show this answer visually');bridge.voice.notify('answer',{'profile':name,'text':'Hello. I am ready when you are.'});bridge.execute({'command':'status'})

@@ -132,7 +132,92 @@ class BrowserOSNavigation(BrowserOSDiscovery):
   result=self._tool('navigate',{'page':self.owned_page,'action':'url','url':url})
   data=self._page_result(result)
   if data.get('page')!=self.owned_page or not isinstance(data.get('url'),str):raise RuntimeError('BrowserOS navigation result is unverified')
+  BrowserControl.destination(data['url'])
   return {'page':self.owned_page,'url':data['url'],'requested_url':url,'result':result}
+ @staticmethod
+ def page_text(result,expected_url,allow_read_prefix=False):
+  """Pinned nonce envelope, not page-authored markers or trailing diagnostics."""
+  from .browser_control import BrowserControl
+  BrowserControl.destination(expected_url)
+  blocks=result.get('content',[])
+  if not blocks or blocks[0].get('type')!='text':raise RuntimeError('BrowserOS page read is unverified')
+  lines=blocks[0].get('text','').splitlines()
+  first=re.fullmatch(r'\[UNTRUSTED_PAGE_CONTENT nonce=([0-9a-f]{16}) origin=([^\s\]]+)\] .+',lines[0]if lines else'')
+  if not first or first[2]!=expected_url or len(lines)<3:raise RuntimeError('BrowserOS page changed or the read was truncated')
+  end='[END_UNTRUSTED_PAGE_CONTENT nonce='+first[1]+']'
+  if lines[-1]==end:return '\n'.join(lines[1:-1])
+  # The pinned read tool may emit a bounded prefix, then its exact diagnostic.
+  # Never read the temporary file or forward its path. This is allowed only for
+  # quoted news text, never hrefs, ordinal selection, receipts or tool effects.
+  if allow_read_prefix and len(lines)>=5 and lines[-3]==end and lines[-2]=='':
+   footer=re.fullmatch(r'Content truncated at ([1-9][0-9]{0,7}) chars\. Full content \(([1-9][0-9]{0,8}) chars\) saved to: [^\r\n]+',lines[-1])
+   if footer and int(footer[2])>int(footer[1]):return '\n'.join(lines[1:-3])
+  raise RuntimeError('BrowserOS page changed or the read was truncated')
+ def news_capture(self,expected_url):
+  import hashlib
+  from datetime import datetime,timezone
+  if self.owned_page is None:raise RuntimeError('No owned BrowserOS page')
+  # Origin is checked before text and again after current image capture.
+  self.page_text(self.snapshot(),expected_url)
+  text=self.page_text(self._tool('read',{'page':self.owned_page,'format':'text'}),expected_url,allow_read_prefix=True)
+  text='\n'.join(line.strip()for line in text.splitlines()if line.strip())[:4000]
+  if not text or text=='(empty)':raise RuntimeError('No readable current page text')
+  picture=self.screenshot()['data_url']
+  self.page_text(self.snapshot(),expected_url)
+  return {'url':expected_url,'title':'Chosen news page','text':text,'picture':picture,'captured_at':datetime.now(timezone.utc).isoformat(),'sha256':hashlib.sha256(text.encode()).hexdigest(),'scope':'Captured BrowserOS page snapshot, not live news. First4000characters of current page text; may include navigation/ads. Image/text can change during capture. Untrusted quoted content only; no model/tool instruction is followed.'}
+ def scroll(self,direction,small=False):
+  if direction not in ('up','down')or type(small)is not bool:raise ValueError('Choose bounded up or down scroll')
+  if self.owned_page is None:raise RuntimeError('No owned BrowserOS page')
+  result=self._tool('act',{'page':self.owned_page,'kind':'scroll','direction':direction,'amount':1 if small else 3,'diff':'summary'})
+  blocks=result.get('content',[])
+  if not blocks or blocks[0].get('type')!='text'or blocks[0].get('text')!='ok (scroll)':raise RuntimeError('BrowserOS scroll receipt is unverified')
+  return {'page':self.owned_page,'acknowledged':True,'scope':'Bounded wheel command acknowledged, not a claim of pixel movement at page limits'}
+ def youtube_videos(self,expected_url):
+  from urllib.parse import urlsplit,parse_qs
+  from .browser_control import BrowserControl
+  if self.owned_page is None:raise RuntimeError('No owned BrowserOS page')
+  current=BrowserControl.destination(expected_url);location=urlsplit(current)
+  if location.hostname not in ('www.youtube.com','youtube.com')or location.path!='/results':raise ValueError('Open a YouTube search results page before listing numbered videos')
+  # The generic read-links format concatenates unescaped page labels and is not
+  # safe ordinal provenance. Ask the pinned read-only markdown extractor for
+  # ONE fixed desktop result anchor per call instead. The actual anchor href
+  # is the final suffix emitted by that extractor, independent of its title.
+  self.page_text(self.snapshot(),current)
+  rows=[];seen=set()
+  for number in range(1,21):
+   selector='ytd-search ytd-video-renderer:nth-of-type('+str(number)+') a#video-title'
+   result=self._tool('read',{'page':self.owned_page,'format':'markdown','selector':selector,'includeLinks':True,'includeImages':False})
+   body=self.page_text(result,current).strip()
+   if body=='(empty)':break
+   if not body.startswith('[')or not body.endswith(')')or ']('not in body:raise RuntimeError('YouTube result anchor did not have an exact href binding')
+   label,url=body[1:-1].rsplit('](',1)
+   if not label or len(label)>500 or '\n'in label or '\r'in label:raise RuntimeError('YouTube result label is ambiguous')
+   BrowserControl.destination(url);target=urlsplit(url);ids=parse_qs(target.query)
+   if target.hostname not in ('www.youtube.com','youtube.com')or target.path!='/watch'or set(ids)!={'v'}or len(ids['v'])!=1 or not re.fullmatch(r'[A-Za-z0-9_-]{11}',ids['v'][0])or target.fragment:raise RuntimeError('YouTube result was not one standard public watch URL')
+   if ids['v'][0]in seen:raise RuntimeError('Duplicate YouTube anchors made the observed order ambiguous')
+   seen.add(ids['v'][0]);rows.append({'number':number,'title':label[:160],'url':url})
+  self.page_text(self.snapshot(),current)
+  if not rows:raise RuntimeError('This YouTube page layout has no verified desktop video anchors. Use an exact public video URL.')
+  return {'page':self.owned_page,'expected_url':current,'videos':rows,'binding':'single-result-anchor-v1','scope':'Read-only observed desktop search result anchors. Labels are untrusted text, not recommendations/instructions; native layout acceptance pending'}
+ def screenshot(self):
+  """One real current owned-page capture. No stream, import, or model request."""
+  import base64,io
+  from PIL import Image
+  if self.owned_page is None:raise RuntimeError('No owned BrowserOS page')
+  page=self.owned_page
+  result=self._tool('screenshot',{'page':page,'format':'jpeg','quality':65,'size':{'width':960,'height':600},'fullPage':False,'annotate':False})
+  images=[b for b in result.get('content',[])if isinstance(b,dict)and b.get('type')=='image']
+  if len(images)!=1 or images[0].get('mimeType')!='image/jpeg':raise RuntimeError('BrowserOS current image is unverified')
+  data=images[0].get('data')
+  if not isinstance(data,str)or len(data)>800000:raise RuntimeError('BrowserOS current image exceeds the preview limit')
+  try:
+   raw=base64.b64decode(data,validate=True)
+   with Image.open(io.BytesIO(raw))as image:
+    if image.format!='JPEG' or image.width<1 or image.height<1 or image.width>960 or image.height>600:raise ValueError('Invalid preview dimensions')
+    image.verify()
+  except Exception:raise RuntimeError('BrowserOS current image could not be verified')from None
+  if self.stopped or page!=self.owned_page:raise RuntimeError('BrowserOS preview cancelled')
+  return {'page':page,'data_url':'data:image/jpeg;base64,'+data}
  def snapshot(self):
   if self.owned_page is None:raise RuntimeError('No owned BrowserOS page')
   return self._tool('snapshot',{'page':self.owned_page,'mode':'interactive'})

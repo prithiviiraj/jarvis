@@ -11,6 +11,13 @@ def normalize(text):
 def parse(text):
  if not isinstance(text,str):return None
  text=normalize(text)
+ # Groq/Whisper may return Tamil script rather than Roman Tanglish. Exact
+ # bounded imperatives only; negation and general sentences are never stripped.
+ tamil=re.sub(r'^\s*(?:(?:ஜார்விஸ்|டெக்ஸ்|லைரா|jarvis|dex|lyra)[,.:!]?\s+)?','',text,flags=re.I).strip().rstrip('.!?')
+ if re.fullmatch(r'(?:பிரவுசர்|பிரவுசரை|பிரவுசரைத்|browser) (?:ஓபன் பண்ணு|திற|திறந்து வை)',tamil,re.I):return {'command':'open-window','value':''}
+ if re.fullmatch(r'(?:யூடியூப்|யூடியூபை|YouTube) (?:ஓபன் பண்ணு|திற|திறந்து வை)',tamil,re.I):return {'command':'open','value':'https://www.youtube.com/'}
+ if re.fullmatch(r'(?:கீழே|கீழ|down) (?:ஸ்க்ரோல்|scroll)(?: பண்ணு)?|(?:ஸ்க்ரோல்|scroll) (?:கீழே|டவுன்)(?: பண்ணு)?',tamil,re.I):return {'command':'scroll-down','value':''}
+ if re.fullmatch(r'(?:மேலே|மேல|up) (?:ஸ்க்ரோல்|scroll)(?: பண்ணு)?|(?:ஸ்க்ரோல்|scroll) (?:மேலே|அப்)(?: பண்ணு)?',tamil,re.I):return {'command':'scroll-up','value':''}
  t=re.sub(r'^\s*(?:(?:hey|hi|hello)[,!]?\s+)?(?:(?:jarvis|nova|sila|lyra|dex|laya|reo)(?:[.,:!]\s*|\s+))?','',text,flags=re.I).strip()
  # Exact Tanglish commands only; no substring stripping or negation removal.
  if re.fullmatch(r'(?:brave(?: browser)?|browser) (?:open pannu|thirandhu|thira)',t,re.I):return {'command':'open-window','value':''}

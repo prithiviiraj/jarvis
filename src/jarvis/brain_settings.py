@@ -221,6 +221,9 @@ class BrainSettings:
  def stop_warmup(self):self.warmup_cancel.set()
  def router(self,name):return RoutedBrain(self,name)
  def candidates(self,name):
+  from .local_endpoint import managed_route
+  owned=managed_route()
+  if owned is not None:return [Slot('slot5','local',owned['model'])]
   with self.lock:
    if name in self.pinned_local:
     row=self.rows.get(self.pinned_local[name])
@@ -231,6 +234,9 @@ class BrainSettings:
   # Local always last, and no parallel local inference.
   return slots+[self.local_candidate(name)]
  def local_candidate(self,name):
+  from .local_endpoint import managed_route
+  owned=managed_route()
+  if owned is not None:return Slot('slot5','local',owned['model'])
   with self.lock:
    primary=self.rows.get(self.assignments.get(name));local=[s for s in self.rows.values()if s.provider=='local']
    if primary and primary.provider=='local':return primary
