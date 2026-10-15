@@ -20,8 +20,8 @@ jobs:
         ref: jarvis-voice-feedback-next
     - name: Restore hash-pinned recovered product source, never private data
       shell: python
-      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('1-1-jarvis-native-notes-reveal-2307.tar.gz')\n\
-        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='ce4688ea92d9b05d1642ce9992e30139ba4c13586477a439c8fcc050016e0f4a','Checkpoint\
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('1-1-jarvis-native-installer-retry-2329.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='c116c6661d16b7c6e5b95aac4ba1aa6a74e98e2b53c6943aadbb28584fbe2edf','Checkpoint\
         \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for\
         \ member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
         \  assert not path.is_absolute() and '..' not in path.parts and '.git' not\
