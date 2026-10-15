@@ -1,0 +1,66 @@
+name: JARVIS pinned Obsidian installer diagnosis, NO product build
+'on':
+  push:
+    branches:
+    - jarvis-voice-feedback-next
+    paths:
+    - .github/workflows/6-obsidian-installer-diagnostic.yml
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+    - name: Same pinned installer, clean expanded path and logged exit
+      shell: pwsh
+      run: '$ErrorActionPreference = ''Stop''
+
+        New-Item -ItemType Directory -Force evidence | Out-Null
+
+        $url = ''https://github.com/obsidianmd/obsidian-releases/releases/download/v1.9.14/Obsidian-1.9.14.exe''
+
+        $installer = Join-Path $env:RUNNER_TEMP ''obsidian-1.9.14.exe''
+
+        Invoke-WebRequest -Uri $url -OutFile $installer
+
+        $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+
+        if ($hash -ne ''e6b8f82ccfcda4553a35efdfd17a56935b08543e82078d5aa1404d282cecf9ac'')
+        { throw ''Pinned installer checksum mismatch'' }
+
+        $install = Join-Path $env:RUNNER_TEMP ''obsidian-clean-install''
+
+        if (Test-Path $install) { throw ''Expected fresh install path'' }
+
+        $p = Start-Process -FilePath $installer -ArgumentList @(''/S'', (''/D='' +
+        $install)) -PassThru
+
+        if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw ''Installer
+        timeout'' }
+
+        $exe = Join-Path $install ''Obsidian.exe''
+
+        $result = @{ checksum=$hash; installer=$installer; install=$install; exit=$p.ExitCode;
+        exe_exists=(Test-Path $exe); temp=$env:TEMP; runner_temp=$env:RUNNER_TEMP;
+        scope=''Disposable installer diagnosis only, not product/native acceptance''
+        }
+
+        $result | ConvertTo-Json | Tee-Object evidence/installer-result.json
+
+        Get-ChildItem $install -Recurse -ErrorAction SilentlyContinue | Select-Object
+        FullName,Length | Out-File evidence/installed-files.txt
+
+        Get-WinEvent -FilterHashtable @{LogName=''Application''; StartTime=(Get-Date).AddMinutes(-5)}
+        -ErrorAction SilentlyContinue | Where-Object { $_.Message -match ''Obsidian|obsidian-1.9.14|Application
+        Error'' } | Select-Object TimeCreated,Id,ProviderName,Message | Format-List
+        | Out-File evidence/application-errors.txt
+
+        if ($p.ExitCode -ne 0 -or -not (Test-Path $exe)) { throw ''Pinned installer
+        failed, inspect evidence'' }'
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: Obsidian-Installer-Diagnostic-NOT-PRODUCT
+        path: evidence
+        retention-days: 7
