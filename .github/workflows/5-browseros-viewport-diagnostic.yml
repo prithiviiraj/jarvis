@@ -1,0 +1,72 @@
+name: JARVIS BrowserOS viewport diagnosis, NOT candidate
+'on':
+  push:
+    branches:
+    - jarvis-voice-feedback-next
+    paths:
+    - .github/workflows/5-browseros-viewport-diagnostic.yml
+permissions:
+  contents: read
+jobs:
+  native-diagnostic:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: modern-ui
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: jarvis-voice-feedback-next
+    - name: Restore hash-pinned recovered product source, never private data
+      shell: python
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('1-jarvis-browser-clip-diagnostic-2115.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='7d2ecc5130f98de319c5f1ffdfa5e350e48292c97fc04f5c57c4de4f8223eb2f','Checkpoint\
+        \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for\
+        \ member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
+        \  assert not path.is_absolute() and '..' not in path.parts and '.git' not\
+        \ in path.parts\n  if path.parts[0]=='.github':continue\n  if member.isdir():continue\n\
+        \  assert member.isfile(),'Non-regular source member rejected'\n  target=pathlib.Path(*path.parts);target.parent.mkdir(parents=True,exist_ok=True)\n\
+        \  target.write_bytes(tar.extractfile(member).read());target.chmod(member.mode)\n\
+        \  paths.append(path.as_posix())\nassert 'modern-ui/src/main.tsx'in paths\
+        \ and 'modern-ui/regression-renderers.py'in paths\npathlib.Path('.git/recovered-product-paths.json').write_text(json.dumps(paths))\n\
+        print('Exact product files restored:',len(paths),'workflows remain separate,\
+        \ no release assets changed')\n"
+      working-directory: .
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Diagnostic dependencies
+      shell: pwsh
+      run: python -m pip install Pillow==11.3.0 pywinauto==0.6.9
+    - name: Actual pinned BrowserOS neo Windows isolated navigation
+      shell: pwsh
+      run: './install-browseros-native.ps1
+
+        '
+      if: always()
+      env:
+        JARVIS_BROWSEROS_DIAGNOSTIC: '1'
+    - name: Native iteration evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-BrowserOS-Viewport-Diagnostic-NOT-CANDIDATE
+        path: 'modern-ui/ui-evidence/*.png
+
+          modern-ui/ui-evidence/*.json
+
+          modern-ui/ui-evidence/*.txt
+
+          modern-ui/ui-evidence/browseros-isolated/*.png
+
+          modern-ui/ui-evidence/browseros-isolated/*.json
+
+          modern-ui/ui-evidence/browseros-isolated/*.log
+
+
+          modern-ui/ui-evidence/browseros-isolated/*.jpg
+
+          '
+        retention-days: 7
+        if-no-files-found: warn
