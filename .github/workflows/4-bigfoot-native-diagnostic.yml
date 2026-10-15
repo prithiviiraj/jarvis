@@ -1,0 +1,174 @@
+name: JARVIS focused native diagnosis, NOT candidate
+'on':
+  push:
+    branches:
+    - jarvis-voice-feedback-next
+    paths:
+    - .github/workflows/4-bigfoot-native-diagnostic.yml
+permissions:
+  contents: read
+jobs:
+  native-diagnostic:
+    runs-on: windows-latest
+    timeout-minutes: 70
+    defaults:
+      run:
+        working-directory: modern-ui
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: jarvis-voice-feedback-next
+    - name: Restore hash-pinned recovered product source, never private data
+      shell: python
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('1-jarvis-focused-native-diagnostic-2003.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='e73571abaf03a4bd534513ffca21a0cc18e500f00701ed7ce965489b1df08229','Checkpoint\
+        \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for\
+        \ member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
+        \  assert not path.is_absolute() and '..' not in path.parts and '.git' not\
+        \ in path.parts\n  if path.parts[0]=='.github':continue\n  if member.isdir():continue\n\
+        \  assert member.isfile(),'Non-regular source member rejected'\n  target=pathlib.Path(*path.parts);target.parent.mkdir(parents=True,exist_ok=True)\n\
+        \  target.write_bytes(tar.extractfile(member).read());target.chmod(member.mode)\n\
+        \  paths.append(str(target))\nassert 'modern-ui/src/main.tsx'in paths and\
+        \ 'modern-ui/regression-renderers.py'in paths\npathlib.Path('.git/recovered-product-paths.json').write_text(json.dumps(paths))\n\
+        print('Exact product files restored:',len(paths),'workflows remain separate,\
+        \ no release assets changed')\n"
+    - name: Record exact tested product revision
+      shell: bash
+      run: 'git rev-parse HEAD | tee SOURCE-COMMIT.txt
+
+        printf "Exact product source: %s\n" "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: pip
+        cache-dependency-path: modern-ui/package-native-diagnostic.py
+    - name: Cache native shell compilation
+      uses: actions/cache@v4
+      with:
+        path: '~/.cargo/registry
+
+          ~/.cargo/git
+
+          '
+        key: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock')
+          }}-${{ github.run_id }}
+        restore-keys: native-${{ runner.os }}-${{ hashFiles('modern-ui/src-tauri/Cargo.lock')
+          }}-
+    - name: Build only actual native shell and diagnostic frozen core
+      shell: pwsh
+      run: 'if (Test-Path ''src-tauri/target'') { Remove-Item -Recurse -Force ''src-tauri/target''
+        }
+
+        python -m pip install pyinstaller==6.16.0 numpy==2.2.6 certifi==2026.7.22
+        tzdata==2025.2 Pillow==11.3.0 pywinauto==0.6.9 opencv-python==4.12.0.88 playwright==1.56.0
+
+        if ($LASTEXITCODE -ne 0) { throw ''Diagnostic dependencies failed'' }
+
+        npm ci
+
+        if ($LASTEXITCODE -ne 0) { throw ''Frontend dependencies failed'' }
+
+        python make-icon.py
+
+        npm run tauri build -- --no-bundle
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual native shell failed'' }
+
+        ./build-mp3.ps1
+
+        if ($LASTEXITCODE -ne 0) { throw ''Pinned MP3 encoder source build failed''
+        }
+
+        python package-native-diagnostic.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Diagnostic core freeze failed'' }
+
+        '
+    - name: Install required Brave browser for real frozen navigation acceptance
+      shell: pwsh
+      run: 'choco install brave --version=1.88.134 --yes --no-progress --limit-output
+
+        if ($LASTEXITCODE -notin @(0, 3010)) { throw ''Brave installation failed''
+        }
+
+        $env:PYTHONPATH=''../src''
+
+        python -c "from jarvis.brave_path import find_brave; print(''Verified Brave
+        executable:'', find_brave())"
+
+        if ($LASTEXITCODE -ne 0) { throw ''Required Brave executable not found'' }
+
+        '
+    - name: Match baseline installed Obsidian host prerequisite
+      shell: pwsh
+      run: 'New-Item -ItemType Directory -Force ui-evidence | Out-Null
+
+        python -m pip install playwright==1.56.0
+
+        if ($LASTEXITCODE -ne 0) { throw ''Obsidian host fixture dependency failed''
+        }
+
+        python obsidian-host-smoke.py
+
+        if ($LASTEXITCODE -ne 0) { throw ''Actual installed Obsidian host prerequisite
+        failed'' }
+
+        '
+    - name: ENTIRE actual unified Windows regression
+      shell: pwsh
+      run: 'New-Item -ItemType Directory -Force ui-evidence | Out-Null
+
+        $env:JARVIS_UI_EXE = (Resolve-Path ''native-diagnostic/JARVIS.exe'').Path
+
+        $env:JARVIS_DATA_DIR = Join-Path (Get-Location) ''ui-evidence/native-isolated-data''
+
+        $env:PYTHONPATH = ''''
+
+        $env:JARVIS_NATIVE_WEIGHTS_DIAGNOSTIC = ''1''
+
+        python native-smoke.py
+
+        $nativeExit = $LASTEXITCODE
+
+        python unified-native-smoke.py
+
+        $unifiedExit = $LASTEXITCODE
+
+        if ($nativeExit -ne 0 -or $unifiedExit -ne 0) { throw ''Native diagnostic
+        assertions failed, no acceptance pass'' }
+
+        '
+    - name: Actual pinned BrowserOS neo Windows isolated navigation
+      shell: pwsh
+      run: './install-browseros-native.ps1
+
+        '
+      if: always()
+      env:
+        JARVIS_BROWSEROS_DIAGNOSTIC: '1'
+    - name: Native iteration evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-Focused-Native-Diagnostic-NOT-CANDIDATE
+        path: 'modern-ui/ui-evidence/*.png
+
+          modern-ui/ui-evidence/*.json
+
+          modern-ui/ui-evidence/*.txt
+
+          modern-ui/ui-evidence/browseros-isolated/*.png
+
+          modern-ui/ui-evidence/browseros-isolated/*.json
+
+          modern-ui/ui-evidence/browseros-isolated/*.log
+
+
+          modern-ui/ui-evidence/browseros-isolated/*.jpg
+
+          '
+        retention-days: 7
+        if-no-files-found: warn
