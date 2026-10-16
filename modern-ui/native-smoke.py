@@ -138,10 +138,24 @@ def navigation(main,name):
   # load (gate run 3, both attempts: 'Advanced' never resolved within 40s
   # after Settings opened). Make the rail a bounded hard settle, not a
   # best-effort pass, so downstream Advanced clicks start from a real pane.
-  deadline=time.monotonic()+30
+  # activate() falls back to real mouse input for Invoke-less summaries, so
+  # the workspace must own the foreground first: the isolated Brave window
+  # can hold it after a browser-run confirm. Handle both disclosures (the
+  # detail shell's 'All settings' and the simple home's 'More settings'),
+  # re-navigate if the Settings view itself never mounted, and on final
+  # failure leave real evidence (probes + tree + pixels) in ui-evidence.
+  deadline=time.monotonic()+30;last_nav=time.monotonic()
   while not main.child_window(title='Advanced',control_type='Button',visible_only=False).exists():
-   if activate_fresh(lambda:main.child_window(title='All settings',control_type='Button')):time.sleep(.15)
-   if time.monotonic()>deadline:raise RuntimeError('Settings Advanced rail never mounted')
+   focus_workspace()
+   if activate_fresh(lambda:main.child_window(title='All settings',control_type='Button'))or activate_fresh(lambda:main.child_window(title='More settings',control_type='Button')):time.sleep(.15)
+   elif time.monotonic()-last_nav>5:invoke('Settings');last_nav=time.monotonic()
+   if time.monotonic()>deadline:
+    try:
+     probes={t:main.child_window(title=t,visible_only=False).exists() for t in ('All settings','More settings','Choose connection','Back to Home','Message draft','Confirm Team browser action')}
+     print('SETTINGS RAIL MISSING | probes:',probes,'| children:',[c.element_info.name for c in main.children()][:40])
+     main.capture_as_image().save('ui-evidence/settings-rail-missing.png')
+    except Exception:pass
+    raise RuntimeError('Settings Advanced rail never mounted')
    time.sleep(.4)
  elif name=='Team room':
   if main.child_window(title='Close more options',control_type='Button',visible_only=True).exists():invoke('Close more options')
