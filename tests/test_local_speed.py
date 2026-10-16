@@ -28,7 +28,7 @@ class LocalSpeedTests(unittest.TestCase):
   with self.assertRaises(ValueError):b.execute({'command':'local-speed'})
   with patch.object(b.local_speed,'start')as start:b.execute({'command':'local-speed','consent':True});start.assert_called_once_with(consent=True)
   self.assertIn('local_speed',b.execute({'command':'status'}));b.close()
-  s=(Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text().split('.contains(&command)')[0]
+  s=(Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8').split('.contains(&command)')[0]
   self.assertIn('"local-speed"',s);self.assertIn('"local-speed-stop"',s)
  def test_limit_warning_not_error_banner(self):
   from jarvis.ui_bridge import Bridge

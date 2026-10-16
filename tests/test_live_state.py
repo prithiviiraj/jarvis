@@ -25,7 +25,7 @@ class LiveState(unittest.TestCase):
  def test_legacy_assignment_preserved(self):
   with tempfile.TemporaryDirectory()as d:
    p=pathlib.Path(d)/'brain.json';p.write_text(json.dumps({'slots':[{'id':'slot1','provider':'local','model':'chat','enabled':True}],'assignments':{''.join(('K','AI')):'slot1'}}))
-   b=BrainSettings(path=p);self.assertEqual(b.assignments,{});self.assertEqual(b.archived_assignments,{'SILA':'slot1'});self.assertEqual(json.loads(p.read_text())['assignments'],{''.join(('K','AI')):'slot1'})
+   b=BrainSettings(path=p);self.assertEqual(b.assignments,{});self.assertEqual(b.archived_assignments,{'SILA':'slot1'});self.assertEqual(json.loads(p.read_text(encoding='utf-8'))['assignments'],{''.join(('K','AI')):'slot1'})
  def test_loaded_laya_guidance(self):
   from jarvis.ui_bridge import Bridge
   from jarvis.workspace_voice import WorkspaceVoice

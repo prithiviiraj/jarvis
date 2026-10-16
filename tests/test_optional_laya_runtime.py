@@ -15,4 +15,4 @@ class OptionalLaya(unittest.TestCase):
  def test_pinned_download_review_and_loopback_only(self):
   m=self.module();self.assertEqual(sum(a['bytes']for a in m.ASSETS),1322020017)
   for a in m.ASSETS:self.assertIn('/161d54d6000913ff279b0afd1ac77faef8685a9b/',a['url']);self.assertEqual(len(a['sha256']),64)
-  s=(pathlib.Path(__file__).parents[1]/'optional-laya/runtime.py').read_text();self.assertIn("('127.0.0.1',8000)",s);self.assertNotIn('subprocess',s);self.assertNotIn('browser.submit',s)
+  s=(pathlib.Path(__file__).parents[1]/'optional-laya/runtime.py').read_text(encoding='utf-8');self.assertIn("('127.0.0.1',8000)",s);self.assertNotIn('subprocess',s);self.assertNotIn('browser.submit',s)

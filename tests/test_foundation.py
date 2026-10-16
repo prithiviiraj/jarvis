@@ -22,17 +22,17 @@ class FoundationTests(unittest.TestCase):
         with patch.dict(os.environ, {'JARVIS_DATA_DIR':str(self.root)}): self.assertEqual(data_root(),self.root.resolve())
     def test_defaults(self):
         s=ConfigStore(self.root); self.assertEqual(s.load(),DEFAULT)
-        self.assertEqual(json.loads(s.path.read_text()),DEFAULT)
+        self.assertEqual(json.loads(s.path.read_text(encoding='utf-8')),DEFAULT)
     def test_config_roundtrip_and_backup(self):
         s=ConfigStore(self.root);s.load();v=dict(DEFAULT,theme='light');s.save(v)
         self.assertEqual(s.load()['theme'],'light')
-        self.assertEqual(json.loads((self.root/'backups/config.previous.json').read_text()),DEFAULT)
+        self.assertEqual(json.loads((self.root/'backups/config.previous.json').read_text(encoding='utf-8')),DEFAULT)
     def test_legacy_migration(self):
         self.assertEqual(migrate({'base_url':'http://127.0.0.1:1234/v1','model':'local'})['local_model'],'local')
     def test_bad_json_unchanged(self):
         s=ConfigStore(self.root);s.path.write_text('{broken')
         with self.assertRaises(ConfigError):s.load()
-        self.assertEqual(s.path.read_text(),'{broken')
+        self.assertEqual(s.path.read_text(encoding='utf-8'),'{broken')
     def test_future_schema_unchanged(self):
         s=ConfigStore(self.root);v=dict(DEFAULT,schema_version=9);s.path.write_text(json.dumps(v));old=s.path.read_bytes()
         with self.assertRaises(ConfigError):s.load()
@@ -52,7 +52,7 @@ class FoundationTests(unittest.TestCase):
             with self.assertRaises(ValueError):d.event('secret transcript body')
             d.event('startup')
         finally:d.close()
-        self.assertNotIn('secret', (self.root/'logs/events.log').read_text())
+        self.assertNotIn('secret', (self.root/'logs/events.log').read_text(encoding='utf-8'))
     def test_rotating_logs_bounded(self):
         d=Diagnostics(self.root,max_bytes=150,backup_count=2)
         for _ in range(40):d.event('startup')

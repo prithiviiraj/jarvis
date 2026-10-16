@@ -121,7 +121,7 @@ class ResponseSource(unittest.TestCase):
 class NativeCommandParity(unittest.TestCase):
  def test_scoped_interrupt_passes_native_allowlist(self):
   from pathlib import Path
-  source=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text()
+  source=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8')
   self.assertIn('"conversation-interrupt"',source)
 class SemanticBridgeTests(unittest.TestCase):
  def setUp(self):self.b=Bridge(WorkspaceVoice())

@@ -8,5 +8,5 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory()as folder:
    p=pathlib.Path(folder)/'broken.json';p.write_text('{bad')
    for cls in (GitHubIssue,NotionText,SheetsWrite,DriveText):
-    a=cls(types.SimpleNamespace(),p);s=a.snapshot();self.assertEqual(s['state'],'blocked');self.assertIsNone(s['plan']);self.assertIn('Preserve',s['error']);self.assertEqual(p.read_text(),'{bad')
+    a=cls(types.SimpleNamespace(),p);s=a.snapshot();self.assertEqual(s['state'],'blocked');self.assertIsNone(s['plan']);self.assertIn('Preserve',s['error']);self.assertEqual(p.read_text(encoding='utf-8'),'{bad')
     with self.assertRaises(ValueError):a.journal()

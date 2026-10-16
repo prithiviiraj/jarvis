@@ -11,14 +11,14 @@ class Registry(unittest.TestCase):
    original=json.dumps({'version':1,'agents':[row]});path.write_text(original)
    registry=AgentRegistry(path);registry.apply()
    self.assertEqual(tuple(ROLES),('JARVIS','LYRA','DEX'));self.assertEqual(tuple(VOICES),tuple(ROLES));self.assertEqual(tuple(routed),tuple(ROLES))
-   self.assertEqual(registry.snapshot()['agents'],[]);self.assertEqual(registry.snapshot()['archived_agents'],[row]);self.assertEqual(path.read_text(),original)
+   self.assertEqual(registry.snapshot()['agents'],[]);self.assertEqual(registry.snapshot()['archived_agents'],[row]);self.assertEqual(path.read_text(encoding='utf-8'),original)
    for name in ('MIRA','NOVA','SILA','REO'):
     with self.assertRaises(ValueError):registry.create({**row,'name':name},{**row,'name':name},True)
-   self.assertEqual(path.read_text(),original)
+   self.assertEqual(path.read_text(encoding='utf-8'),original)
  def test_corrupt_file_preserved(self):
   with tempfile.TemporaryDirectory()as temp:
    path=Path(temp)/'agents.json';path.write_text('{broken');registry=AgentRegistry(path)
-   self.assertTrue(registry.error);self.assertEqual(path.read_text(),'{broken')
+   self.assertTrue(registry.error);self.assertEqual(path.read_text(encoding='utf-8'),'{broken')
    with self.assertRaises(ValueError):registry.create({})
  def test_idle_explicit_separate_permission_and_pause(self):
   from jarvis.ui_bridge import Bridge

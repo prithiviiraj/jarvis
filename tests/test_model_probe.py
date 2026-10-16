@@ -29,7 +29,7 @@ class Probe(unittest.TestCase):
 
  def test_diagnostic_removes_owned_runtime_token_before_artifact(self):
   import pathlib
-  source=(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/managed-model-proof.py').read_text();self.assertIn("raw.replace(runtime_token,'[owned runtime token removed]')",source)
+  source=(pathlib.Path(__file__).resolve().parents[1]/'modern-ui/managed-model-proof.py').read_text(encoding='utf-8');self.assertIn("raw.replace(runtime_token,'[owned runtime token removed]')",source)
 
  def test_final_image_result_from_changed_session_cannot_be_accepted(self):
   runtime=self.runtime();http=Mock();n=[0]

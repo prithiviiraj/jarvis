@@ -8,7 +8,7 @@ class Tests(unittest.TestCase):
   r=self.j.prepare({'seller':'Fixture'});self.assertEqual(r['state'],'needs-details');self.assertFalse(self.j.root.exists());r=self.j.prepare(invoice.Tests().facts())
   with self.assertRaises(ValueError):self.j.save(r)
   with self.assertRaises(ValueError):self.j.save(dict(r,sha256='changed'),True)
-  result=self.j.save(r,True);text=pathlib.Path(result['path']).read_text();self.assertIn('INR 0.20',text);self.assertIn('Draft invoice',text);self.assertNotIn('<script',text)
+  result=self.j.save(r,True);text=pathlib.Path(result['path']).read_text(encoding='utf-8');self.assertIn('INR 0.20',text);self.assertIn('Draft invoice',text);self.assertNotIn('<script',text)
   with self.assertRaises(ValueError):self.j.save(r,True)
  def test_escape_markup_no_remote_assets(self):
   f=invoice.Tests().facts();f['seller']='<script>alert(1)</script>';f['items'][0]['description']='<img src="https://attack.invalid/a">';r=self.j.prepare(f);text=self.j.render(r['document']);self.assertIn('&lt;script&gt;',text);self.assertNotIn('<script>',text);self.assertNotIn('<img',text);self.assertNotIn('<link',text)

@@ -32,5 +32,5 @@ class SharingLock(unittest.TestCase):
     if dest.name=='DEX.md':raise PermissionError('lock')
     return real(self,dest)
    with patch.object(pathlib.Path,'replace',replace):v.sync([],{}, {},force=True)
-   self.assertTrue(v.error);self.assertFalse(list(v.root.rglob('*.jarvis-tmp')));data=json.loads((v.root/'.jarvis-vault.json').read_text());self.assertEqual(data['hashes']['Team/LYRA.md'],hashlib.sha256((v.root/'Team/LYRA.md').read_bytes()).hexdigest())
+   self.assertTrue(v.error);self.assertFalse(list(v.root.rglob('*.jarvis-tmp')));data=json.loads((v.root/'.jarvis-vault.json').read_text(encoding='utf-8'));self.assertEqual(data['hashes']['Team/LYRA.md'],hashlib.sha256((v.root/'Team/LYRA.md').read_bytes()).hexdigest())
    v.sync([],{}, {},force=True);self.assertFalse(v.error);self.assertNotIn('Team/LYRA.md',v.skipped)

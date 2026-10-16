@@ -40,4 +40,4 @@ class LayaBrowser(unittest.TestCase):
   self.assertIsNone(b.browser_pending);b.browser.submit.assert_not_called();b.close()
  def test_rust_allowlist(self):
   from pathlib import Path
-  s=(Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text();self.assertIn('"laya-propose"',s.split('.contains(&command)')[0])
+  s=(Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8');self.assertIn('"laya-propose"',s.split('.contains(&command)')[0])

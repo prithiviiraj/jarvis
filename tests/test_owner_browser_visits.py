@@ -14,7 +14,7 @@ class BrowserVisitsTest(unittest.TestCase):
   zone=ZoneInfo('Asia/Kolkata');now=datetime.datetime(2026,10,15,14,0,tzinfo=zone).timestamp();clock=[now-86400];v=BrowserVisits(clock=lambda:clock[0]);v.record('https://example.com/yesterday');clock[0]=now;v.record('https://example.com/today');self.assertEqual([r['url']for r in v.list(True)],['https://example.com/yesterday'])
  def test_invalid_existing_history_is_preserved_not_overwritten(self):
   with tempfile.TemporaryDirectory()as d:
-   path=pathlib.Path(d)/'visits.json';path.write_text('broken');v=BrowserVisits(path);self.assertEqual(v.list(),[]);v.record('https://example.com');self.assertEqual(path.read_text(),'broken');self.assertTrue(v.error)
+   path=pathlib.Path(d)/'visits.json';path.write_text('broken');v=BrowserVisits(path);self.assertEqual(v.list(),[]);v.record('https://example.com');self.assertEqual(path.read_text(encoding='utf-8'),'broken');self.assertTrue(v.error)
  def test_failed_navigation_never_records_requested_url(self):
   c=Mock();c.connect.return_value={'tools':[]};c.open_blank.return_value={'url':'about:blank'};c.navigate.side_effect=RuntimeError('failed');v=BrowserOSController(lambda _:c);v.connect('http://127.0.0.1:9200/mcp',True,True).join(2);v.navigate('https://example.com').join(2);self.assertEqual(v.visits.list(),[]);v.stop().join(2)
  def test_history_request_stays_local_and_is_visible_on_home(self):

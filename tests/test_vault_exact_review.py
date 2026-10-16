@@ -10,4 +10,4 @@ class VaultReview(unittest.TestCase):
    req={'command':'vault-create','note_name':'new.md','note_text':'exact text','confirm':True}
    for review in (None,{'vault_folder':d,'note_name':'new.md','note_text':'changed'},{'vault_folder':d+'other','note_name':'new.md','note_text':'exact text'}):
     with self.assertRaises(ValueError):b.execute({**req,'reviewed':review})
-   self.assertFalse((root/'new.md').exists());b.execute({**req,'reviewed':{'vault_folder':str(root.resolve()),'note_name':'new.md','note_text':'exact text'}});self.assertEqual((root/'new.md').read_text(),'exact text')
+   self.assertFalse((root/'new.md').exists());b.execute({**req,'reviewed':{'vault_folder':str(root.resolve()),'note_name':'new.md','note_text':'exact text'}});self.assertEqual((root/'new.md').read_text(encoding='utf-8'),'exact text')

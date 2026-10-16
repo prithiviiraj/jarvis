@@ -10,14 +10,14 @@ class Registry(unittest.TestCase):
   root=pathlib.Path(d)/NAME;root.mkdir();(root/'.jarvis-vault.json').write_text('{}');p=pathlib.Path(d)/'obsidian.json';p.write_text(json.dumps({'update':True,'vaults':{'old':{'path':str(pathlib.Path(d)/'Other'),'open':True,'extra':'keep'}}}));return root,p
  def test_merge_backup_uri_reuse(self):
   with tempfile.TemporaryDirectory()as d:
-   root,p=self.fixture(d);old=p.read_bytes();ident,new=register(root,p,lambda:False);self.assertTrue(new);j=json.loads(p.read_text());self.assertEqual(j['vaults']['old']['extra'],'keep');self.assertTrue(j['update']);self.assertEqual(next(p.parent.glob('*backup*')).read_bytes(),old);self.assertIn('vault='+ident,uri(root,'Brain of Brain.canvas',p));self.assertIn('file=Brain%20of%20Brain.canvas',uri(root,'Brain of Brain.canvas',p));self.assertEqual(register(root,p,lambda:True),(ident,False))
+   root,p=self.fixture(d);old=p.read_bytes();ident,new=register(root,p,lambda:False);self.assertTrue(new);j=json.loads(p.read_text(encoding='utf-8'));self.assertEqual(j['vaults']['old']['extra'],'keep');self.assertTrue(j['update']);self.assertEqual(next(p.parent.glob('*backup*')).read_bytes(),old);self.assertIn('vault='+ident,uri(root,'Brain of Brain.canvas',p));self.assertIn('file=Brain%20of%20Brain.canvas',uri(root,'Brain of Brain.canvas',p));self.assertEqual(register(root,p,lambda:True),(ident,False))
  def test_running_malformed_duplicate_no_write(self):
   with tempfile.TemporaryDirectory()as d:
    root,p=self.fixture(d);old=p.read_bytes()
    with self.assertRaisesRegex(RuntimeError,'Close Obsidian'):register(root,p,lambda:True)
    self.assertEqual(p.read_bytes(),old);p.write_text('bad')
    with self.assertRaises(ValueError):register(root,p,lambda:False)
-   self.assertEqual(p.read_text(),'bad');p.write_text(json.dumps({'vaults':{'a':{'path':str(root)},'b':{'path':str(root)}}}))
+   self.assertEqual(p.read_text(encoding='utf-8'),'bad');p.write_text(json.dumps({'vaults':{'a':{'path':str(root)},'b':{'path':str(root)}}}))
    with self.assertRaisesRegex(ValueError,'Multiple'):register(root,p,lambda:False)
  def test_starting_mid_registration_no_write(self):
   with tempfile.TemporaryDirectory()as d:
@@ -59,7 +59,7 @@ class Async(unittest.TestCase):
     worker=v.start('connect',reviewed=NAME,confirm=True);entered.wait(1);self.assertTrue(v.snapshot()['busy']);self.assertEqual(v.phase,'Checking Obsidian vault registration');self.assertTrue(v.enabled);release.set();worker.join(2);self.assertFalse(v.busy);self.assertIn('Close Obsidian',v.error)
  def test_titles_preserve_path_and_owner_edit_and_redact(self):
   with tempfile.TemporaryDirectory()as d:
-   v=Vault(pathlib.Path(d)/'cfg.json',lambda:pathlib.Path(d));v.create(NAME,True);v.sync([{'name':'You','text':'sk-'+'a'*30}],{'agents':[]},{},'abc123',True);p=pathlib.Path(d)/NAME/'Conversations/abc123.md';self.assertIn('title:',p.read_text());self.assertNotIn('sk-'+'a'*30,p.read_text());p.write_text('owner note');v.sync([],{'agents':[]},{},'abc123',True);self.assertEqual(p.read_text(),'owner note')
+   v=Vault(pathlib.Path(d)/'cfg.json',lambda:pathlib.Path(d));v.create(NAME,True);v.sync([{'name':'You','text':'sk-'+'a'*30}],{'agents':[]},{},'abc123',True);p=pathlib.Path(d)/NAME/'Conversations/abc123.md';self.assertIn('title:',p.read_text(encoding='utf-8'));self.assertNotIn('sk-'+'a'*30,p.read_text(encoding='utf-8'));p.write_text('owner note');v.sync([],{'agents':[]},{},'abc123',True);self.assertEqual(p.read_text(encoding='utf-8'),'owner note')
 class MoreGates(unittest.TestCase):
  def test_snapshot_does_not_wait_for_writer_lock(self):
   with tempfile.TemporaryDirectory()as d:
@@ -71,7 +71,7 @@ class MoreGates(unittest.TestCase):
   from jarvis.vault_canvas_legacy import canvas as old
   from jarvis.vault_canvas import canvas as new
   with tempfile.TemporaryDirectory()as d:
-   base=pathlib.Path(d);v=Vault(base/'c',lambda:base);v.create(NAME,True);p=base/NAME/'Brain of Brain.canvas';p.write_text(old());v.create(NAME,True);self.assertEqual(p.read_text(),new());p.write_text('owner custom canvas');v.create(NAME,True);self.assertEqual(p.read_text(),'owner custom canvas')
+   base=pathlib.Path(d);v=Vault(base/'c',lambda:base);v.create(NAME,True);p=base/NAME/'Brain of Brain.canvas';p.write_text(old());v.create(NAME,True);self.assertEqual(p.read_text(encoding='utf-8'),new());p.write_text('owner custom canvas');v.create(NAME,True);self.assertEqual(p.read_text(encoding='utf-8'),'owner custom canvas')
  def test_registry_change_race_no_write(self):
   with tempfile.TemporaryDirectory()as d:
    root=pathlib.Path(d)/NAME;root.mkdir();(root/'.jarvis-vault.json').write_text('{}');p=pathlib.Path(d)/'obsidian.json';p.write_text('{}');n=0
@@ -81,7 +81,7 @@ class MoreGates(unittest.TestCase):
     if n==2:p.write_text('{"owner":"changed"}')
     return False
    with self.assertRaisesRegex(RuntimeError,'changed'):register(root,p,proc)
-   self.assertEqual(p.read_text(),'{"owner":"changed"}')
+   self.assertEqual(p.read_text(encoding='utf-8'),'{"owner":"changed"}')
 class Regression(unittest.TestCase):
  def test_empty_error_clear_is_not_a_failure(self):
   b=Bridge(WorkspaceVoice());b.evolution.generate=Mock()
@@ -100,7 +100,7 @@ class Regression(unittest.TestCase):
     for _ in range(100):
      if not b.export_busy:break
      time.sleep(.001)
-    self.assertEqual(p.read_text(),'Owner edit');self.assertIn('no overwrite',b.failure_detail['detail']);self.assertFalse(any(m['name']=='LYRA'for m in b.messages))
+    self.assertEqual(p.read_text(encoding='utf-8'),'Owner edit');self.assertIn('no overwrite',b.failure_detail['detail']);self.assertFalse(any(m['name']=='LYRA'for m in b.messages))
    finally:b.close()
 class PresenceLayer(unittest.TestCase):
  def test_time_real_ist_12hour_no_model(self):
@@ -211,7 +211,7 @@ class RegistryFinalWindow(unittest.TestCase):
     if calls[0]==3:p.write_text('{"owner":"final change"}')
     return False
    with self.assertRaisesRegex(RuntimeError,'changed'):register(root,p,process)
-   self.assertEqual(p.read_text(),'{"owner":"final change"}');self.assertEqual(list(p.parent.glob('*.tmp')),[])
+   self.assertEqual(p.read_text(encoding='utf-8'),'{"owner":"final change"}');self.assertEqual(list(p.parent.glob('*.tmp')),[])
 
 class ShutdownAudit(unittest.TestCase):
  def test_disable_during_registration_prevents_open(self):

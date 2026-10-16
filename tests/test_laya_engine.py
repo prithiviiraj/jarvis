@@ -33,5 +33,5 @@ class Engine(unittest.TestCase):
   b.execute({'command':'laya-cancel'});self.assertIsNone(b.browser_pending);b.close()
  def test_native_setup_commands_allowed(self):
   from pathlib import Path
-  s=(Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text().split('.contains(&command)')[0]
+  s=(Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8').split('.contains(&command)')[0]
   for c in ('laya-setup','laya-check','laya-load','laya-cancel'):self.assertIn('"'+c+'"',s)

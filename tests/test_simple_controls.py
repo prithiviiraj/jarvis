@@ -23,7 +23,7 @@ class SimpleControls(unittest.TestCase):
  def test_transient_scene_excluded_from_history_and_chat_context(self):
   self.b.history=Mock();self.b.archive_dirty=True;self.b.messages=[{'name':'You','text':'hello'},{'name':'JARVIS','text':'screen only','transient_screen':True}];self.b.save_history(True);self.assertEqual(self.b.history.save.call_args[0][1],[self.b.messages[0]])
  def test_native_command_allowlist(self):
-  source=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text();allow=source.split('.contains(&command)')[0]
+  source=(Path(__file__).resolve().parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8');allow=source.split('.contains(&command)')[0]
   for cmd in ('laya-session','proactive-session'):self.assertIn('"'+cmd+'"',allow)
  def test_proactive_busy_does_not_latch(self):
   self.b.setup.ready=True;self.b.voice.busy=True

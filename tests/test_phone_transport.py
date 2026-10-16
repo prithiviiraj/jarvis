@@ -31,7 +31,7 @@ class Tests(unittest.TestCase):
  def test_public_bind_and_certificate_change_refused(self):
   for origin in ['https://8.8.8.8:8443','http://127.0.0.1:8443','https://127.0.0.1:8443/path','https://0.0.0.0:8443','https://192.0.2.1:8443','https://240.0.0.1:8443','https://169.254.1.1:8443']:
    with self.assertRaises(ValueError):self.t.prepare(origin,str(self.cert),str(self.key),True)
-  review=self.prepare();self.cert.write_text(self.cert.read_text()+'\n')
+  review=self.prepare();self.cert.write_text(self.cert.read_text(encoding='utf-8')+'\n')
   with self.assertRaises(ValueError):self.t.start(review,True,True)
 
  def test_san_mismatch_and_expired_review(self):

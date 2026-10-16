@@ -42,7 +42,7 @@ class Endpoints(unittest.TestCase):
  def test_catalog_in_both_frozen_packages(self):
   import pathlib
   root=pathlib.Path(__file__).resolve().parents[1]
-  for name in ('package-windows.py','package-native-diagnostic.py'):self.assertIn('src/jarvis/chat-assets.json',(root/'modern-ui'/name).read_text())
+  for name in ('package-windows.py','package-native-diagnostic.py'):self.assertIn('src/jarvis/chat-assets.json',(root/'modern-ui'/name).read_text(encoding='utf-8'))
  def test_actual_http_transport_carries_owned_token(self):
   import io,json
   from jarvis.router import HttpTransport

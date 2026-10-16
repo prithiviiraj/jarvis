@@ -41,5 +41,5 @@ class Tests(unittest.TestCase):
   try:
    with tempfile.TemporaryDirectory()as t:
     p=pathlib.Path(t)/'google-account.json';c.path=p;c.account='owner@example.com';c.grants=['calendar-freebusy'];from jarvis.google_oauth import SCOPES
-    c.tokens.save(c.account,'fixture.apps.googleusercontent.com','fixture-refresh',[SCOPES['calendar-freebusy']],True);c.save_account();self.assertNotIn('fixture-refresh',p.read_text());restored=GoogleConnection(c.tokens,path=p);self.assertEqual(restored.account,c.account);restored.disconnect(True);self.assertFalse(p.exists())
+    c.tokens.save(c.account,'fixture.apps.googleusercontent.com','fixture-refresh',[SCOPES['calendar-freebusy']],True);c.save_account();self.assertNotIn('fixture-refresh',p.read_text(encoding='utf-8'));restored=GoogleConnection(c.tokens,path=p);self.assertEqual(restored.account,c.account);restored.disconnect(True);self.assertFalse(p.exists())
   finally:c.stop()

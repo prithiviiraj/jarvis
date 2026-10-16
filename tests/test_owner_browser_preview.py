@@ -8,6 +8,7 @@ class BrowserPreview(unittest.TestCase):
   out=io.BytesIO();Image.new('RGB',(320,200),'#e9e2da').save(out,format='JPEG');return base64.b64encode(out.getvalue()).decode()
  def test_only_real_jpeg_of_owned_page_with_fixed_read_only_capture(self):
   v=BrowserOSNavigation('http://127.0.0.1:9200/mcp');v._tool=Mock()
+  v._capture_foreground=lambda:None  # Windows-only owned-process focus; this contract is the real JPEG capture shape
   with self.assertRaises(RuntimeError):v.screenshot()
   v.owned_page=7;v._tool.return_value={'content':[{'type':'image','data':self.image(),'mimeType':'image/jpeg'}]};self.assertTrue(v.screenshot()['data_url'].startswith('data:image/jpeg;base64,'));v._tool.assert_called_once_with('screenshot',{'page':7,'format':'jpeg','quality':65,'size':{'width':960,'height':600},'fullPage':False,'annotate':False})
   for image in [{'type':'image','data':'bm90IGFuIGltYWdl','mimeType':'image/jpeg'},{'type':'image','data':self.image(),'mimeType':'image/svg+xml'}]:

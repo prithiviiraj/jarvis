@@ -13,7 +13,7 @@ class BrainTests(unittest.TestCase):
   self.b.configure(self.rows,{'DEX':'slot2'});self.b.set_key('slot1','groq','test-value');self.assertNotIn('test-value',json.dumps(self.b.snapshot()));self.keys.set.assert_called_once_with('groq/slot1','test-value')
  def test_persist_without_secrets_or_consent(self):
   with tempfile.TemporaryDirectory()as d:
-   path=Path(d)/'routes.json';b=BrainSettings(self.keys,path);b.configure(self.rows,{'DEX':'slot2'});saved=path.read_text();self.assertNotIn('consent',saved);self.assertNotIn('free',saved);loaded=BrainSettings(self.keys,path);self.assertEqual(loaded.assignments['DEX'],'slot2');self.assertEqual(loaded.consent,set());self.assertEqual(loaded.free,set())
+   path=Path(d)/'routes.json';b=BrainSettings(self.keys,path);b.configure(self.rows,{'DEX':'slot2'});saved=path.read_text(encoding='utf-8');self.assertNotIn('consent',saved);self.assertNotIn('free',saved);loaded=BrainSettings(self.keys,path);self.assertEqual(loaded.assignments['DEX'],'slot2');self.assertEqual(loaded.consent,set());self.assertEqual(loaded.free,set())
  def test_primary_cloud_first_local_last(self):
   self.b.configure(self.rows,{'DEX':'slot2'});self.assertEqual([s.provider for s in self.b.candidates('DEX')],['gemini','groq','local'])
  def test_unconfirmed_cloud_excluded(self):
@@ -192,7 +192,7 @@ class NimAutomaticTests(unittest.TestCase):
 class NativeModelListBoundary(unittest.TestCase):
  def test_native_allows_list_command(self):
   p=Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs'
-  self.assertIn('"brain-models"',p.read_text().split('.contains(&command)')[0])
+  self.assertIn('"brain-models"',p.read_text(encoding='utf-8').split('.contains(&command)')[0])
 
 class ApiOnlyRouting(unittest.TestCase):
  def test_api_unavailable_never_discovers_local(self):

@@ -10,4 +10,4 @@ class LargeHistoryIPC(unittest.TestCase):
    voice=Mock();voice.busy=False;voice.runtime=None;voice.events.get_nowait.side_effect=__import__('queue').Empty;voice.tts_engine='kokoro';voice.name='JARVIS';voice.reply_actor='JARVIS'
    b=Bridge(voice=voice,brains=BrainSettings(store=Mock()),history=h)
    data=b.execute({'command':'status'});raw=json.dumps({'ok':True,'data':data},ensure_ascii=True).encode();self.assertGreater(len(raw),100000);self.assertLess(len(raw),8_000_000);self.assertEqual(len(data['messages']),200)
-   self.assertIn('reply.len()>8_000_000',(pathlib.Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text());h.close()
+   self.assertIn('reply.len()>8_000_000',(pathlib.Path(__file__).parents[1]/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8'));h.close()

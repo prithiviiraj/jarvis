@@ -4,7 +4,7 @@ class Tests(unittest.TestCase):
  def setUp(self):self.tmp=tempfile.TemporaryDirectory();self.root=pathlib.Path(self.tmp.name)/'design';self.now=0;self.d=DesignDraft(self.root,clock=lambda:self.now);self.f={'title':'A local poster','body':'Exact owner wording only.','footer':'Draft','theme':'paper'}
  def tearDown(self):self.tmp.cleanup()
  def test_review_save_exact_no_open_external_assets(self):
-  r=self.d.prepare(self.f,True);self.assertFalse(self.root.exists());out=self.d.save(r,True);self.assertEqual(pathlib.Path(out['path']).read_text(),r['svg']);self.assertNotIn('href=',r['svg']);self.assertNotIn('<script',r['svg']);self.assertIsNone(self.d.pending)
+  r=self.d.prepare(self.f,True);self.assertFalse(self.root.exists());out=self.d.save(r,True);self.assertEqual(pathlib.Path(out['path']).read_text(encoding='utf-8'),r['svg']);self.assertNotIn('href=',r['svg']);self.assertNotIn('<script',r['svg']);self.assertIsNone(self.d.pending)
  def test_escape_script_text(self):
   self.f['body']='<script>alert(1)</script><image href="https://example.com"/>';r=self.d.prepare(self.f,True);self.assertIn('&lt;script&gt;',r['svg']);self.assertNotIn('<image',r['svg'])
  def test_tampered_no_confirm_stopped_expired_refuse(self):
@@ -35,7 +35,7 @@ class Tests(unittest.TestCase):
   import os,json
   prior=os.getcwd()
   try:
-   os.chdir(self.tmp.name);run();report=json.loads(pathlib.Path('ui-evidence/frozen-local-draft-contracts.json').read_text());self.assertTrue(report['synthetic_text_only']);self.assertIn('physical phone',report['unrun'])
+   os.chdir(self.tmp.name);run();report=json.loads(pathlib.Path('ui-evidence/frozen-local-draft-contracts.json').read_text(encoding='utf-8'));self.assertTrue(report['synthetic_text_only']);self.assertIn('physical phone',report['unrun'])
   finally:os.chdir(prior)
 
  def test_linebreaks_preserved_and_blank_lines_counted(self):
@@ -44,6 +44,6 @@ class Tests(unittest.TestCase):
   with self.assertRaises(ValueError):self.d.prepare(self.f,True)
 
  def test_renderer_and_frozen_contract_wired_into_CI(self):
-  root=pathlib.Path(__file__).resolve().parents[1];workflow=(root/'.github/workflows/modern-voice.yml').read_text();native=(root/'modern-ui/native-smoke.py').read_text();entry=(root/'modern-ui/frozen-entry.py').read_text()
+  root=pathlib.Path(__file__).resolve().parents[1];workflow=(root/'.github/workflows/modern-voice.yml').read_text(encoding='utf-8');native=(root/'modern-ui/native-smoke.py').read_text(encoding='utf-8');entry=(root/'modern-ui/frozen-entry.py').read_text(encoding='utf-8')
   for script in ('phone-handoff-smoke.mjs','design-draft-smoke.mjs'):self.assertIn('node '+script,workflow)
   self.assertIn("'--draft-self-test'",native);self.assertIn("sys.argv[1]=='--draft-self-test'",entry)

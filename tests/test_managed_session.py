@@ -47,7 +47,7 @@ class Session(unittest.TestCase):
 
  def test_backend_and_native_handlers_exist_and_ui_reviews_each_effect(self):
   import pathlib
-  root=pathlib.Path(__file__).resolve().parents[1];backend=(root/'src/jarvis/ui_bridge.py').read_text();native=(root/'modern-ui/src-tauri/src/main.rs').read_text();ui=(root/'modern-ui/public/bigfoot-ui/jarvis-adapter.js').read_text()
+  root=pathlib.Path(__file__).resolve().parents[1];backend=(root/'src/jarvis/ui_bridge.py').read_text(encoding='utf-8');native=(root/'modern-ui/src-tauri/src/main.rs').read_text(encoding='utf-8');ui=(root/'modern-ui/public/bigfoot-ui/jarvis-adapter.js').read_text(encoding='utf-8')
   for command in ('model-session-prepare','model-session-start','model-session-stop'):
    self.assertIn(command,backend);self.assertIn(command,native);self.assertIn(command,ui)
   self.assertIn('reviewed:review,confirm:true',ui);self.assertIn('if(confirm(`${review.label}: ${review.scope}`))',ui)

@@ -15,7 +15,7 @@ class Retrieval(unittest.TestCase):
    out=rt.retrieve({'action':'search','folder':d,'encoders':'all','dimensions':256,'query':'திட்டம்'},self.model());self.assertEqual(out['results'][0]['name'],'plan.md');self.assertEqual({x['kind']for x in out['results']},{'text','code','image'});self.assertEqual(out['dimensions'],256)
  def test_links_never_become_wiki_links_or_writes(self):
   with tempfile.TemporaryDirectory()as d:
-   p=pathlib.Path(d)/'a.md';p.write_text('plan');(pathlib.Path(d)/'b.md').write_text('plan');out=rt.retrieve({'action':'links','folder':d,'encoders':'text','dimensions':768},self.model());self.assertEqual(out['links'][0]['type'],'suggested similarity');self.assertEqual(p.read_text(),'plan')
+   p=pathlib.Path(d)/'a.md';p.write_text('plan');(pathlib.Path(d)/'b.md').write_text('plan');out=rt.retrieve({'action':'links','folder':d,'encoders':'text','dimensions':768},self.model());self.assertEqual(out['links'][0]['type'],'suggested similarity');self.assertEqual(p.read_text(encoding='utf-8'),'plan')
  def test_invalid_vectors_fail_closed(self):
   with tempfile.TemporaryDirectory()as d:
    (pathlib.Path(d)/'a.md').write_text('plan');m=Mock();m.encode.return_value=[float('nan')]*768
