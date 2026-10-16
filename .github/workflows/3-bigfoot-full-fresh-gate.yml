@@ -21,8 +21,8 @@ jobs:
         ref: jarvis-voice-feedback-next
     - name: Restore hash-pinned recovered product source, never private data
       shell: python
-      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('9-9-jarvis-phone-viewport-0832.tar.gz')\n\
-        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='2e639f8131f5d59b5d914c93197cd8e8d3e09e51328f9116d1fa9c1797ac5fea','Checkpoint\
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('10-10-jarvis-advanced-rail-1012.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='86e15cd2f84a461ea771b186d08415212abf910b4e01bda11548025554e8925e','Checkpoint\
         \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
         \  assert not path.is_absolute() and '..' not in path.parts and '.git' not in path.parts\n  if path.parts[0]=='.github':continue\n\
         \  if member.isdir():continue\n  assert member.isfile(),'Non-regular source member rejected'\n  target=pathlib.Path(*path.parts);target.parent.mkdir(parents=True,exist_ok=True)\n\
@@ -61,8 +61,8 @@ jobs:
         test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"'
     - name: Restore hash-pinned recovered product source, never private data
       shell: python
-      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('9-9-jarvis-phone-viewport-0832.tar.gz')\n\
-        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='2e639f8131f5d59b5d914c93197cd8e8d3e09e51328f9116d1fa9c1797ac5fea','Checkpoint\
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('10-10-jarvis-advanced-rail-1012.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='86e15cd2f84a461ea771b186d08415212abf910b4e01bda11548025554e8925e','Checkpoint\
         \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
         \  assert not path.is_absolute() and '..' not in path.parts and '.git' not in path.parts\n  if path.parts[0]=='.github':continue\n\
         \  if member.isdir():continue\n  assert member.isfile(),'Non-regular source member rejected'\n  target=pathlib.Path(*path.parts);target.parent.mkdir(parents=True,exist_ok=True)\n\
