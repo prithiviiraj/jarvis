@@ -123,6 +123,15 @@ def activate_fresh(factory,tries=3):
    if attempt==tries-1:raise
    time.sleep(.3)
  return False
+def focus_workspace(root=None):
+ # Brave startup can steal focus after an earlier successful set_focus.
+ # Verify the OS foreground owner immediately before every mouse action.
+ target=root or window
+ for _ in range(15):
+  target.set_focus()
+  if ctypes.windll.user32.GetForegroundWindow()==target.handle:return
+  time.sleep(.1)
+ raise RuntimeError('JARVIS workspace could not acquire foreground for native input')
 def navigation(main,name):
  """Follow the real simplified product controls, not hidden/removed navigation."""
  def invoke(title):
@@ -146,7 +155,7 @@ def navigation(main,name):
   # failure leave real evidence (probes + tree + pixels) in ui-evidence.
   deadline=time.monotonic()+30;last_nav=time.monotonic()
   while not main.child_window(title='Advanced',control_type='Button',visible_only=False).exists():
-   focus_workspace()
+   focus_workspace(main)
    if activate_fresh(lambda:main.child_window(title='All settings',control_type='Button'))or activate_fresh(lambda:main.child_window(title='More settings',control_type='Button')):time.sleep(.15)
    elif time.monotonic()-last_nav>5:invoke('Settings');last_nav=time.monotonic()
    if time.monotonic()>deadline:
@@ -327,14 +336,6 @@ try:
    except KeyError as error:
     if error.args!=(None,) or attempt==4:raise
     time.sleep(.05)
- def focus_workspace():
-  # Brave startup can steal focus after an earlier successful set_focus.
-  # Verify the OS foreground owner immediately before every mouse action.
-  for _ in range(15):
-   window.set_focus()
-   if ctypes.windll.user32.GetForegroundWindow()==window.handle:return
-   time.sleep(.1)
-  raise RuntimeError('JARVIS workspace could not acquire foreground for native input')
  def reveal_field(control):
   focus_workspace()
   # Settings pane keeps scroll across sub-page changes. Start at its top, then
