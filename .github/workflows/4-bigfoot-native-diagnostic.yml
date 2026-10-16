@@ -20,8 +20,8 @@ jobs:
         ref: jarvis-voice-feedback-next
     - name: Restore hash-pinned recovered product source, never private data
       shell: python
-      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('5-jarvis-button-retry-0518.tar.gz')\n\
-        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='f38c4199c253a78965624dab67df30b57f93be49a07141975e9a2045de72a836','Checkpoint\
+      run: "import pathlib,tarfile,hashlib,json,subprocess,os\narchive=pathlib.Path('6-jarvis-drawer-scroll-0549.tar.gz')\n\
+        assert hashlib.sha256(archive.read_bytes()).hexdigest()=='aa25058e0894d061e494fc42f09c4b06886a832930d76939b19c65cdf12e971c','Checkpoint\
         \ source hash mismatch'\npaths=[]\nwith tarfile.open(archive)as tar:\n for\
         \ member in tar.getmembers():\n  path=pathlib.PurePosixPath(member.name)\n\
         \  assert not path.is_absolute() and '..' not in path.parts and '.git' not\
