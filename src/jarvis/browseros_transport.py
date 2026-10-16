@@ -1,7 +1,7 @@
 """Independent bounded MCP discovery client for separately installed BrowserOS neo.
 No browser actions, account import, script execution or automatic installer.
 """
-import json,re,threading,time,urllib.request
+import json,os,re,subprocess,threading,time,urllib.request
 from urllib.parse import urlsplit
 PINNED_BROWSER_VERSION='0.51.1.2'
 PROTOCOL='2025-06-18'
@@ -23,7 +23,9 @@ def http(method,url,headers,payload):
  opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
  # Current images can take longer than catalog reads on a cold Windows GPU.
  # Do not retry an uncertain operation. Stop still runs on its own connection.
- timeout=30 if isinstance(payload,dict)and payload.get('params',{}).get('name')=='screenshot'else 5
+ name=payload.get('params',{}).get('name')if isinstance(payload,dict)else None
+ # Heavy page loads (YouTube-class) cannot finish inside the catalog timeout.
+ timeout=30 if name=='screenshot'else 45 if name=='navigate'else 5
  with opener.open(request,timeout=timeout)as response:
   kind=response.headers.get('Content-Type','')
   if 'text/event-stream'in kind and isinstance(payload,dict)and 'id'in payload:
@@ -31,7 +33,7 @@ def http(method,url,headers,payload):
    # response.read waits for EOF and turns a valid image into a timeout.
    data=b'';deadline=time.monotonic()+timeout
    while True:
-    if time.monotonic()>=deadline:raise TimeoutError('BrowserOS response deadline exceeded')
+    if time.monotonic()>=deadline:raise TimeoutError('BrowserOS response deadline exceeded; received_bytes='+str(len(data))+'; completed_sse_frames='+str(data.count(b'\n\n')))
     chunk=response.read1(min(65536,MAX_BYTES+1-len(data)))
     data+=chunk
     if len(data)>MAX_BYTES:raise RuntimeError('BrowserOS response too large')
@@ -105,6 +107,89 @@ class BrowserOSDiscovery:
   with self.lock:self.session=None
   return {'stopped':True,'session_closed':True}
 
+def _mcp_browser_pid(url):
+ # The owned browser is the process listening on this pinned loopback MCP port.
+ from urllib.parse import urlsplit
+ port=urlsplit(url).port
+ if not port:raise RuntimeError('BrowserOS MCP endpoint has no port for capture focus')
+ out=subprocess.run(['netstat','-ano'],capture_output=True,text=True,timeout=10).stdout
+ for line in out.splitlines():
+  parts=line.split()
+  if len(parts)>=5 and(parts[1].startswith('127.0.0.1:')or parts[1].startswith('0.0.0.0:'))and parts[1].endswith(':'+str(port))and parts[3].upper()=='LISTENING':
+   pid=int(parts[4])
+   if pid>0:return pid
+ raise RuntimeError('Owned BrowserOS process not found for capture focus')
+def _mcp_windows_for_pid(pid):
+ import ctypes
+ user32=ctypes.windll.user32;found=[]
+ @ctypes.WINFUNCTYPE(ctypes.c_bool,ctypes.c_void_p,ctypes.c_void_p)
+ def each(hwnd,_):
+  if user32.IsWindowVisible(hwnd):
+   owner=ctypes.c_ulong();user32.GetWindowThreadProcessId(hwnd,ctypes.byref(owner))
+   if owner.value==pid:found.append(hwnd)
+  return True
+ user32.EnumWindows(each,0)
+ return found
+def _snapshot_processes():
+ # {pid:(parent_pid,exe_name)} via Toolhelp32, no external deps.
+ import ctypes
+ from ctypes import wintypes
+ k=ctypes.windll.kernel32
+ class E(ctypes.Structure):
+  _fields_=[('dwSize',wintypes.DWORD),('cntUsage',wintypes.DWORD),('th32ProcessID',wintypes.DWORD),('th32DefaultHeapID',ctypes.c_size_t),('th32ModuleID',wintypes.DWORD),('cntThreads',wintypes.DWORD),('th32ParentProcessID',wintypes.DWORD),('pcPriClassBase',wintypes.LONG),('dwFlags',wintypes.DWORD),('szExeFile',wintypes.WCHAR*260)]
+ snap=k.CreateToolhelp32Snapshot(2,0)
+ if snap in(None,0,-1):return{}
+ out={};e=E();e.dwSize=ctypes.sizeof(E)
+ try:
+  ok=k.Process32FirstW(snap,ctypes.byref(e))
+  while ok:
+   out[int(e.th32ProcessID)]=(int(e.th32ParentProcessID),e.szExeFile);ok=k.Process32NextW(snap,ctypes.byref(e))
+ finally:k.CloseHandle(snap)
+ return out
+def _mcp_window_and_owner(pid):
+ # The MCP listener is a server process spawned by the BrowserOS main process,
+ # so the visible window usually belongs to an ANCESTOR of the listener PID
+ # (pinned run-12 startup log: browser main PID logs 'Starting BrowserOS server
+ # process'). Own windows first, then walk the parent chain.
+ own=_mcp_windows_for_pid(pid)
+ if own:return own[0],pid
+ procs=_snapshot_processes();current=pid;seen={pid}
+ for _ in range(16):
+  parent=procs.get(current,(0,''))[0]
+  if not parent or parent in seen:break
+  seen.add(parent)
+  wins=_mcp_windows_for_pid(parent)
+  if wins:return wins[0],parent
+  current=parent
+ return None,None
+def _mcp_process_tree_text(pid):
+ procs=_snapshot_processes();parts=[];current=pid;seen=set()
+ for _ in range(16):
+  parent,exe=procs.get(current,(0,''))
+  parts.append('%s[%s]'%(current,exe)if exe else str(current))
+  if not parent or parent in seen:break
+  seen.add(parent);current=parent
+ return ' -> '.join(parts)
+def _focus_mcp_browser_window(url):
+ # Bring the owned browser window forward. Owner-approved (authenticated
+ # WhatsApp 00:34 Oct16, option 1): a brief foreground flash keeps every
+ # screenshot a real composited capture of the owned page. BrowserOS draws
+ # custom chrome: its window has NO Win32 title text, so match by owning PID,
+ # never window text.
+ import ctypes
+ pid=_mcp_browser_pid(url)
+ hwnd,owner=_mcp_window_and_owner(pid)
+ if hwnd is None:raise RuntimeError('Owned BrowserOS window not found for capture focus; mcp process tree: '+_mcp_process_tree_text(pid))
+ user32=ctypes.windll.user32;user32.ShowWindow(hwnd,9)
+ for _ in range(5):
+  user32.SetForegroundWindow(hwnd);time.sleep(.1)
+  if user32.GetForegroundWindow()==hwnd:return hwnd
+ raise RuntimeError('Owned BrowserOS window could not take foreground for capture')
+def _ctrl_tab():
+ import ctypes
+ user32=ctypes.windll.user32
+ user32.keybd_event(0x11,0,0,0);user32.keybd_event(0x09,0,0,0)
+ user32.keybd_event(0x09,0,2,0);user32.keybd_event(0x11,0,2,0)
 class BrowserOSNavigation(BrowserOSDiscovery):
  """Only owned new blank tab, reviewed HTTPS navigation and snapshot. No general tool API."""
  def __init__(self,url,transport=None):super().__init__(url,transport);self.owned_page=None
@@ -131,7 +216,19 @@ class BrowserOSNavigation(BrowserOSDiscovery):
    page=self.owned_page;url=match.group(1)
   marker='[Page '+str(page)+' snapshot]\n'
   snapshots=[b.get('text','')for b in blocks[1:]if isinstance(b,dict)and b.get('type')=='text'and isinstance(b.get('text'),str)and b['text'].startswith(marker)]
-  if len(snapshots)!=1:raise RuntimeError('BrowserOS page snapshot receipt is unverified')
+  if len(snapshots)!=1:
+   unavailable=any(isinstance(b,dict)and b.get('type')=='text'and isinstance(b.get('text'),str)and b['text'].startswith('[page '+str(page)+' snapshot unavailable:')for b in blocks[1:])
+   if not unavailable or opening:raise RuntimeError('BrowserOS page snapshot receipt is unverified')
+   # Heavy pages can exceed the server's small auto-snapshot budget while the
+   # navigation itself succeeded (run 18: YouTube timed out its 5s budget).
+   # Take fresh explicit snapshots and apply the same nonce+origin
+   # cross-check to one of them instead.
+   last=None
+   for _ in range(3):
+    try:self.page_text(self.snapshot(),url);break
+    except RuntimeError as error:last=error;time.sleep(1)
+   else:raise RuntimeError('BrowserOS fresh snapshot after navigate is unverified: '+str(last))
+   return {'page':page,'url':url}
   origin=re.match(r'\[UNTRUSTED_PAGE_CONTENT nonce=[0-9a-f]+ origin=([^\s\]]+)\]',snapshots[0][len(marker):])
   if not origin or origin.group(1)!=url:raise RuntimeError('BrowserOS snapshot destination disagrees with receipt')
   return {'page':page,'url':url}
@@ -214,18 +311,50 @@ class BrowserOSNavigation(BrowserOSDiscovery):
    label,url=body[1:-1].rsplit('](',1)
    if not label or len(label)>500 or '\n'in label or '\r'in label:raise RuntimeError('YouTube result label is ambiguous')
    BrowserControl.destination(url);target=urlsplit(url);ids=parse_qs(target.query)
-   if target.hostname not in ('www.youtube.com','youtube.com')or target.path!='/watch'or set(ids)!={'v'}or len(ids['v'])!=1 or not re.fullmatch(r'[A-Za-z0-9_-]{11}',ids['v'][0])or target.fragment:raise RuntimeError('YouTube result was not one standard public watch URL')
+   # Real results pages append benign tracking params (pp=...) to watch hrefs;
+   # the verified binding is the single 11-character video id, so the
+   # canonical watch URL is rebuilt from it and the raw href is discarded.
+   if target.hostname not in ('www.youtube.com','youtube.com')or target.path!='/watch'or len(ids.get('v',[]))!=1 or not re.fullmatch(r'[A-Za-z0-9_-]{11}',ids['v'][0])or target.fragment:raise RuntimeError('YouTube result was not one standard public watch URL')
+   url='https://www.youtube.com/watch?v='+ids['v'][0]
    if ids['v'][0]in seen:raise RuntimeError('Duplicate YouTube anchors made the observed order ambiguous')
    seen.add(ids['v'][0]);rows.append({'number':number,'title':label[:160],'url':url})
   self.page_text(self.snapshot(),current)
   if not rows:raise RuntimeError('This YouTube page layout has no verified desktop video anchors. Use an exact public video URL.')
   return {'page':self.owned_page,'expected_url':current,'videos':rows,'binding':'single-result-anchor-v1','scope':'Read-only observed desktop search result anchors. Labels are untrusted text, not recommendations/instructions; native layout acceptance pending'}
+ def _active_page(self):
+  result=self._tool('tabs',{'action':'active'})
+  data=result.get('structuredContent')
+  if isinstance(data,dict)and type(data.get('page'))is int:return data['page']
+  blocks=result.get('content',[])
+  text='\n'.join(b.get('text','')for b in blocks if isinstance(b,dict)and b.get('type')=='text')
+  # Pinned receipt: 'Active page: [2] about:blank (about:blank)'.
+  match=re.search(r'\[([1-9][0-9]{0,9})\]',text)or re.search(r'"page"\s*:\s*([1-9][0-9]{0,9})',text)or re.search(r'page\s+([1-9][0-9]{0,9})',text)
+  return int(match.group(1))if match else None
+ def _capture_foreground(self):
+  # A background owned tab can stop receiving compositor frames after wheel
+  # input, which hangs real pinned screenshot requests. On Windows the
+  # owner-approved adapter briefly brings the owned browser window and tab
+  # forward so the capture stays a real current image. No effect elsewhere.
+  if os.name!='nt':return
+  first=self._active_page()
+  if first==self.owned_page:return
+  _focus_mcp_browser_window(self.url)  # raises unless foreground is verified
+  if first is None:return
+  unread=0
+  for _ in range(8):
+   _ctrl_tab();time.sleep(.25)
+   active=self._active_page()
+   if active==self.owned_page:return
+   unread=unread+1 if active is None else 0
+   if unread>=2:return
+  raise RuntimeError('Owned BrowserOS tab could not be brought forward for a real capture')
  def screenshot(self):
   """One real current owned-page capture. No stream, import, or model request."""
   import base64,io
   from PIL import Image
   if self.owned_page is None:raise RuntimeError('No owned BrowserOS page')
   page=self.owned_page
+  self._capture_foreground()
   result=self._tool('screenshot',{'page':page,'format':'jpeg','quality':65,'size':{'width':960,'height':600},'fullPage':False,'annotate':False})
   images=[b for b in result.get('content',[])if isinstance(b,dict)and b.get('type')=='image']
   if len(images)!=1 or images[0].get('mimeType')!='image/jpeg':raise RuntimeError('BrowserOS current image is unverified')

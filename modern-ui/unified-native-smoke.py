@@ -15,14 +15,22 @@ try:
  if guide.exists():helper.activate(guide)
  for name in ['Home','JARVIS','Models','Voice settings','General','Terminal','Settings','Computer tools','Start listening','Camera off','Screen share off','Connect browser','Stop']:button(name);checks.append('visible '+name)
  w.capture_as_image().save(out/'native-unified-home.png')
- profile=w.child_window(title='Speaking profile',control_type='ComboBox');profile.wait('visible',timeout=15);profile.wrapper_object().select('ALL team');time.sleep(.2);button('Start ALL voice');checks.append('ALL selected without microphone start')
- profile.wrapper_object().select('JARVIS');time.sleep(.2);click('Settings');button('Choose connection');button('Set up voice');button('Explore tools');w.capture_as_image().save(out/'native-unified-settings-home.png');click('Choose connection');button('Back to Home');w.capture_as_image().save(out/'native-unified-settings-connections.png')
+ profile=w.child_window(title='Speaking profile',control_type='ComboBox');profile.wait('visible',timeout=15);profile.wrapper_object().click_input();w.type_keys('{END}{ENTER}');button('Start ALL voice');checks.append('ALL selected without microphone start')
+ profile.wrapper_object().click_input();w.type_keys('{HOME}{ENTER}');button('Start listening');click('Settings');button('Choose connection');button('Set up voice');button('Explore tools');w.capture_as_image().save(out/'native-unified-settings-home.png');click('Choose connection');button('Back to Home');w.capture_as_image().save(out/'native-unified-settings-connections.png')
  for name in ['Connections','Voice','Privacy','Tools','More']:
   click(name);button('Back to Home');checks.append('category '+name)
  click('Voice')
  route=w.child_window(title='Recognition route',control_type='ComboBox');route.wait('visible',timeout=15)
  language=w.child_window(title='Input language',control_type='ComboBox');language.wait('visible',timeout=15)
- click('Set up Groq speech input');button('Cancel Groq setup')
+ click('Set up Groq speech input')
+ cancel=w.child_window(title='Cancel Groq setup',control_type='Button');cancel.wait('exists',timeout=15)
+ # Consent panel can open below the fold at the restored window size. Realize
+ # and reveal the actual control instead of assuming pane scroll position.
+ try:cancel.wrapper_object().iface_scroll_item.ScrollIntoView();time.sleep(.3)
+ except Exception:pass
+ try:button('Cancel Groq setup')
+ except Exception:
+  w.capture_as_image().save(out/'native-unified-groq-failure.png');raise
  enable=w.child_window(title='Enable Groq speech input',control_type='Button');enable.wait('exists',timeout=10);assert not enable.wrapper_object().is_enabled(),'Groq sharing/free-tier gates bypassed'
  w.capture_as_image().save(out/'native-unified-groq-consent.png');click('Cancel Groq setup');checks.append('Groq route/language and Cancel; unchecked sharing/free gates remain disabled')
  click('All settings')

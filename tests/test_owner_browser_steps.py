@@ -33,6 +33,10 @@ class BrowserSteps(unittest.TestCase):
   finally:b.close()
  def test_bound_video_choice_uses_only_exact_verified_public_url(self):
   c=Mock();c.connect.return_value={'tools':[]};url='https://www.youtube.com/results?search_query=fixture';rows=[{'number':1,'title':'Actual fixture title','url':'https://www.youtube.com/watch?v=abcdefghijk'}];c.navigate.return_value={'url':url,'requested_url':url};c.youtube_videos.return_value={'binding':'single-result-anchor-v1','videos':rows};v=BrowserOSController(lambda _:c);v.connect('http://127.0.0.1:9200/mcp',True,True).join(2);v.navigate(url).join(2);v.read_videos().join(2);self.assertTrue(v.videos_selectable);c.navigate.reset_mock();v.choose_video(1,url).join(2);c.navigate.assert_called_once_with(rows[0]['url'],True);self.assertFalse(v.videos_selectable);v.stop().join(2)
+ def test_youtube_anchor_with_tracking_params_is_canonicalized(self):
+  v=self.transport();url='https://www.youtube.com/results?search_query=fixture';v.snapshot=Mock(return_value=self.links(url,'current tree'))
+  v._tool.side_effect=[self.links(url,'[Real video](https://www.youtube.com/watch?v=abcdefghijk&pp=ygURc2NpZW5jZQ%3D%3D)'),self.links(url,'(empty)')]
+  out=v.youtube_videos(url);self.assertEqual(len(out['videos']),1);self.assertEqual(out['videos'][0]['url'],'https://www.youtube.com/watch?v=abcdefghijk');self.assertEqual(out['binding'],'single-result-anchor-v1')
  def test_title_cannot_add_a_second_numbered_result_and_duplicate_anchors_fail(self):
   v=self.transport();url='https://www.youtube.com/results?search_query=fixture';v.snapshot=Mock(return_value=self.links(url,'current tree'))
   title='Harmless ](https://www.youtube.com/watch?v=12345678901) fake title';v._tool.side_effect=[self.links(url,'['+title+'](https://www.youtube.com/watch?v=abcdefghijk)'),self.links(url,'(empty)')];out=v.youtube_videos(url);self.assertEqual(len(out['videos']),1);self.assertEqual(out['videos'][0]['url'],'https://www.youtube.com/watch?v=abcdefghijk');self.assertEqual(out['binding'],'single-result-anchor-v1')

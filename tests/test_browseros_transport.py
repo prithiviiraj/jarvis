@@ -1,4 +1,5 @@
 import json,unittest
+from unittest import mock
 from jarvis.browseros_transport import BrowserOSDiscovery,endpoint,rpc_body
 class BrowserOS(unittest.TestCase):
  def test_local_endpoint_only(self):
@@ -83,3 +84,21 @@ class HttpStreaming(unittest.TestCase):
   with patch('jarvis.browseros_transport.urllib.request.build_opener',return_value=opener),patch('jarvis.browseros_transport.MAX_BYTES',8):
    with self.assertRaisesRegex(RuntimeError,'too large'):http('POST','http://127.0.0.1:9200/mcp',{}, {'id':4,'params':{'name':'snapshot'}})
   self.assertEqual(opener.open.call_args.kwargs['timeout'],5)
+class CaptureForeground(unittest.TestCase):
+ def test_active_page_receipt_parsing(self):
+  from jarvis.browseros_transport import BrowserOSNavigation
+  for result,expected in [({'structuredContent':{'page':7}},7),({'content':[{'type':'text','text':'Active page: [2] about:blank (about:blank)'}]},2),({'content':[{'type':'text','text':'active page 7'}]},7),({'content':[{'type':'text','text':'{"page": 12, "title": "x"}'}]},12),({'content':[{'type':'text','text':'no receipt'}]},None)]:
+   v=BrowserOSNavigation('http://127.0.0.1:9200/mcp');v._tool=lambda n,a,_r=result:_r
+   self.assertEqual(v._active_page(),expected)
+ def test_owned_tab_already_active_skips_native(self):
+  from jarvis.browseros_transport import BrowserOSNavigation
+  v=BrowserOSNavigation('http://127.0.0.1:9200/mcp');v.owned_page=7;v._active_page=lambda :7
+  with mock.patch('jarvis.browseros_transport.os')as fake_os:
+   fake_os.name='nt';v._capture_foreground()
+ def test_capture_foreground_noop_off_windows(self):
+  import os
+  from jarvis.browseros_transport import BrowserOSNavigation
+  if os.name=='nt':self.skipTest('native path engages on Windows')
+  v=BrowserOSNavigation('http://127.0.0.1:9200/mcp');v.owned_page=7
+  v._active_page=lambda :(_ for _ in ()).throw(AssertionError('must not query MCP off Windows'))
+  v._capture_foreground()

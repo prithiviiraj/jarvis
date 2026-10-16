@@ -4,11 +4,30 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent.parent/'src'))
 from jarvis.obsidian_vault import Vault,NAME
 url='https://github.com/obsidianmd/obsidian-releases/releases/download/v1.9.14/Obsidian-1.9.14.exe';digest='e6b8f82ccfcda4553a35efdfd17a56935b08543e82078d5aa1404d282cecf9ac'
-installer=pathlib.Path(tempfile.gettempdir())/'obsidian-fixture-1.9.14.exe'
+# The hash-verified installer intermittently crashes on shared runners (3221225477 access
+# violation) via BOTH the short-temp subprocess and expanded-path Start-Process routes.
+# Require one real successful install; record evidence for every crashed attempt.
+import shutil
+runner_temp=os.environ.get('RUNNER_TEMP')or tempfile.gettempdir()
+installer=pathlib.Path(runner_temp)/'obsidian-fixture-1.9.14.exe'
 if not installer.exists():urllib.request.urlretrieve(url,installer)
 assert hashlib.sha256(installer.read_bytes()).hexdigest()==digest,'Official installer checksum mismatch'
-install=pathlib.Path(tempfile.gettempdir())/'obsidian-host-fixture'
-subprocess.run([str(installer),'/S','/D='+str(install)],check=True,timeout=120)
+install=pathlib.Path(runner_temp)/'obsidian-host-fixture'
+def install_obsidian():
+ ps="$p=Start-Process -FilePath '"+str(installer)+"' -ArgumentList '/S','/D="+str(install)+"' -PassThru; if(-not $p.WaitForExit(120000)){Stop-Process -Id $p.Id -Force; exit 124}; exit $p.ExitCode"
+ return subprocess.run(['powershell','-NoProfile','-Command',ps],capture_output=True,timeout=150)
+attempts=[]
+for attempt in range(2):
+ result=install_obsidian()
+ record={'attempt':attempt+1,'exit':result.returncode,'exit_hex':hex(result.returncode&0xffffffff),'runner_temp':runner_temp,'temp':tempfile.gettempdir(),'stdout':result.stdout.decode('utf-8','replace')[-2000:]if result.stdout else '','stderr':result.stderr.decode('utf-8','replace')[-2000:]if result.stderr else ''}
+ if result.returncode:
+  events=subprocess.run(['powershell','-NoProfile','-Command',"Get-WinEvent -FilterHashtable @{LogName='Application';StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction SilentlyContinue | Where-Object {$_.Message -match 'Obsidian|obsidian-fixture|Application Error'} | Select-Object TimeCreated,Id,ProviderName,Message | ConvertTo-Json -Depth 4"],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=25)
+  record['windows_crash_events']=events.stdout;record['event_error']=events.stderr
+  evidence=pathlib.Path('ui-evidence');evidence.mkdir(exist_ok=True)
+  attempts.append(record);(evidence/'obsidian-installer-attempts.json').write_text(json.dumps(attempts,indent=2),encoding='utf-8')
+  shutil.rmtree(install,ignore_errors=True)
+ else:break
+if result.returncode:raise RuntimeError('Pinned Obsidian installer crashed twice; evidence in ui-evidence/obsidian-installer-attempts.json')
 exe=install/'Obsidian.exe';assert exe.is_file()
 with tempfile.TemporaryDirectory()as fixture:
  base=pathlib.Path(fixture);vault=Vault(base/'config.json',lambda:base);vault.create(NAME,True);vault.sync([],{'agents':[]},{},force=True);root=base/NAME

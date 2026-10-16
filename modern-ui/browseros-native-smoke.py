@@ -8,7 +8,7 @@ exe=pathlib.Path(os.environ['BROWSEROS_EXE']).resolve();assert exe.is_file()
 env=dict(os.environ);env['CLAW_ANALYTICS_ENABLED']='false'
 # Hosted Windows runner has no video device and logs SharedImage/Skia GPU errors.
 # Use real BrowserOS software rendering, never synthetic screenshot substitution.
-p=subprocess.Popen([str(exe),'--disable-gpu','--enable-logging','--log-file='+str(root/'browser-startup.log'),'--user-data-dir='+str(root/'profile'),'--no-first-run','--no-default-browser-check','about:blank'],env=env)
+p=subprocess.Popen([str(exe),'--disable-gpu','--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--disable-features=CalculateNativeWinOcclusion','--enable-logging','--log-file='+str(root/'browser-startup.log'),'--user-data-dir='+str(root/'profile'),'--no-first-run','--no-default-browser-check','about:blank'],env=env)
 client=None
 rpc=[]
 def recording_transport(method,url,headers,payload):
@@ -67,8 +67,48 @@ try:
  (root/'owned-page-current.jpg').write_bytes(picture)
  with Image.open(io.BytesIO(picture))as image:
   assert image.format=='JPEG' and image.width>100 and image.height>100,'Actual owned page JPEG did not decode'
+ if os.environ.get('JARVIS_BROWSEROS_DIAGNOSTIC')=='1':
+  # Read-only experiment, never substituted for the required news gate.
+  observations=[]
+  for stage in ['second-capture-before-scroll','capture-after-scroll','capture-after-scroll-up']:
+   try:
+    if stage=='capture-after-scroll':client.scroll('down')
+    if stage=='capture-after-scroll-up':client.scroll('up')
+    current=client.screenshot();raw=base64.b64decode(current['data_url'].split(',',1)[1],validate=True)
+    (root/(stage+'.jpg')).write_bytes(raw);observations.append({'stage':stage,'success':True,'bytes':len(raw)})
+   except Exception as error:observations.append({'stage':stage,'success':False,'error':str(error)})
+  try:
+   # Diagnose upstream viewport-clip/compositor behavior only. A full-page
+   # image is never returned by the product's visible-page preview adapter.
+   full=client._tool('screenshot',{'page':client.owned_page,'format':'jpeg','quality':65,'fullPage':True,'annotate':False})
+   images=[b for b in full.get('content',[])if b.get('type')=='image']
+   assert len(images)==1 and images[0].get('mimeType')=='image/jpeg'
+   raw=base64.b64decode(images[0]['data'],validate=True)
+   with Image.open(io.BytesIO(raw))as image:dimensions=list(image.size);image.verify()
+   (root/'diagnostic-fullpage-after-scroll.jpg').write_bytes(raw)
+   observations.append({'stage':'diagnostic-fullpage-after-scroll','success':True,'bytes':len(raw),'dimensions':dimensions,'scope':'Disposable public fixture diagnosis only; never product viewport substitute'})
+  except Exception as error:observations.append({'stage':'diagnostic-fullpage-after-scroll','success':False,'error':str(error)})
+  try:
+   # Separate disposable-profile experiment: background owned tabs may not
+   # receive a compositor frame after wheel input. Do not alter owner profiles.
+   from pywinauto import Desktop,keyboard
+   browsers=Desktop(backend='uia').windows(process=p.pid)
+   candidates=[w for w in browsers if 'BrowserOS'in w.window_text() or 'about:blank'in w.window_text()]
+   if not candidates:raise RuntimeError('Isolated BrowserOS window not found')
+   native=candidates[0];native.set_focus();keyboard.send_keys('^{TAB}');time.sleep(.3)
+   ImageGrab.grab().save(root/'owned-tab-foreground-experiment.png')
+   snap=client.snapshot();assert 'origin=https://example.com/'in json.dumps(snap)
+   current=client.screenshot();raw=base64.b64decode(current['data_url'].split(',',1)[1],validate=True)
+   (root/'capture-after-native-tab-foreground.jpg').write_bytes(raw)
+   observations.append({'stage':'capture-after-native-tab-foreground','success':True,'bytes':len(raw)})
+   # Return the owned tab to the background so the required news gate below
+   # exercises the product foreground capture adapter, not this experiment.
+   keyboard.send_keys('^{TAB}');time.sleep(.3)
+   observations.append({'stage':'owned-tab-returned-to-background','success':True})
+  except Exception as error:observations.append({'stage':'capture-after-native-tab-foreground','success':False,'error':str(error)})
+  (root/'repeated-jpeg-diagnostic.json').write_text(json.dumps(observations,indent=2),encoding='utf-8')
  scroll=client.scroll('down');assert scroll['acknowledged']is True,'Fixed scroll receipt missing'
- news=client.news_capture(result['url']);assert 'Example Domain'in news['text'],'Current-page news text was not from actual owned page'
+ news=client.news_capture(result['url']);assert 'This domain is for use in documentation examples'in news['text'],'Current-page news text was not from actual owned page'
  assert news['url']==result['url']and news['sha256']==hashlib.sha256(news['text'].encode()).hexdigest(),'Current text/origin/hash mismatch'
  (root/'captured-news.jpg').write_bytes(base64.b64decode(news.pop('picture').split(',',1)[1],validate=True))
  (root/'captured-news.json').write_text(json.dumps(news,indent=2),encoding='utf-8')
@@ -95,7 +135,7 @@ try:
  try:client.navigate('https://example.org',True)
  except RuntimeError:pass
  else:raise AssertionError('Stopped session allowed another navigation')
- (root/'result.json').write_text(json.dumps({'browser_exe':str(exe),'required_version':'0.51.1.2','server':meta['server'],'telemetry':telemetry,'opened_page':opened['page'],'observed_url':result['url'],'stop':closed,'scroll':scroll,'news':news,'owned_page_jpeg_bytes':len(picture),'software_rendering':True,'scope':'Actual Windows neo isolated profile, software rendering on GPU-less CI, harmless page, no accounts/model quality or owner speed claims'},indent=2))
+ (root/'result.json').write_text(json.dumps({'browser_exe':str(exe),'required_version':'0.51.1.2','server':meta['server'],'telemetry':telemetry,'opened_page':opened['page'],'observed_url':result['url'],'stop':closed,'scroll':scroll,'news':news,'owned_page_jpeg_bytes':len(picture),'software_rendering':True,'background_rendering_diagnostic_flags':True,'scope':'Actual Windows neo isolated profile, software rendering on GPU-less CI, harmless page, no accounts/model quality or owner speed claims'},indent=2))
  print('BrowserOS native isolated MCP, exact owned navigation, telemetry off, Stop: passed')
 except Exception:
  ImageGrab.grab().save(root/'browseros-operation-failure.png')

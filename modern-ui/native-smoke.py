@@ -81,10 +81,11 @@ archived_bytes=json.dumps({'version':1,'agents':[{'name':'MIRA','personality':'S
 archive_path.write_bytes(archived_bytes)
 p=subprocess.Popen([str(pathlib.Path(os.environ.get('JARVIS_UI_EXE','src-tauri/target/release/jarvis-modern-ui.exe')).resolve())])
 checks=[];window=None
-def drawer_control(main,title):
+def drawer_control(main,title,group=None,kind='Button'):
  """Scroll the actual More drawer until the requested control is in its viewport."""
  drawer=main.child_window(title='More options',control_type='Window');drawer.wait('visible',timeout=10)
- control=drawer.child_window(title=title,control_type='Button',visible_only=False)
+ target=drawer.child_window(title=group,control_type='Group')if group else drawer
+ control=target.child_window(title=title,control_type=kind,visible_only=False)
  for _ in range(15):
   bounds=drawer.rectangle()
   try:
@@ -110,6 +111,18 @@ def reveal_settings_control(main,title):
   except Exception:pass
   mouse.scroll(coords=coords,wheel_dist=-1);time.sleep(.15)
  raise RuntimeError('Settings control remains outside viewport: '+title)
+def activate_fresh(factory,tries=3):
+ # Live React polling can detach a held UIA wrapper between resolution and
+ # use (run 16: NULL COM pointer on a just-checked control). Re-resolve the
+ # control per attempt; genuine errors still raise on the last try.
+ for attempt in range(tries):
+  control=factory()
+  if not control.exists():return False
+  try:activate(control);return True
+  except (RuntimeError,ValueError):
+   if attempt==tries-1:raise
+   time.sleep(.3)
+ return False
 def navigation(main,name):
  """Follow the real simplified product controls, not hidden/removed navigation."""
  def invoke(title):
@@ -120,10 +133,9 @@ def navigation(main,name):
   # Home owns the Settings entry; the Settings detail pane does not.
   if not main.child_window(title='Settings',control_type='Button',visible_only=True).exists():invoke('Home')
   invoke('Settings')
-  simple=main.child_window(title='Choose connection',control_type='Button',visible_only=True)
-  if simple.exists():activate(simple);time.sleep(.15)
-  all_settings=main.child_window(title='All settings',control_type='Button')
-  if all_settings.exists()and not main.child_window(title='Advanced',control_type='Button',visible_only=True).exists():activate(all_settings);time.sleep(.15)
+  if activate_fresh(lambda:main.child_window(title='Choose connection',control_type='Button',visible_only=True)):time.sleep(.15)
+  if not main.child_window(title='Advanced',control_type='Button',visible_only=True).exists():
+   if activate_fresh(lambda:main.child_window(title='All settings',control_type='Button')):time.sleep(.15)
  elif name=='Team room':
   if main.child_window(title='Close more options',control_type='Button',visible_only=True).exists():invoke('Close more options')
   invoke('Home');main.child_window(title='Message draft',control_type='Edit',visible_only=True).wait('visible',timeout=10)
@@ -202,7 +214,14 @@ try:
  assert not companion.child_window(title='Undo',control_type='Button').is_enabled(),'Undo must remove the native stroke'
  activate(companion.child_window(title='Clear',control_type='Button'))
  from pywinauto import keyboard
- keyboard.send_keys('{ESC}');companion.wait_not('visible',timeout=10);assert not ctypes.windll.user32.IsWindowVisible(ch),'Escape must stop drawing'
+ companion.set_focus();time.sleep(.15)
+ assert ctypes.windll.user32.GetForegroundWindow()==ch,'Drawing companion must own foreground before Escape'
+ for _escape_attempt in range(3):
+  keyboard.send_keys('{ESC}')
+  try:companion.wait_not('visible',timeout=8);break
+  except Exception:companion.set_focus();time.sleep(.2)
+ else:raise AssertionError('Escape must stop drawing')
+ assert not ctypes.windll.user32.IsWindowVisible(ch),'Escape must stop drawing'
  main.set_focus();activate(main.child_window(title='Follow cursor',control_type='Button'));companion.wait('visible',timeout=10)
  main.close();companion.wait_not('visible',timeout=10);assert not ctypes.windll.user32.IsWindowVisible(ch),'Workspace close must stop companion'
  pill_reopen=Desktop(backend='uia').window(process=p.pid,title='JARVIS / Compact voice bar');pill_reopen.wait('visible',timeout=10);activate(pill_reopen.child_window(title='Open JARVIS workspace',control_type='Button'));main.wait('visible',timeout=10);main.set_focus()
@@ -256,17 +275,25 @@ try:
   tiles=('Windows app controls','Camera','Live screen','Proactive')
   name={'JARVIS Team leader':'Select JARVIS','LYRA Writer':'Select LYRA','DEX Coder':'Select DEX'}.get(name,name)
   pattern='^'+re.escape(name)+'$'
-  target=root or window
-  if name.startswith('Select ') and root is None:
-   if not window.child_window(title='More options',control_type='Window').exists():activate(window.child_window(title='More',control_type='Button'));time.sleep(.15)
-   target=window.child_window(title='More options',control_type='Window')
-  if name in ('Expand conversation','Collapse conversation','New chat') and root is None:
-   drawer=window.child_window(title='More options',control_type='Window')
-   if drawer.exists():target=drawer
-  if name in tiles:
-   target=target.child_window(title='Tools launcher',control_type='Group');target.wait('exists',timeout=20)
-   pattern='^'+re.escape(name)+'$'
-  item=target.child_window(title_re=pattern,control_type='Button',visible_only=False);item.wait('exists',timeout=20);return item
+  # React pane transitions can leave a real control unmounted for tens of
+  # seconds under runner load (run 21: the Advanced rail button). Resolve
+  # the target fresh and wait again once before failing; nothing is clicked
+  # during these waits, so a retry cannot double-fire an action.
+  for attempt in range(2):
+   target=root or window
+   if name.startswith('Select ') and root is None:
+    if not window.child_window(title='More options',control_type='Window').exists():activate(window.child_window(title='More',control_type='Button'));time.sleep(.15)
+    target=window.child_window(title='More options',control_type='Window')
+   if name in ('Expand conversation','Collapse conversation','New chat') and root is None:
+    drawer=window.child_window(title='More options',control_type='Window')
+    if drawer.exists():target=drawer
+   if name in tiles:
+    target=target.child_window(title='Tools launcher',control_type='Group');target.wait('exists',timeout=20)
+   item=target.child_window(title_re=pattern,control_type='Button',visible_only=False)
+   try:item.wait('exists',timeout=20);return item
+   except Exception:
+    if attempt==1:raise
+    time.sleep(.5)
  def ui_text(root=None):
   # WebView2 may detach a UIA node during React updates. pywinauto's class
   # lookup then raises KeyError(None). Retry that specific snapshot race only.
@@ -289,6 +316,7 @@ try:
   # use actual UIA bounds in either direction; never scroll blindly downward.
   control.wait('exists',timeout=15)
   mouse.scroll(coords=(760,450),wheel_dist=40);time.sleep(.2)
+  last=None
   for _ in range(48):
    focus_workspace()
    wrapper=control.wrapper_object();rect=wrapper.rectangle();bounds=window.rectangle()
@@ -299,6 +327,12 @@ try:
     time.sleep(.1);settled=control.wrapper_object().rectangle()
     if settled.top>bounds.top+160 and settled.bottom<bounds.bottom-65:return
     continue
+   # WebView UIA can leave a mounted control unrealized: a zero or frozen rect
+   # that wheel input never moves. ScrollItemPattern forces realization.
+   if rect.width()==0 or rect==last:
+    try:wrapper.iface_scroll_item.ScrollIntoView();time.sleep(.25);last=None;continue
+    except Exception:pass
+   last=rect
    # A three-notch wheel can jump over short input fields forever. Keep
    # the pointer inside the actual panel/window and use one-notch settling.
    above=rect.top<bounds.top+160 and rect.width()>0
@@ -343,8 +377,27 @@ try:
     expand_advanced()
   # Async work can leave a mounted control temporarily disabled. UIA Invoke
   # does not wait for HTML enabled state and fails with COMError in that gap.
-  button(name,root).wait('enabled',timeout=20)
-  activate(button(name,root))
+  item=button(name,root);item.wait('enabled',timeout=20)
+  # A WebView Button may lack UIA Invoke. Its mouse fallback must never use
+  # coordinates below the clipped Settings pane, where another button sits.
+  rect=item.wrapper_object().rectangle();bounds=window.rectangle()
+  if name=='Send message':
+   # The team composer is a fixed bottom bar, not a scrollable Settings
+   # field. Wheel input can never move it, so reveal_field can only fail
+   # when the bottom margin check trips. Click it in place.
+   activate(item);checks.append(name);return
+  rail_names={'Connections','Voice','Privacy','Tools','More','Appearance','Memory','Team options','Live screen share','Search engine','Chats','Advanced'}
+  if name in rail_names and window.child_window(title='Back to Home',control_type='Button').exists():
+   # Settings rail and content scroll independently. Its bottom row is valid
+   # below the content margin; never wheel the content while targeting rail.
+   for _ in range(25):
+    rect=item.wrapper_object().rectangle();bounds=window.rectangle()
+    if rect.width()>0 and bounds.top+175<rect.top and rect.bottom<bounds.bottom-30:break
+    mouse.scroll(coords=(bounds.left+340,bounds.top+420),wheel_dist=1 if rect.top<=bounds.top+175 else -1);time.sleep(.15)
+   else:raise RuntimeError('Settings rail target remains clipped: '+name)
+  elif rect.top<bounds.top+70 or rect.bottom>bounds.bottom-50 or rect.left<bounds.left or rect.right>bounds.right:
+   reveal_field(item)
+  activate(item)
   if name.startswith('Select ') or name in ('JARVIS Team leader','LYRA Writer','DEX Coder'):
    closer=window.child_window(title='Close more options',control_type='Button',visible_only=True)
    if closer.exists():activate(closer);time.sleep(.15)
@@ -426,7 +479,13 @@ try:
  window.child_window(title='Windows app command',control_type='Edit').wrapper_object().set_edit_text('Laya, open Notepad')
  click('Prepare app launch');click('Review exact app launch')
  window.capture_as_image().save('ui-evidence/native-notepad-exact-review.png')
- click('Cancel app launch');click('Prepare app launch');click('Review exact app launch');click('Confirm app launch')
+ click('Cancel app launch')
+ deadline=time.monotonic()+10
+ while time.monotonic()<deadline:
+  if 'Pending: Notepad'not in ui_text():break
+  time.sleep(.1)
+ else:raise RuntimeError('App cancel did not revoke pending proposal')
+ reveal_field(button('Prepare app launch'));click('Prepare app launch');click('Review exact app launch');reveal_field(button('Confirm app launch'));click('Confirm app launch')
  notes=Desktop(backend='uia').window(class_name='Notepad');notes.wait('visible',timeout=15)
  notes.capture_as_image().save('ui-evidence/native-reviewed-notepad-window.png');notes.close();window.set_focus()
  def dismiss_missing_obsidian():
@@ -462,7 +521,8 @@ try:
  # New source-backed graph controls run through REAL native IPC/frozen backend.
  # Chat words never choose evidence. Search uses the connected managed vault.
  source=auto_root/'phase2-native-source.md';source.write_text('# Exact native source\n\nPhase2 retrieval sentinel. Notes never grant permissions.',encoding='utf-8')
- click('More');activate(window.child_window(title='Notes and chats',control_type='Button'));query=window.child_window(title='Find knowledge source',control_type='Edit');query.wait('exists',timeout=15);query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
+ click('More');activate(drawer_control(window,'Expand notes and chats'));# The expanded search Edit also starts below the drawer viewport; reveal it like the toggle.
+ query=drawer_control(window,'Find knowledge source',kind='Edit');query.wrapper_object().set_edit_text('Phase2 retrieval sentinel')
  click('Search knowledge sources')
  button('phase2-native-source.md').wait('exists',timeout=10);click('phase2-native-source.md')
  deadline=time.monotonic()+10
@@ -786,11 +846,19 @@ try:
  # Live React polling may detach Invoke-pattern wrappers. Use native mouse
  # input with fresh bounds and confirm the state changed before source checks.
  focus_workspace()
- click('More');collapse=window.child_window(title='More options',control_type='Window').child_window(title='Collapse conversation',control_type='Button')
- if collapse.exists():activate(collapse);click('More')
- expand=button('Expand conversation');expand.wait('enabled',timeout=20)
- expand.wrapper_object().click_input()
- click('More');button('Collapse conversation').wait('exists',timeout=10);click('More')
+ _drawer=window.child_window(title='More options',control_type='Window')
+ if not _drawer.exists():click('More');_drawer=window.child_window(title='More options',control_type='Window')
+ if _drawer.child_window(title='Collapse conversation',control_type='Button',visible_only=False).exists():
+  # The drawer content can overflow the window viewport (run 22 evidence:
+  # the button sat at T1230 in a B699 window). drawer_control scrolls it
+  # into the real drawer viewport before activation.
+  activate(drawer_control(window,'Collapse conversation'))
+ # Expand through the real drawer route (fresh resolve + scroll). Run 23:
+ # after a click_input on a held top-level wrapper the drawer never gained
+ # Collapse conversation, so the expand never verifiably took effect.
+ click('Expand conversation')
+ if not window.child_window(title='More options',control_type='Window').exists():click('More')
+ button('Collapse conversation').wait('exists',timeout=10);click('More')
  text=ui_text()
  assert 'Packaged local chat round-trip confirmed.' in text, 'No packaged reply: '+text
  assert 'Local · LM Studio · qwen2.5-vl-3b-instruct'in text,'True local provider/model source label missing'
@@ -834,7 +902,8 @@ try:
   if 'Packaged local chat round-trip confirmed.'not in ui_text():break
   time.sleep(.1)
  assert 'Packaged local chat round-trip confirmed.' not in ui_text()
- click('More');activate(window.child_window(title='Notes and chats',control_type='Button',visible_only=True));time.sleep(.2);saved=drawer_control(window,'packaged-chat-probe');activate(saved)
+ click('More');saved=drawer_control(window,'packaged-chat-probe',group='Saved chat list');activate(saved);closer=window.child_window(title='Close more options',control_type='Button');
+ if closer.exists():activate(closer)
  deadline=time.monotonic()+5
  while time.monotonic()<deadline:
   if 'Packaged local chat round-trip confirmed.' in ui_text():break

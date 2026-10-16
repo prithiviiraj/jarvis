@@ -6,6 +6,26 @@ def activate(control):
   # WebView2 summary has Button role but no UIA Invoke pattern.
   # Other failures must remain visible instead of silently changing input route.
   if type(error).__name__!='NoPatternInterfaceError':raise
+  # Native UIA descendants may be mounted but clipped by a scroll pane.
+  # Refuse an offscreen mouse fallback rather than clicking another control.
+  rect=wrapper.rectangle();top=wrapper.top_level_parent().rectangle()
+  if rect.width()<=0 or rect.height()<=0 or rect.top<top.top or rect.bottom>top.bottom or rect.left<top.left or rect.right>top.right:
+   # A native popup (the More drawer is control_type Window) can own its own
+   # HWND while UIA-parenting under the main window: its children are visible
+   # and clickable inside the popup bounds even though they sit outside the
+   # main window rect. Accept the click only when a real Window ancestor
+   # contains the target; otherwise keep refusing offscreen coordinates.
+   try:
+    parent=wrapper
+    for _ in range(8):
+     parent=parent.parent()
+     if parent is None:break
+     if getattr(parent.element_info,'control_type',None)!='Window':continue
+     bounds=parent.rectangle()
+     if rect.width()>0 and rect.height()>0 and bounds.top<=rect.top and rect.bottom<=bounds.bottom and bounds.left<=rect.left and rect.right<=bounds.right:
+      wrapper.click_input();return
+   except Exception:pass
+   raise RuntimeError('Native mouse target is outside its window: '+wrapper.window_text()+' rect='+str(rect)+' toplevel='+str(top))from error
   wrapper.click_input()
 
 def resize(control,width,height):
