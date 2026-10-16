@@ -134,8 +134,15 @@ def navigation(main,name):
   if not main.child_window(title='Settings',control_type='Button',visible_only=True).exists():invoke('Home')
   invoke('Settings')
   if activate_fresh(lambda:main.child_window(title='Choose connection',control_type='Button',visible_only=True)):time.sleep(.15)
-  if not main.child_window(title='Advanced',control_type='Button',visible_only=True).exists():
+  # The Settings detail pane can mount its rail seconds late under runner
+  # load (gate run 3, both attempts: 'Advanced' never resolved within 40s
+  # after Settings opened). Make the rail a bounded hard settle, not a
+  # best-effort pass, so downstream Advanced clicks start from a real pane.
+  deadline=time.monotonic()+30
+  while not main.child_window(title='Advanced',control_type='Button',visible_only=False).exists():
    if activate_fresh(lambda:main.child_window(title='All settings',control_type='Button')):time.sleep(.15)
+   if time.monotonic()>deadline:raise RuntimeError('Settings Advanced rail never mounted')
+   time.sleep(.4)
  elif name=='Team room':
   if main.child_window(title='Close more options',control_type='Button',visible_only=True).exists():invoke('Close more options')
   invoke('Home');main.child_window(title='Message draft',control_type='Edit',visible_only=True).wait('visible',timeout=10)
@@ -292,7 +299,11 @@ try:
    item=target.child_window(title_re=pattern,control_type='Button',visible_only=False)
    try:item.wait('exists',timeout=20);return item
    except Exception:
-    if attempt==1:raise
+    if attempt==1:
+     # Evidence for the next marginal site: what the window actually held.
+     try:print('UNRESOLVED CONTROL:',name,'| window children:',[c.element_info.name for c in (root or window).children()][:40])
+     except Exception:pass
+     raise
     time.sleep(.5)
  def ui_text(root=None):
   # WebView2 may detach a UIA node during React updates. pywinauto's class
